@@ -6,10 +6,10 @@
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primaryText: #222222;
+  --color-secondaryText: #444444;
+  --color-magenta: #4338ca;
+  --color-magentaDark: #4338ca;
 }
 
 @media (prefers-color-scheme: dark) {
