@@ -33,7 +33,7 @@ export default function Home() {
           </div>
 
           <Button
-            onClick={() => router.push("/shopowner/signup")}
+            onClick={() => router.push("/signup")}
             className="font-semibold flex flex-row gap-2 items-center"
           >
             <span>Create Your Shop Free</span>

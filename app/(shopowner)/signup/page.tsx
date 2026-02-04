@@ -73,7 +73,7 @@ export default function ShopOwnerSignup() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/shopowner", {
+      const response = await fetch("/api/shopowner/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
