@@ -1,8 +1,11 @@
+
+
 // app/layout.tsx
 import type { Metadata } from "next";
 import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
 import Header from "./components/layout/header";
 import './globals.css';
+import { AuthProvider } from "@/context/authcontext"; // Import AuthProvider
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -17,7 +20,6 @@ const jakarta = Plus_Jakarta_Sans({
   display: 'swap',
 })
 
-
 export const metadata: Metadata = {
   title: "Valuer Report Generator",
   description: "Professional property survey reports for Kenyan valuers",
@@ -30,21 +32,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`
-        ${poppins.variable} 
-        
-`}>
-        <Header/>
-        <main className="font-poppins 
-        antialiased
-        bg-[url('/images/home/vector-report.svg')]
-        bg-repeat
-        min-h-screen
-          
-            ">
-              
-        {children}
-        </main>
+      <body className={`${poppins.variable}`}>
+        <AuthProvider> {/* Wrap with AuthProvider */}
+          <Header/>
+          <main className="font-poppins 
+            antialiased
+            bg-[url('/images/home/vector-report.svg')]
+            bg-repeat
+            min-h-screen">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );

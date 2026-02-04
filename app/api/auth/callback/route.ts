@@ -1,4 +1,4 @@
-import { createSSRClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getConnection } from '@/lib/db'
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   let connection
 
   try {
-    const supabase = await createSSRClient()
+    const supabase = await createSupabaseServerClient()
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (error || !data.user) {
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const user = data.user
     
     if (user.user_metadata?.role !== 'shop_owner') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/login', request.url))
     }
     
     connection = await getConnection()
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     ) as [any[], any]
     
     if (existing.length > 0) {
-      return NextResponse.redirect(new URL('/shopowner/dashboard', request.url))
+      return NextResponse.redirect(new URL('/login', request.url))
     }
     
     await connection.beginTransaction()
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       throw dbError
     }
     
-    return NextResponse.redirect(new URL('/shopowner/dashboard', request.url))
+    return NextResponse.redirect(new URL('/login', request.url))
     
   } catch (error) {
     console.error('Callback error:', error)
