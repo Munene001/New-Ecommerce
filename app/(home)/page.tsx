@@ -1,10 +1,15 @@
+"use client"
+
 import Link from "next/link";
 import Button from "../components/ui/button";
 import { MoveRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import Phase2 from "./components/phase2";
 
 export default function Home() {
+  const router = useRouter();
+
   return (
     <div className="text-secondaryText font-[Plus_Jakarta_Sans]">
       <div className="md:grid grid-cols-[60%_40%] mb-4 p-4">
@@ -27,7 +32,10 @@ export default function Home() {
             — all from one simple dashboard.
           </div>
 
-          <Button className="font-semibold flex flex-row gap-2 items-center">
+          <Button
+            onClick={() => router.push("/shopowner/signup")}
+            className="font-semibold flex flex-row gap-2 items-center"
+          >
             <span>Create Your Shop Free</span>
             <MoveRight color="white" size={22} />
           </Button>
@@ -51,7 +59,6 @@ export default function Home() {
           From Sign-Up to First Sale in One Seamless Workflow
         </h2>
 
-        
         <Phase2 />
       </div>
     </div>
