@@ -136,8 +136,8 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-transparent p-4">
-      <div className="w-full max-w-md p-8 bg-[#122e32] rounded-lg shadow-md">
+    <div className="flex min-h-screen items-center font-[Plus_Jakarta_Sans] justify-center bg-transparent p-4">
+      <div className="w-full max-w-md p-8 border border-gray-100/30  rounded-xl md:bg-black/60 bg-black/20  shadow-md">
         {renderStep()}
       </div>
     </div>

@@ -65,19 +65,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex md:min-h-screen font-[poppins] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
-      <div className="w-full max-w-md p-8 diagonal-gradient-border bg-[#122e32] shadow-md md:mt-0 mt-[80px]">
-        <h1 className="mb-2 md:mb-1 text-left font-[caveat] text-[48px] font-bold leading-[60px] text-white">
+    <div className="flex md:min-h-screen font-[Plus_Jakarta_Sans] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
+      <div className="w-full max-w-md p-8 border border-gray-100/30  rounded-xl md:bg-black/60 bg-black/20 shadow-md md:mt-0 mt-[80px]">
+        <h1 className="mb-2 md:mb-1 text-left font-[Poppins] text-[48px] font-bold leading-[60px] text-white">
           Login
         </h1>
         
         {error && <div className="text-sm text-red-500 mb-3">{error}</div>}
         
-        <p className="mb-7 md:mb-5 text-left text-xs text-[#A0AEC0]">
+        <p className="mb-7 md:mb-5 text-left text-sm text-white/90">
           Enter your details
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5 md:space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-5 md:space-y-5">
           <Input
             label="Email"
             type="email"
@@ -112,10 +112,10 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-5 space-y-8 text-center">
-          <div className="flex flex-row justify-between">
+          <div className="flex md:flex-row flex-col gap-4 md:gap-0  justify-between">
             <p className="text-sm md:text-xs text-white">
               Don&apos;t have an account?{" "}
-              <Link href="/signup" className="text-tunga-yellow hover:underline">
+              <Link href="/signup" className=" hover:underline text-three">
                 Sign up here
               </Link>
             </p>
@@ -123,7 +123,7 @@ export default function LoginPage() {
             <p className="text-sm md:text-xs">
               <Link
                 href="/resetpassword"
-                className="text-tunga-yellow hover:underline"
+                className="text-three hover:underline"
               >
                 Forgot password?
               </Link>

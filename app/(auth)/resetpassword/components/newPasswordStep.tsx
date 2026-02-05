@@ -73,7 +73,7 @@ export default function NewPasswordStep({
 
   return (
     <>
-      <h1 className="mb-3 text-left text-[48px] font-[caveat] font-semibold leading-[60px] text-white">
+      <h1 className="mb-3 text-left text-[48px] font-[Poppins] font-semibold leading-[60px] text-white">
         Reset Your Password
       </h1>
 
@@ -81,12 +81,12 @@ export default function NewPasswordStep({
         <div className="mb-3 text-sm text-red-500">{error || localError}</div>
       )}
 
-      <p className="md:mb-6 mb-7 text-left text-[11px] text-[#A0AEC0]">
+      <p className="md:mb-6 mb-7 text-left text-sm text-white/90">
         Enter new password for{" "}
         <span className="text-tunga-yellow">{email}</span>
       </p>
 
-      <form onSubmit={handleSubmit} className="md:space-y-4 space-y-6">
+      <form onSubmit={handleSubmit} className="md:space-y-5 space-y-6">
         <Input
           label="New Password"
           type="password"
@@ -122,7 +122,7 @@ export default function NewPasswordStep({
           Reset Password
         </Button>
 
-        <div className="text-white text-[11px] leading-[20px]">
+        <div className="text-white text-[12px] leading-[20px]">
           Your password should contain a mix of numbers, special characters,
           uppercase, and lowercase letters.
         </div>

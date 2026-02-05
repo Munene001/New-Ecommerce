@@ -22,8 +22,8 @@ export default function Step({
       {/* Title/Timeline part - ADDED THIS SECTION */}
       {stepNumber && (
         <div className="md:flex hidden flex-col items-center mb-4">
-          <div className="p-3 rounded-full bg-black flex items-center justify-center shadow-md">
-            <span className="text-white text-xl font-bold font-[Poppins]">
+          <div className="p-3 rounded-full bg-three flex items-center justify-center shadow-md">
+            <span className="text-black text-xl font-bold font-[Poppins]">
               Step {stepNumber}
             </span>
           </div>
@@ -37,7 +37,7 @@ export default function Step({
         {/* Step Number Badge - Mobile Only */}
         {stepNumber && (
           <div className="absolute top-4 left-4 z-10 md:hidden">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-magenta to-magentaDark flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 rounded-full bg-three flex items-center justify-center shadow-lg">
               <span className="text-white font-bold text-lg">{stepNumber}</span>
             </div>
           </div>
@@ -67,7 +67,7 @@ export default function Step({
           </h3>
 
           {/* Description */}
-          <p className="text-secondaryText text-center text-[16px] leading-relaxed mb-4 flex-1">
+          <p className="text-black text-center text-[16px] leading-relaxed mb-4 flex-1">
             {description}
           </p>
 
