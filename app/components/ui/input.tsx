@@ -39,7 +39,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           type={isPasswordField && showPassword ? "text" : type}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          className={`rounded-[10px] bg-[#23383E] border border-gray-400 md:h-[50px] h-[50px] placeholder:text-xs p-3 text-white text-sm placeholder-gray-300 focus:outline-none focus:border-[#EAA022] focus:ring-1 focus:ring-[#EAA022] ${
+          className={`rounded-[10px] bg-[#23383E] border border-gray-400 md:h-[50px] h-[60px] placeholder:text-xs p-3 text-white text-sm placeholder-gray-300 focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta ${
             shouldShowError
               ? "border-red-500 focus:border-red-500 focus:ring-red-500"
               : "border-gray-400"

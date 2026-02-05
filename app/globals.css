@@ -6,10 +6,11 @@
 }
 
 @theme inline {
-  --color-primaryText: #222222;
-  --color-secondaryText: #444444;
-  --color-magenta: #4338ca;
-  --color-magentaDark: #4338ca;
+  --color-primaryText: #ffffff;
+  --color-secondaryText: #ffffff;
+  --color-magenta: #0FA965;
+  --color-magentaDark: #0B7F4D;
+  --color-three: #FF9A3D;
 }
 
 @media (prefers-color-scheme: dark) {

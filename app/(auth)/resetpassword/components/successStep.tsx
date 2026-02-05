@@ -8,7 +8,7 @@ interface SuccessStepProps {
 export default function SuccessStep({ success }: SuccessStepProps) {
   return (
     <div className="md:space-y-3 space-y-4 ">
-      <h1 className=" text-left  text-[48px] font-[caveat] font-semibold leading-[60px] text-white">
+      <h1 className=" text-left  text-[48px] font-[Poppins] font-semibold leading-[60px] text-white">
         Password Reset
       </h1>
 
@@ -18,7 +18,7 @@ export default function SuccessStep({ success }: SuccessStepProps) {
         </div>
       )}
 
-      <Button className="w-full mt-1">
+      <Button className="w-full mt-1 " variant="secondary">
         <Link href="/login">Proceed to Login</Link>
       </Button>
     </div>

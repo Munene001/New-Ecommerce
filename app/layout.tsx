@@ -37,7 +37,7 @@ export default function RootLayout({
           <Header/>
           <main className="font-poppins 
             antialiased
-            bg-[url('/images/home/vector-report.svg')]
+            md:bg-[url('/assets/mazehex.svg')] bg-[url('/assets/mazehex4.svg')] bg-black
             bg-repeat
             min-h-screen">
             {children}

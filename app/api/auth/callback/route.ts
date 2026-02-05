@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     
     if (error || !data.user) {
       console.error('Auth error:', error?.message)
-      return NextResponse.redirect(new URL('/login?error=auth_failed', request.url))
+      return NextResponse.redirect(new URL('/errors/emailverification', request.url))
     }
     
     const user = data.user
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Callback error:', error)
-    return NextResponse.redirect(new URL('/login?error=system_failure', request.url))
+    return NextResponse.redirect(new URL('/errors/emailverification', request.url))
   } finally {
     if (connection) await connection.end()
   }

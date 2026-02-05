@@ -20,7 +20,7 @@ export default function Header() {
   };
 
   return (
-    <div className="h-[85px] bg-magenta flex items-center justify-between px-6">
+    <div className="h-[85px] bg-black flex items-center justify-between px-6">
       {/* Logo/Left side */}
       <div className="text-white font-bold text-xl">
         <Link href="/">Your Logo</Link>
@@ -33,7 +33,7 @@ export default function Header() {
             <span className="text-white mr-4">Welcome, {user?.name}</span>
             <Button
               onClick={handleLogout}
-              variant="secondary"
+              variant="primary"
               
             >
               Logout
