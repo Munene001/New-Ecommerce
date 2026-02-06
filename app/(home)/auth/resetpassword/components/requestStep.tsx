@@ -80,7 +80,7 @@ export default function RequestStep({
       
       <div className="mt-6 text-center">
         <p className="text-xs text-gray-300">
-          <Link href="/login" className="text-tunga-yellow hover:underline">
+          <Link href="/auth/login" className="text-tunga-yellow hover:underline">
             Back to Login
           </Link>
         </p>

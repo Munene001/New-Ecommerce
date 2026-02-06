@@ -19,8 +19,7 @@ export async function POST(request: NextRequest) {
         data: { 
           full_name: body.full_name, 
           phone: body.phone, 
-          business_name: body.business_name,
-          business_county: body.business_county,    
+          business_name: body.business_name,  
           business_town: body.business_town,      
           business_address: body.business_address,
           role: 'shop_owner'
@@ -44,13 +43,12 @@ export async function POST(request: NextRequest) {
         const slug = `${body.business_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
         
         await connection.execute(
-          `INSERT INTO tenant (user_id, business_name, business_slug, business_county, business_town, business_address) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) 
+           VALUES (?, ?, ?, ?, ?)`,
           [
             userId,
             body.business_name,
             slug,
-            body.business_county,
             body.business_town,
             body.business_address
           ]

@@ -34,7 +34,7 @@ export default function Home() {
           </div>
 
           <Button
-            onClick={() => router.push("/signup")} variant="secondary"
+            onClick={() => router.push("auth/shopowner/signup")} variant="secondary"
             className="font-semibold text-[22px] flex flex-row mt-2 mb-2 gap-2 items-center"
           >
             <span>Start Free Trial</span>

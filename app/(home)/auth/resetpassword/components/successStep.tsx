@@ -19,7 +19,7 @@ export default function SuccessStep({ success }: SuccessStepProps) {
       )}
 
       <Button className="w-full mt-1 " variant="secondary">
-        <Link href="/login">Proceed to Login</Link>
+        <Link href="/auth/login">Proceed to Login</Link>
       </Button>
     </div>
   );

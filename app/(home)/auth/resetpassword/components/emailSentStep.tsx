@@ -37,7 +37,7 @@ export default function EmailSentStep({
         </div>
       )}
       <Button className="w-full text-sm" loading={isLoading} variant="secondary">
-        <Link href="/login">Back to Login</Link>
+        <Link href="/auth/login">Back to Login</Link>
       </Button>
     </div>
   );
