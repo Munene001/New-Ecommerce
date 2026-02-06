@@ -6,6 +6,8 @@ type User = {
   id: string;
   name: string;
   email: string;
+  role?:string;
+  onboardingComplete?: boolean;
 };
 
 type AuthContextType = {

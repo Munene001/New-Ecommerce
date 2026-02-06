@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const user = data.user
     
     if (user.user_metadata?.role !== 'shop_owner') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL('/auth/login', request.url))
     }
     
     connection = await getConnection()
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     ) as [any[], any]
     
     if (existing.length > 0) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL('/auth/login', request.url))
     }
     
     await connection.beginTransaction()
@@ -58,13 +58,12 @@ export async function GET(request: NextRequest) {
       const slug = `${businessName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
       
       await connection.execute(
-        `INSERT INTO tenant (user_id, business_name, business_slug, business_county, business_town, business_address) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) 
+         VALUES (?, ?, ?, ?, ?)`,
         [
           userId,
           businessName,
           slug,
-          user.user_metadata?.business_county || '',  // Add these
           user.user_metadata?.business_town || '',    // Add these
           user.user_metadata?.business_address || ''  // Add these
         ]
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest) {
       throw dbError
     }
     
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL('/auth/login', request.url))
     
   } catch (error) {
     console.error('Callback error:', error)

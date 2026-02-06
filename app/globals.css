@@ -10,7 +10,7 @@
   --color-secondaryText: #ffffff;
   --color-magenta: #0FA965;
   --color-magentaDark: #0B7F4D;
-  --color-three: #FF9A3D;
+  --color-three: #FF7700;
 }
 
 @media (prefers-color-scheme: dark) {

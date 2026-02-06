@@ -29,7 +29,6 @@ export default function ShopOwnerSignup() {
     password: "",
     confirm_password: "",
     business_name: "",
-    business_county: "",
     business_town: "",
     business_address: "",
   });
@@ -68,8 +67,6 @@ export default function ShopOwnerSignup() {
 
     if (!formData.business_name.trim())
       newErrors.business_name = "Business name is required";
-    if (!formData.business_county.trim())
-      newErrors.business_county = "Business county is required";
     if (!formData.business_town.trim())
       newErrors.business_town = "Business town is required";
     if (!formData.business_address.trim())
@@ -102,7 +99,6 @@ export default function ShopOwnerSignup() {
           full_name: formData.full_name,
           phone: formData.phone,
           business_name: formData.business_name,
-          business_county: formData.business_county,
           business_town: formData.business_town,
           business_address: formData.business_address,
         }),
@@ -126,7 +122,6 @@ export default function ShopOwnerSignup() {
             password: "",
             confirm_password: "",
             business_name: "",
-            business_county: "",
             business_town: "",
             business_address: "",
           });
@@ -264,25 +259,7 @@ export default function ShopOwnerSignup() {
             </div>
 
             {/* Business County */}
-            <div>
-              <label
-                htmlFor="business_county"
-                className="block text-sm font-medium mb-2"
-              >
-                Business County *
-              </label>
-              <Input
-                id="business_county"
-                name="business_county"
-                type="text"
-                placeholder="e.g., Nairobi County"
-                value={formData.business_county}
-                onChange={handleChange}
-                hasError={!!errors.business_county}
-                error={errors.business_county}
-                required
-              />
-            </div>
+            
 
             {/* Business Town */}
             <div>
@@ -410,7 +387,7 @@ export default function ShopOwnerSignup() {
           <p className="text-gray-400">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href="/auth/login"
               className="text-three font-medium hover:underline"
             >
               Sign in here
