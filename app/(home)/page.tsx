@@ -12,22 +12,22 @@ export default function Home() {
 
   return (
     <div className="text-secondaryText font-[Plus_Jakarta_Sans]">
-      <div className="md:grid grid-cols-[60%_40%] mb-4 p-4">
-        <div className="flex flex-col">
+      <div className="md:grid grid-cols-[60%_40%] md:h-auto h-fit mb-4 p-4">
+        <div className="flex flex-col justify-between">
           <div className="text-[18px] md:text-[22px] w-fit p-2 bg-gray-900/10 border border-white rounded-3xl mb-2">
-            Launch an online shop in minutes
+            Launch an online shop
           </div>
 
-          <div className="md:text-[65px] text-[45px] leading-[65px] font-[Poppins] text-primaryText mb-5">
-            Create a Complete Online Shop With a Click of a Button
+          <div className="md:text-[65px] text-[45px] leading-[65px] font-[Poppins] text-primaryText mb-5 flex flex-col">
+            
+             <span>Add products,</span> <span>Accept payments</span>
           </div>
 
-          <div className="text-[20px] leading-[30px] mb-6">
+          <div className="text-[20px] md:block leading-[30px] mb-6">
 
-            Designed for businesses that want to start selling fast. Create a
-            ready-to-use online shop, add your products, and accept payments
-            instantly using{" "}
-            <span className="font-semibold text-three">
+          Designed for businesses that want to start selling fast with 
+            
+           {" "} <span className="font-semibold text-three">
               MPesa-powered checkout
             </span>{" "}
             — all from one simple dashboard.
@@ -51,12 +51,12 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="bg-magentaDark py-8 rounded-3xl md:px-8 px-4 text-center">
-        <div className=" text-black px-6 py-2 rounded-full text-sm font-semibold mb-4 tracking-wide">
+      <div className="bg-gray-200 bg-[] py-8 rounded-3xl md:px-8 px-4    text-center">
+        <div className=" text-orange-500 px-6 py-2 rounded-full text-sm font-semibold mb-4 tracking-wide">
           SELL ONLINE IN 4 SIMPLE STEPS
         </div>
 
-        <h2 className="text-4xl md:text-5xl font-bold text-white mb-15 font-[Poppins]">
+        <h2 className="text-4xl md:px-[15vw] md:text-5xl font-bold text-black mb-15 font-[Poppins]">
           From Sign-Up to First Sale in One Seamless Workflow
         </h2>
 
