@@ -1,4 +1,4 @@
-// app/components/layout/header.tsx
+
 "use client";
 
 import { useAuth } from "@/context/authcontext";
@@ -6,12 +6,16 @@ import { useRouter } from "next/navigation";
 import Button from "../ui/button";
 import Link from "next/link";
 
-export default function Header() {
+interface DashHeaderProps {
+    shopSlug: string; // ← Add this
+  }
+
+export default function DashHeader({shopSlug}:DashHeaderProps) {
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
 
   const handleLogin = () => {
-    router.push("/login");
+    router.push("/auth/login");
   };
 
   const handleLogout = () => {
@@ -20,7 +24,7 @@ export default function Header() {
   };
 
   return (
-    <div className="h-[85px] bg-black flex items-center justify-between px-6">
+    <div className="h-[85px] bg-[url('/assets/mazehex4.svg')]  bg-black flex items-center justify-between px-6">
       {/* Logo/Left side */}
       <div className="text-white font-bold text-xl">
         <Link href="/">Your Logo</Link>
@@ -33,7 +37,7 @@ export default function Header() {
             <span className="text-white mr-4">Welcome, {user?.name}</span>
             <Button
               onClick={handleLogout}
-              variant="primary"
+              variant="secondary"
               
             >
               Logout
@@ -42,7 +46,7 @@ export default function Header() {
         ) : (
           <Button
             onClick={handleLogin}
-            variant="primary"
+            variant="secondary"
           >
             Login
           </Button>

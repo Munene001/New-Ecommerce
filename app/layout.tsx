@@ -1,11 +1,8 @@
-
-
 // app/layout.tsx
 import type { Metadata } from "next";
 import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
-import Header from "./components/layout/header";
 import './globals.css';
-import { AuthProvider } from "@/context/authcontext"; // Import AuthProvider
+import { AuthProvider } from "@/context/authcontext";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -21,8 +18,8 @@ const jakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "Valuer Report Generator",
-  description: "Professional property survey reports for Kenyan valuers",
+  title: "Thamani Tech",
+  description: "Launch an online, shop receive payments",
 };
 
 export default function RootLayout({
@@ -31,17 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${poppins.variable}`}>
-        <AuthProvider> {/* Wrap with AuthProvider */}
-          <Header/>
-          <main className="font-poppins 
-            antialiased
-            md:bg-[url('/assets/hex3.svg')] bg-[url('/assets/mazehex4.svg')] bg-black
-            bg-repeat
-            min-h-screen">
-            {children}
-          </main>
+    <html lang="en" className={`${poppins.variable} ${jakarta.variable}`}>
+      <body className="min-h-screen">
+        <AuthProvider>
+          {children}
         </AuthProvider>
       </body>
     </html>
