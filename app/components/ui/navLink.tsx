@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { usePathname } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface NavLinkProps {
   href?: string;
@@ -13,7 +13,9 @@ interface NavLinkProps {
   className?: string;
   onMenuClicked?: () => void;
   hasChildren?: boolean;
-  expandChildren?: (bool: boolean) => void;
+  expandChildren?: () => void;
+  isChildActive?: boolean;
+  expanded?: boolean;
 }
 
 const inter = Inter({ subsets: ["latin"], weight: ["600"] });
@@ -26,9 +28,15 @@ const NavLink = ({
   onMenuClicked,
   hasChildren,
   expandChildren,
+  isChildActive,
+  expanded = false,
 }: NavLinkProps) => {
-  const [expanded, setExpanded] = useState(false);
+  const [expandedState, setExpandedState] = useState(expanded);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setExpandedState(expanded);
+  }, [expanded]);
 
   const normalize = (path: string) => {
     if (path === "/") return "/";
@@ -38,35 +46,27 @@ const NavLink = ({
   const currentPath = normalize(pathname);
   const normalizedHref = normalize(href || "");
 
-  const isActive =
-    normalizedHref === "/"
-      ? currentPath === "/"
-      : currentPath.startsWith(normalizedHref);
+  const isActive = isChildActive ? false : currentPath === normalizedHref;
 
   const toggleExpand = (e: React.MouseEvent) => {
-    e.preventDefault(); // prevent navigation
-    setExpanded((prev) => !prev);
+    e.preventDefault();
     if (expandChildren) {
-      expandChildren(!expanded);
+      expandChildren();
     }
   };
 
   const handleClick = () => {
     if (onMenuClicked) {
       onMenuClicked();
-      if (expandChildren) {
-        expandChildren(false);
-        setExpanded((prev) => !prev);
-      }
     }
-  }
+  };
 
   return (
     <div className="w-full">
       <div
         className={`
-          flex items-center justify-between py-[15px] px-6 rounded-r-sm  transition-colors gap-3 hover:bg-gray-300/20
-          ${isActive ? "text-tunga-yellow bg-three" : "text-white"}
+          flex items-center justify-between py-[15px] px-6 rounded-r-sm transition-colors gap-3 hover:bg-gray-300/20
+          ${isActive ? "text-tunga-yellow bg-three hover:bg-three" : "text-white"}
           ${className}
         `}
       >
@@ -75,12 +75,10 @@ const NavLink = ({
           onClick={!hasChildren ? handleClick : toggleExpand}
           className="flex flex-row items-center gap-3 flex-1"
         >
-           <Icon size={20} className="text-white" />
+          <Icon size={20} className="text-white" />
           <span className={`${inter.className} header-font`}>
-          
             {title}
           </span>
-        
         </Link>
 
         {hasChildren && (
@@ -89,7 +87,7 @@ const NavLink = ({
             className="p-1 cursor-pointer hover:bg-[#0F2326] rounded-md flex items-center justify-center"
             aria-label="Toggle submenu"
           >
-            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            {expandedState ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
         )}
       </div>
