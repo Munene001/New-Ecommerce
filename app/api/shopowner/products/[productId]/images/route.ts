@@ -7,13 +7,12 @@ import { randomUUID } from 'crypto';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
+  const { productId } = await params;
+  
   let connection;
   try {
-    const productId = params.productId;
-    
-    // Validate productId
     if (!/^\d+$/.test(productId)) {
       return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
     }
@@ -26,7 +25,6 @@ export async function POST(
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // ✅ MAX 5MB
     const buffer = Buffer.from(await file.arrayBuffer());
     const originalSizeKb = Math.round(buffer.length / 1024);
     if (originalSizeKb > 5000) {
@@ -37,7 +35,6 @@ export async function POST(
 
     connection = await getConnection();
 
-    // Check image count (max 6)
     const [countRows] = await connection.query(
       'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
       [productId]
@@ -49,10 +46,9 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // SMART COMPRESSION - WebP, target 150-200KB
-    let quality = 80;
+    let quality = 75;
     let compressed = await sharp(buffer)
-      .resize(1200, null, { 
+      .resize(1000, null, { 
         withoutEnlargement: true,
         fit: 'inside'
       })
@@ -64,11 +60,21 @@ export async function POST(
     
     let fileSizeKb = Math.round(compressed.length / 1024);
     
-    // Reduce quality until under 200KB or minimum quality 60
+    // First pass: reduce quality until under 200KB or hit quality 60
     while (fileSizeKb > 200 && quality > 60) {
       quality -= 5;
       compressed = await sharp(buffer)
-        .resize(1200, null, { withoutEnlargement: true })
+        .resize(1000, null, { withoutEnlargement: true })
+        .webp({ quality, effort: 4 })
+        .toBuffer();
+      fileSizeKb = Math.round(compressed.length / 1024);
+    }
+    
+    // Second pass: if still over 200KB, continue reducing down to 50
+    while (fileSizeKb > 200 && quality > 50) {
+      quality -= 5;
+      compressed = await sharp(buffer)
+        .resize(1000, null, { withoutEnlargement: true })
         .webp({ quality, effort: 4 })
         .toBuffer();
       fileSizeKb = Math.round(compressed.length / 1024);
@@ -76,16 +82,13 @@ export async function POST(
 
     console.log(`📸 Upload: ${originalSizeKb}KB → ${fileSizeKb}KB (q${quality})`);
 
-    // Generate filename
     const filename = `${Date.now()}-${randomUUID().split('-')[0]}.webp`;
     const relativePath = `/${productId}/${filename}`;
     const fullPath = path.join('/home/munene/storage/originals', productId, filename);
 
-    // Save file
     await mkdir(path.dirname(fullPath), { recursive: true });
     await writeFile(fullPath, compressed);
 
-    // Handle primary image
     if (isPrimary) {
       await connection.query(
         'UPDATE product_images SET is_primary = FALSE WHERE product_id = ?',
@@ -93,7 +96,6 @@ export async function POST(
       );
     }
 
-    // Save to database
     const [result] = await connection.query(
       `INSERT INTO product_images (product_id, image_path, is_primary) 
        VALUES (?, ?, ?)`,
