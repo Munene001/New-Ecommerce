@@ -6,11 +6,12 @@ import PrimaryForm from "./components/primaryForm";
 import OptionalForm from "./components/optionalForm";
 import ImagesForm from "./components/imagesForm";
 import CategoryComponent from "./components/categoryComponent";
+import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
+import Button from "@/app/components/ui/button";
 
 export default function AddProductPage() {
   const {
-    // State
     activeIndex,
     sections,
     formData,
@@ -24,20 +25,22 @@ export default function AddProductPage() {
     loadingSchema,
     loading,
     errors,
-    submitError,
-    showSuccess,
     shopSlug,
     shopId,
     shopType,
-    
-    // Handlers
+    tabWarning,
+    modalState,
+    warningRef,
+    showWarning,
+
     handleCategoryCreated,
+    handleCategoryError,
     handleNext,
     handlePrevious,
     handleTabClick,
+    closeModal,
   } = useProductForm();
 
-  // Render active tab component
   const renderComponent = () => {
     switch (activeIndex) {
       case 0:
@@ -58,14 +61,16 @@ export default function AddProductPage() {
             setSelectedCategoryId={setSelectedCategoryId}
             formData={formData}
             setFormData={setFormData}
-            optionalAttributes={attributeSchema.filter(f => !f.required)}
+            optionalAttributes={attributeSchema.filter((f) => !f.required)}
           />
         );
       case 2:
         return (
           <ImagesForm
             images={formData.images}
-            setImages={(images) => setFormData(prev => ({ ...prev, images }))}
+            setImages={(images) => setFormData((prev) => ({ ...prev, images }))}
+            onError={(message) => showWarning(message, 'error')}
+           
           />
         );
       default:
@@ -75,9 +80,16 @@ export default function AddProductPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-[Poppins]">
-      {/* Back Link */}
+      <ResultModal
+        isOpen={modalState.isOpen}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+        onClose={closeModal}
+      />
+
       <div className="mb-6">
-        <Link 
+        <Link
           href={`/dashboard/${shopSlug}/products`}
           className="inline-flex items-center text-gray-700 hover:text-black transition-colors font-[Poppins]"
         >
@@ -86,47 +98,65 @@ export default function AddProductPage() {
         </Link>
       </div>
 
-      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-black font-[Poppins]">Add New Product</h1>
-        <p className="text-gray-600 mt-2 font-[Poppins]">
-          Shop: <span className="font-medium text-black">{shopSlug}</span> • Type: <span className="font-medium text-black">{shopType || "Loading..."}</span>
+        <h1 className="text-3xl font-semibold text-black font-[Poppins]">
+          Add New Product
+        </h1>
+        <p className="text-magenta-dark mt-2 font-[Poppins]">
+          Shop: <span className="font-medium text-black">{shopSlug}</span> •
+          Type:{" "}
+          <span className="font-medium text-black">
+            {shopType || "Loading..."}
+          </span>
         </p>
-        <p className="text-sm text-gray-500 mt-1">Complete all required fields in Primary Details before proceeding.</p>
+        <p className="text-sm text-magentaDark mt-1">
+          Complete all required fields in Primary Details before proceeding.
+        </p>
       </div>
 
-      {/* Success Message */}
-      {showSuccess && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-600 text-sm flex items-center gap-2">
-            <Icon icon="mdi:check-circle" className="w-5 h-5" />
-            Product created successfully! The form has been cleared for your next entry.
-          </p>
-        </div>
-      )}
-
-      {/* Add Category Button and Form */}
       <div className="mb-8">
-        <button
+        <Button
           onClick={() => setShowCategoryForm(!showCategoryForm)}
-          className="flex items-center gap-2 text-gray-700 hover:text-black font-[Poppins] text-sm mb-4"
+          variant="secondary"
+          className="flex flex-row items-center justify-center gap-2"
         >
           <Icon icon="mdi:plus-circle-outline" className="w-5 h-5" />
           {showCategoryForm ? "Cancel" : "Add New Category"}
-        </button>
+        </Button>
 
         {showCategoryForm && shopId && (
           <div className="mb-6 p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
             <CategoryComponent
               shopId={shopId}
               onCategoryCreated={handleCategoryCreated}
+              onCategoryError={handleCategoryError}
               onCancel={() => setShowCategoryForm(false)}
             />
           </div>
         )}
       </div>
 
-      {/* Tab Navigation */}
+      {tabWarning && (
+        <div
+          ref={warningRef}
+          className={`mb-4 p-3 rounded-lg text-sm ${
+            tabWarning.type === 'success' 
+              ? 'bg-green-50 border border-green-200 text-green-700' 
+              : 'bg-red-50 border border-red-200 text-red-600'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Icon 
+              icon={tabWarning.type === 'success' ? "mdi:check-circle" : "mdi:alert-circle"} 
+              className={`w-4 h-4 ${
+                tabWarning.type === 'success' ? 'text-green-600' : 'text-red-600'
+              }`} 
+            />
+            {tabWarning.text}
+          </div>
+        </div>
+      )}
+
       <div className="w-full mb-8">
         <div className="flex">
           <div className="w-[75%]">
@@ -143,15 +173,16 @@ export default function AddProductPage() {
                   style={{ width: `${100 / sections.length}%` }}
                 >
                   {section}
-                  {index === 0 && <span className="ml-1 text-red-500 text-xs">*</span>}
+                  {index === 0 && (
+                    <span className="ml-1 text-red-500 text-xs">*</span>
+                  )}
                 </button>
               ))}
             </div>
 
-            {/* Bar container */}
-            <div className="relative w-full h-[2px] bg-gray-200">
+            <div className="relative w-full h-[10px] bg-gray-400">
               <div
-                className="absolute h-[10px] bg-three rounded-full transition-all duration-300"
+                className="absolute h-[10px]  bg-three rounded-full transition-all duration-300"
                 style={{
                   width: `${100 / sections.length}%`,
                   left: `${(100 / sections.length) * activeIndex}%`,
@@ -159,26 +190,13 @@ export default function AddProductPage() {
               ></div>
             </div>
           </div>
-
-          <div className="w-[25%] flex items-end">
-            <div className="w-full h-[2px] bg-gray-200"></div>
-          </div>
         </div>
       </div>
 
-      {/* Tab Content */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
         {renderComponent()}
       </div>
 
-      {/* Error Message */}
-      {submitError && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600 text-sm">{submitError}</p>
-        </div>
-      )}
-
-      {/* Navigation Buttons */}
       <div className="flex justify-between mt-8">
         <button
           onClick={handlePrevious}
@@ -191,7 +209,7 @@ export default function AddProductPage() {
         >
           Previous
         </button>
-        
+
         <button
           onClick={handleNext}
           disabled={loading}
@@ -202,8 +220,10 @@ export default function AddProductPage() {
               <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
               Creating Product...
             </span>
+          ) : activeIndex === sections.length - 1 ? (
+            "Save Product"
           ) : (
-            activeIndex === sections.length - 1 ? "Save Product" : "Next"
+            "Next"
           )}
         </button>
       </div>

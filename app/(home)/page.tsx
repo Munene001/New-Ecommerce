@@ -14,16 +14,16 @@ export default function Home() {
     <div className="text-secondaryText font-[Plus_Jakarta_Sans]">
       <div className="md:grid grid-cols-[60%_40%] md:h-auto h-fit mb-4 p-4">
         <div className="flex flex-col justify-between">
-          <div className="text-[18px] md:text-[22px] w-fit p-2 bg-gray-900/10 border border-white rounded-3xl mb-2">
+          <div className="text-[18px] md:text-[22px] w-fit p-2 bg-gray-900/10 border text-primary-text border-white rounded-3xl mb-2">
             Launch an online shop
           </div>
 
-          <div className="md:text-[65px] text-[45px] leading-[65px] font-[Poppins] text-primaryText mb-5 flex flex-col">
+          <div className="md:text-[65px] text-[45px] leading-[65px] font-[Poppins] text-primary-text mb-5 flex flex-col">
             
              <span>Add products,</span> <span>Accept payments</span>
           </div>
 
-          <div className="text-[20px] md:block leading-[30px] mb-6">
+          <div className="text-[20px] md:block leading-[30px] mb-6 text-primary-text">
 
           Designed for businesses that want to start selling fast with 
             

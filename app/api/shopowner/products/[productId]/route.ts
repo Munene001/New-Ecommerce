@@ -23,6 +23,7 @@ export async function GET(
         product_slug,
         description,
         price,
+        discount_price,
         in_stock,
         attributes,
         created_at,
@@ -36,9 +37,6 @@ export async function GET(
     }
 
     const product = (productRows as any[])[0];
-    
-    // ✅ MySQL2 automatically parses JSON columns
-    // attributes is already an object, no need to parse
     
     return NextResponse.json(product);
 
@@ -64,6 +62,7 @@ export async function PUT(
       productSlug,
       description,
       price,
+      discountPrice,
       inStock,
       attributes
     } = await req.json();
@@ -82,6 +81,7 @@ export async function PUT(
            product_slug = ?, 
            description = ?, 
            price = ?, 
+           discount_price = ?,
            in_stock = ?, 
            attributes = ?
        WHERE product_id = ?`,
@@ -90,6 +90,7 @@ export async function PUT(
         productSlug,
         description || null,
         price,
+        discountPrice || null, // Use null if no discount
         inStock,
         JSON.stringify(attributes),
         productId

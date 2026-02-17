@@ -1,78 +1,106 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useShop } from "@/app/(shopowner)/shopContext";
 import { Attribute, Category, ProductFormData } from "../types";
 
 export function useProductForm() {
   const { shopId, shopType, shopSlug } = useShop();
   
-  // Tab state
+  const warningRef = useRef<HTMLDivElement>(null);
+  
   const [activeIndex, setActiveIndex] = useState(0);
   const sections = ["Primary Details", "Optional Details", "Images"];
   
-  // Form state
   const [formData, setFormData] = useState<ProductFormData>({
     productName: "",
     productSlug: "",
     description: "",
     price: "",
+    discountPrice: "", 
     inStock: true,
     attributes: {},
     images: [],
     categoryIds: []
   });
   
-  // Categories
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   
-  // Attribute schema
   const [attributeSchema, setAttributeSchema] = useState<Attribute[]>([]);
   const [loadingSchema, setLoadingSchema] = useState(false);
   
-  // UI states
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string>("");
-  const [showSuccess, setShowSuccess] = useState<boolean>(false);
+  
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: ''
+  });
 
-  // Fetch attribute schema when shopType is available
+  const [tabWarning, setTabWarning] = useState<{text: string; type: 'success' | 'error'} | null>(null);
+  
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const showWarning = (message: string, type: 'success' | 'error' = 'error') => {
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+    }
+    
+    setTabWarning({ text: message, type });
+    scrollToWarning();
+    
+    warningTimerRef.current = setTimeout(() => {
+      setTabWarning(null);
+    }, 5000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (warningTimerRef.current) {
+        clearTimeout(warningTimerRef.current);
+      }
+    };
+  }, []);
+
+  const scrollToWarning = () => {
+    setTimeout(() => {
+      if (warningRef.current) {
+        warningRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+    }, 100);
+  };
+
   useEffect(() => {
     if (shopType) {
       fetchAttributeSchema(shopType);
     }
   }, [shopType]);
 
-  // Fetch categories when shopId is available
   useEffect(() => {
     if (shopId) {
       fetchCategories(shopId);
     }
   }, [shopId]);
 
-  // Auto-hide success message after 3 seconds
-  useEffect(() => {
-    if (showSuccess) {
-      const timer = setTimeout(() => {
-        setShowSuccess(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showSuccess]);
-
-  // Get attribute schema based on shop type
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
-      console.log("🔍 Fetching attributes for shop type:", type);
       const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`);
       const data = await res.json();
-      console.log("Attribute schema response:", data);
       
       const fields = data.fields || [];
       setAttributeSchema(fields);
       
-      // Initialize attributes object with empty values
       const initialAttributes: Record<string, any> = {};
       fields.forEach((field: Attribute) => {
         if (field.type === "boolean") {
@@ -96,35 +124,33 @@ export function useProductForm() {
     }
   };
 
-  // Fetch categories for dropdown
   const fetchCategories = async (id: number) => {
     try {
-      console.log("🔍 Fetching categories for shopId:", id);
       const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
       const data = await res.json();
-      console.log("📦 Categories response:", data);
       setCategories(data.map((c: any) => ({ id: c.category_id, name: c.category_name })));
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     }
   };
 
-  // Handle category creation
   const handleCategoryCreated = (newCategory: Category) => {
     setCategories(prev => [...prev, newCategory]);
     setShowCategoryForm(false);
+    showWarning("Category created successfully!", 'success');
   };
 
-  // Reset form to initial state
+  const handleCategoryError = (errorMessage: string) => {
+    showWarning(errorMessage, 'error');
+  };
+
   const resetForm = () => {
-    // Clear all images preview URLs to prevent memory leaks
     formData.images.forEach(img => {
       if (img.preview) {
         URL.revokeObjectURL(img.preview);
       }
     });
 
-    // Re-initialize attributes with empty values based on current schema
     const initialAttributes: Record<string, any> = {};
     attributeSchema.forEach((field: Attribute) => {
       if (field.type === "boolean") {
@@ -141,6 +167,7 @@ export function useProductForm() {
       productSlug: "",
       description: "",
       price: "",
+      discountPrice: "", 
       inStock: true,
       attributes: initialAttributes,
       images: [],
@@ -152,7 +179,6 @@ export function useProductForm() {
     setErrors({});
   };
 
-  // Validate Primary tab only
   const validatePrimaryTab = (): boolean => {
     const primaryErrors: Record<string, string> = {};
     
@@ -166,6 +192,12 @@ export function useProductForm() {
     
     if (!formData.price || Number(formData.price) <= 0) {
       primaryErrors.price = "Valid price is required";
+    } 
+    if (formData.discountPrice && Number(formData.discountPrice) < 0) {
+      primaryErrors.discountPrice = "Discount price cannot be negative";
+    }
+    if (formData.discountPrice && Number(formData.discountPrice) >= Number(formData.price)) {
+      primaryErrors.discountPrice = "Discount price must be less than regular price";
     }
     
     attributeSchema.filter(f => f.required).forEach(field => {
@@ -180,7 +212,6 @@ export function useProductForm() {
     return Object.keys(primaryErrors).length === 0;
   };
 
-  // Validate full form before submission
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     
@@ -227,12 +258,10 @@ export function useProductForm() {
     return true;
   };
 
-  // Submit form
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
     setLoading(true);
-    setSubmitError("");
     
     try {
       const productRes = await fetch('/api/shopowner/products', {
@@ -244,6 +273,7 @@ export function useProductForm() {
           productSlug: formData.productSlug,
           description: formData.description,
           price: formData.price,
+          discountPrice: formData.discountPrice || null,
           inStock: formData.inStock,
           attributes: formData.attributes
         })
@@ -256,14 +286,10 @@ export function useProductForm() {
       }
 
       const productId = productData.product_id;
-      console.log("✅ Product created with ID:", productId);
 
-      // Upload images in parallel
       const imageFiles = formData.images.filter(img => img.file);
       
       if (imageFiles.length > 0) {
-        console.log(`📸 Uploading ${imageFiles.length} images in parallel...`);
-        
         const uploadPromises = imageFiles.map(async (image) => {
           const imageFormData = new FormData();
           imageFormData.append('image', image.file!);
@@ -276,10 +302,8 @@ export function useProductForm() {
 
           if (!imageRes.ok) {
             const error = await imageRes.json();
-            console.error(`❌ Failed to upload image (primary: ${image.isPrimary}):`, error);
             return { success: false };
           } else {
-            console.log(`✅ Image uploaded (primary: ${image.isPrimary})`);
             return { success: true };
           }
         });
@@ -287,10 +311,7 @@ export function useProductForm() {
         await Promise.all(uploadPromises);
       }
 
-      // Add categories in parallel
       if (formData.categoryIds.length > 0) {
-        console.log(`🏷️ Adding ${formData.categoryIds.length} categories in parallel...`);
-        
         const categoryPromises = formData.categoryIds.map(async (categoryId) => {
           const catRes = await fetch(`/api/shopowner/products/${productId}/categories`, {
             method: 'POST',
@@ -300,31 +321,42 @@ export function useProductForm() {
 
           if (!catRes.ok) {
             console.error(`❌ Failed to add category ${categoryId}:`, await catRes.json());
-          } else {
-            console.log(`✅ Category ${categoryId} added to product`);
           }
         });
 
         await Promise.all(categoryPromises);
       }
-
-      console.log("🎉 Product creation complete!");
+      
+      setModalState({
+        isOpen: true,
+        type: 'success',
+        title: 'Success!',
+        message: 'Product has been created successfully.'
+      });
+      
       resetForm();
-      setShowSuccess(true);
       
     } catch (error: any) {
       console.error("❌ Submit failed:", error);
-      setSubmitError(error.message || "Failed to create product");
+      
+      setModalState({
+        isOpen: true,
+        type: 'error',
+        title: 'Error',
+        message: error.message || "Failed to create product"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle next/previous with validation
   const handleNext = () => {
     if (activeIndex === 0 && !validatePrimaryTab()) {
+      showWarning("Please fill out all Primary fields before proceeding", 'error');
       return;
     }
+    
+    setTabWarning(null);
     
     if (activeIndex < sections.length - 1) {
       setActiveIndex(activeIndex + 1);
@@ -334,12 +366,12 @@ export function useProductForm() {
   };
 
   const handlePrevious = () => {
+    setTabWarning(null);
     if (activeIndex > 0) {
       setActiveIndex(activeIndex - 1);
     }
   };
 
-  // Handle tab click with validation
   const handleTabClick = (index: number) => {
     if (index > 0) {
       const hasPrimaryErrors = 
@@ -353,16 +385,19 @@ export function useProductForm() {
         });
       
       if (hasPrimaryErrors) {
-        alert("Please complete all required fields in Primary Details first");
-        setActiveIndex(0);
+        showWarning("Please complete all required fields in Primary Details first", 'error');
         return;
       }
     }
+    setTabWarning(null);
     setActiveIndex(index);
   };
 
+  const closeModal = () => {
+    setModalState(prev => ({ ...prev, isOpen: false }));
+  };
+
   return {
-    // State
     activeIndex,
     setActiveIndex,
     sections,
@@ -377,17 +412,20 @@ export function useProductForm() {
     loadingSchema,
     loading,
     errors,
-    submitError,
-    showSuccess,
     shopSlug,
     shopId,
     shopType,
+    tabWarning,
+    modalState,
+    warningRef,
+    showWarning,
     
-    // Handlers
     handleCategoryCreated,
+    handleCategoryError,
     handleNext,
     handlePrevious,
     handleTabClick,
     resetForm,
+    closeModal,
   };
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import Input from "@/app/components/ui/input";
 import { Icon } from "@iconify/react";
-import { Attribute } from "../types"; // Import shared type
+import FormField from "@/app/components/ui/formField";
+import { Attribute } from "../types";
 
 interface PrimaryFormProps {
   formData: any;
@@ -17,228 +17,247 @@ export default function PrimaryForm({
   setFormData,
   attributeSchema,
   loadingSchema,
-  errors
+  errors,
 }: PrimaryFormProps) {
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
+  // Unified change handler that works with both events and direct values
+  const handleChange = (e: React.ChangeEvent<any> | string | number) => {
+    // Handle direct values from dropdown
+    if (typeof e === "string" || typeof e === "number") {
+      // This shouldn't happen with our current setup since we use handleDropdownChange for selects
+      return;
+    }
+
+    // Handle event objects
+    if (e && typeof e === "object" && "target" in e) {
+      const { name, value, type } = e.target;
+
+      if (name.startsWith("attr.")) {
+        const attrName = name.replace("attr.", "");
+        setFormData({
+          ...formData,
+          attributes: {
+            ...formData.attributes,
+            [attrName]: type === "checkbox" ? e.target.checked : value,
+          },
+        });
+      } else {
+        setFormData({ ...formData, [name]: value });
+      }
+    }
+  };
+
+  // Specific handler for dropdown fields - returns a value
+  const handleDropdownChange = (name: string) => (value: string | number) => {
     if (name.startsWith("attr.")) {
       const attrName = name.replace("attr.", "");
       setFormData({
         ...formData,
         attributes: {
           ...formData.attributes,
-          [attrName]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value
-        }
+          [attrName]: value,
+        },
       });
     } else {
       setFormData({ ...formData, [name]: value });
     }
   };
 
-  // Auto-generate slug
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value;
-    setFormData({
-      ...formData,
-      productName: name,
-      productSlug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    });
+  // Wrapper for dropdown to match the expected FormField onChange type
+  const createDropdownHandler = (name: string) => {
+    const dropdownHandler = handleDropdownChange(name);
+
+    // Return a function that matches the expected signature
+    return (e: React.ChangeEvent<any> | string | number) => {
+      // If it's a direct value (string or number), pass it directly
+      if (typeof e === "string" || typeof e === "number") {
+        dropdownHandler(e);
+      }
+      // If it's an event, extract the value
+      else if (e && typeof e === "object" && "target" in e) {
+        dropdownHandler(e.target.value);
+      }
+    };
   };
 
-  console.log("Rendering attributes:", attributeSchema); // Debug log
+  // Wrapper for name change to match the expected type
+  const handleNameChange = (e: React.ChangeEvent<any> | string | number) => {
+    if (typeof e === "object" && e !== null && "target" in e) {
+      const target = e.target as HTMLInputElement;
+      const name = target.value;
+      setFormData({
+        ...formData,
+        productName: name,
+        productSlug: name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+      });
+    }
+  };
+
+  // Wrapper for checkbox change
+  const handleInStockChange = (e: React.ChangeEvent<any> | string | number) => {
+    if (typeof e === "object" && e !== null && "target" in e) {
+      setFormData({ ...formData, inStock: e.target.checked });
+    }
+  };
+
+  const requiredAttributes = attributeSchema.filter((f) => f.required);
+  const hasRequiredAttributes = requiredAttributes.length > 0;
 
   return (
     <div className="space-y-6 font-[Poppins]">
       <div>
-        <h2 className="text-xl font-semibold text-black mb-1">Primary Details</h2>
-        <p className="text-sm text-gray-600">All fields marked * are required</p>
+        <h2 className="text-xl font-semibold text-black mb-1">
+          Primary Details
+        </h2>
       </div>
-      
+      <div className="bg-green-50 border border-blue-200 rounded-lg p-4 text-sm text-magenta-dark space-y-1">
+        <p>
+          • All <span className="text-red-500">*</span> fields are required
+          (only description and discount price are optional)
+        </p>
+        <p>
+          • Discount price becomes the customer-facing price - must be less than
+          regular price
+        </p>
+        <p>• Product name and slug are automatically synced</p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Product Name */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Product Name <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="productName"
-            value={formData.productName}
-            onChange={handleNameChange}
-            placeholder="e.g., Panadol Extra"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black"
-          />
-          {errors.productName && (
-            <p className="mt-1 text-sm text-red-500">{errors.productName}</p>
-          )}
-        </div>
+        <FormField
+          name="productName"
+          label="Product Name"
+          value={formData.productName}
+          onChange={handleNameChange}
+          error={errors.productName}
+          placeholder="e.g., Panadol Extra"
+          required
+        />
 
         {/* Product Slug */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Product Slug <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="productSlug"
-            value={formData.productSlug}
-            onChange={handleChange}
-            placeholder="product-url-slug"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black"
-          />
-          {errors.productSlug && (
-            <p className="mt-1 text-sm text-red-500">{errors.productSlug}</p>
-          )}
-        </div>
+
+        <FormField
+          name="productSlug"
+          label="Product Slug"
+          value={formData.productSlug}
+          onChange={handleChange}
+          error={errors.productSlug}
+          placeholder="product-url-slug"
+          required
+        />
 
         {/* Price */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Price (KES) <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
+          <FormField
             name="price"
+            label="Price (KES)"
+            type="number"
             value={formData.price}
             onChange={handleChange}
+            error={errors.price}
             placeholder="0.00"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black"
+            required
           />
-          {errors.price && (
-            <p className="mt-1 text-sm text-red-500">{errors.price}</p>
-          )}
+        </div>
+
+        {/* Discount Price - New field */}
+        <div>
+          <FormField
+            name="discountPrice"
+            label="Discount Price (KES)"
+            type="number"
+            value={formData.discountPrice || ""}
+            onChange={handleChange}
+            error={errors.discountPrice}
+            placeholder="0.00 (optional)"
+          />
         </div>
 
         {/* In Stock */}
         <div className="flex items-end pb-3">
-          <label className="flex items-center gap-3 text-gray-700 font-[Poppins]">
-            <input
-              type="checkbox"
-              name="inStock"
-              checked={formData.inStock}
-              onChange={(e) => setFormData({ ...formData, inStock: e.target.checked })}
-              className="w-5 h-5 text-black border-gray-300 rounded focus:ring-black"
-            />
-            <span className="text-sm font-medium">In Stock</span>
-          </label>
+          <FormField
+            name="inStock"
+            type="checkbox"
+            value={formData.inStock}
+            onChange={handleInStockChange}
+            placeholder="In Stock"
+          />
         </div>
       </div>
 
       {/* Dynamic Attributes */}
       {loadingSchema ? (
         <div className="flex items-center justify-center py-8">
-          <Icon icon="mdi:loading" className="animate-spin w-6 h-6 text-gray-600" />
-          <span className="ml-2 text-gray-600 font-[Poppins]">Loading attributes...</span>
+          <Icon
+            icon="mdi:loading"
+            className="animate-spin w-6 h-6 text-gray-600"
+          />
+          <span className="ml-2 text-gray-600 font-[Poppins]">
+            Loading attributes...
+          </span>
         </div>
       ) : (
         <div className="space-y-6">
           {attributeSchema.length > 0 ? (
             <>
               {/* Required Attributes */}
-              {attributeSchema.filter(f => f.required).length > 0 && (
+              {hasRequiredAttributes && (
                 <div>
-                  <h3 className="text-md font-medium text-gray-800 mb-4">Required Product Information</h3>
+                  <h3 className="text-md font-medium text-gray-800 mb-4">
+                    Required Product Information
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {attributeSchema.filter(f => f.required).map((field) => (
-                      <div key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {field.label} <span className="text-red-500">*</span>
-                        </label>
-                        
-                        {field.type === 'text' && (
-                          <input
-                            type="text"
-                            name={`attr.${field.name}`}
-                            value={formData.attributes[field.name] || ''}
-                            onChange={handleChange}
-                            placeholder={`Enter ${field.label.toLowerCase()}`}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black"
-                          />
-                        )}
-
-                        {field.type === 'number' && (
-                          <input
-                            type="number"
-                            name={`attr.${field.name}`}
-                            value={formData.attributes[field.name] || ''}
-                            onChange={handleChange}
-                            placeholder={`Enter ${field.label.toLowerCase()}`}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black"
-                          />
-                        )}
-
-                        {field.type === 'textarea' && (
-                          <textarea
-                            name={`attr.${field.name}`}
-                            value={formData.attributes[field.name] || ''}
-                            onChange={handleChange}
-                            rows={4}
-                            placeholder={`Enter ${field.label.toLowerCase()}`}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black"
-                          />
-                        )}
-
-                        {field.type === 'boolean' && (
-                          <div className="flex items-center">
-                            <label className="flex items-center gap-3 text-gray-700 font-[Poppins]">
-                              <input
-                                type="checkbox"
-                                name={`attr.${field.name}`}
-                                checked={formData.attributes[field.name] || false}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    attributes: {
-                                      ...formData.attributes,
-                                      [field.name]: e.target.checked
-                                    }
-                                  });
-                                }}
-                                className="w-5 h-5 text-black border-gray-300 rounded focus:ring-black"
-                              />
-                              <span className="text-sm">Yes</span>
-                            </label>
-                          </div>
-                        )}
-
-                        {field.type === 'select' && field.options && (
-                          <select
-                            name={`attr.${field.name}`}
-                            value={formData.attributes[field.name] || ''}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black bg-white"
-                          >
-                            <option value="">Select {field.label}</option>
-                            {field.options.map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                        )}
+                    {requiredAttributes.map((field) => (
+                      <div
+                        key={field.name}
+                        className={
+                          field.type === "textarea" ? "md:col-span-2" : ""
+                        }
+                      >
+                        <FormField
+                          name={`attr.${field.name}`}
+                          label={field.label}
+                          type={field.type as any}
+                          value={formData.attributes[field.name]}
+                          onChange={
+                            field.type === "select"
+                              ? createDropdownHandler(`attr.${field.name}`)
+                              : handleChange
+                          }
+                          error={errors[`attr.${field.name}`]}
+                          placeholder={`Enter ${field.label.toLowerCase()}`}
+                          options={field.options?.map((opt) => ({
+                            id: opt,
+                            name: opt,
+                          }))}
+                          rows={4}
+                          required
+                        />
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Description - Always at the end */}
+              {/* Description */}
               <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description <span className="text-gray-400">(optional)</span>
-                </label>
-                <textarea
+                <FormField
                   name="description"
+                  label="Description"
+                  type="textarea"
                   value={formData.description}
                   onChange={handleChange}
-                  rows={4}
                   placeholder="Enter product description..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black"
+                  rows={4}
                 />
               </div>
             </>
           ) : (
-            <p className="text-gray-500 text-center py-4">No attributes configured for this shop type</p>
+            <p className="text-gray-500 text-center py-4">
+              No attributes configured for this shop type
+            </p>
           )}
         </div>
       )}
