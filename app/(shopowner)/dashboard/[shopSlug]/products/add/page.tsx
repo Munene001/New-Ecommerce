@@ -151,7 +151,7 @@ export default function AddProductPage() {
             {/* Bar container */}
             <div className="relative w-full h-[2px] bg-gray-200">
               <div
-                className="absolute h-[2px] bg-black rounded-full transition-all duration-300"
+                className="absolute h-[10px] bg-three rounded-full transition-all duration-300"
                 style={{
                   width: `${100 / sections.length}%`,
                   left: `${(100 / sections.length) * activeIndex}%`,

@@ -1,4 +1,5 @@
 "use client";
+import * as React from 'react'
 
 import { createContext, useContext, useState, useEffect } from "react";
 
@@ -40,9 +41,7 @@ export function ShopProvider({
     fetchShopData();
   }, [shopSlug]);
 
-  if (loading) {
-    return <div>Loading shop...</div>;
-  }
+ 
 
   return (
     <ShopContext.Provider value={shopData}>
