@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         product_slug,
         description,
         price,
+        discount_price,
         in_stock,
         attributes,
         created_at,
@@ -32,8 +33,6 @@ export async function GET(req: NextRequest) {
       ORDER BY created_at DESC
     `, [shopId]);
     
-    // ✅ MySQL2 automatically parses JSON columns
-    // Return products directly - attributes is already an object
     return NextResponse.json(products);
     
   } catch (error) {
@@ -54,6 +53,7 @@ export async function POST(req: NextRequest) {
       productSlug,
       description,
       price,
+      discountPrice,
       inStock,
       attributes 
     } = await req.json();
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     connection = await getConnection();
 
-    // Get shop_type from shops table (INHERITANCE)
+    // Get shop_type from shops table
     const [shopRows] = await connection.query(
       'SELECT shop_type FROM shops WHERE shop_id = ?',
       [shopId]
@@ -79,11 +79,11 @@ export async function POST(req: NextRequest) {
     
     const shopType = (shopRows as any[])[0].shop_type;
 
-    // Insert product
+    // Insert product with discount_price
     const [productResult] = await connection.query(
       `INSERT INTO products 
-       (shop_id, shop_type, product_name, product_slug, description, price, in_stock, attributes) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (shop_id, shop_type, product_name, product_slug, description, price, discount_price, in_stock, attributes) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         shopId,
         shopType,
@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
         productSlug,
         description || null,
         price,
+        discountPrice || null, // Use null if no discount
         inStock === undefined ? true : inStock,
         JSON.stringify(attributes)
       ]
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
     console.error('Product creation error:', error);
     
     if (error.code === 'ER_DUP_ENTRY') {
-      return NextResponse.json({ error: 'Product slug already exists' }, { status: 409 });
+      return NextResponse.json({ error: 'Product name already exists' }, { status: 409 });
     }
     
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });

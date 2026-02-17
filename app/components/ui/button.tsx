@@ -20,7 +20,7 @@ export default function Button({
   
   const getVariantClasses = () => {
     if (variant === "primary") {
-      return "bg-magentaDark text-white hover:bg-magenta ";
+      return "bg-magenta-dark text-white hover:bg-magenta ";
     } else {
       return "bg-three text-white hover:bg-orange-400 disabled:bg-gray-400";
     }

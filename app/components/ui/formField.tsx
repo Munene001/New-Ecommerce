@@ -1,0 +1,199 @@
+"use client";
+
+import { Icon } from "@iconify/react";
+import { useState, useRef, useEffect } from "react";
+
+export interface FormFieldProps {
+  name: string;
+  label?: string;
+  value: any;
+  onChange: (e: React.ChangeEvent<any> | string | number) => void;
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'email' | 'password' | 'tel' | 'url';
+  placeholder?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  rows?: number;
+  options?: Array<{ id: string | number; name: string }>;
+  className?: string;
+  labelClassName?: string;
+  inputClassName?: string;
+}
+
+export default function FormField({
+  name,
+  label,
+  value,
+  onChange,
+  type = 'text',
+  placeholder,
+  error,
+  required = false,
+  disabled = false,
+  rows = 4,
+  options = [],
+  className = '',
+  labelClassName = '',
+  inputClassName = '',
+}: FormFieldProps) {
+  
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside for dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Handle select change
+  const handleSelect = (selectedValue: string | number) => {
+    const syntheticEvent = {
+      target: {
+        name,
+        value: selectedValue,
+        type: 'select-one',
+      },
+    } as React.ChangeEvent<any>;
+    onChange(syntheticEvent);
+    setIsOpen(false);
+  };
+
+  // Base input classes
+  const baseInputClass = `w-full px-4 py-3 border ${error ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black disabled:bg-gray-100 disabled:cursor-not-allowed ${inputClassName}`;
+
+  // Render different input types
+  const renderInput = () => {
+    switch (type) {
+      case 'textarea':
+        return (
+          <textarea
+            name={name}
+            value={value || ''}
+            onChange={onChange as React.ChangeEventHandler}
+            placeholder={placeholder}
+            rows={rows}
+            disabled={disabled}
+            className={baseInputClass}
+          />
+        );
+
+      case 'checkbox':
+        return (
+          <label className="flex items-center gap-3 text-gray-700 font-[Poppins] cursor-pointer">
+            <input
+              type="checkbox"
+              name={name}
+              checked={value || false}
+              onChange={onChange as React.ChangeEventHandler}
+              disabled={disabled}
+              className="w-5 h-5 text-black border-gray-300 rounded focus:ring-black disabled:cursor-not-allowed"
+            />
+            <span className="text-sm">{placeholder || 'Yes'}</span>
+          </label>
+        );
+
+      case 'select':
+        const selectedOption = options.find(opt => opt.id === value);
+        
+        return (
+          <div className="relative" ref={dropdownRef}>
+            {/* Hidden select for form submission */}
+            <select
+              name={name}
+              value={value}
+              onChange={onChange as React.ChangeEventHandler}
+              className="hidden"
+            >
+              <option value=""></option>
+              {options.map(option => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Custom dropdown button */}
+            <button
+              type="button"
+              onClick={() => !disabled && setIsOpen(!isOpen)}
+              disabled={disabled}
+              className={`${baseInputClass} text-left flex items-center justify-between ${
+                isOpen ? 'ring-2 ring-black border-transparent' : ''
+              }`}
+            >
+              <span className={`truncate ${!selectedOption ? 'text-gray-400' : 'text-gray-900'}`}>
+                {selectedOption ? selectedOption.name : placeholder || 'Select an option'}
+              </span>
+              <Icon
+                icon={isOpen ? "mdi:chevron-up" : "mdi:chevron-down"}
+                className="w-5 h-5 text-gray-400 flex-shrink-0"
+              />
+            </button>
+
+            {/* Dropdown menu */}
+            {isOpen && !disabled && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden animate-fadeIn">
+                {/* Options with better styling */}
+                <div className="max-h-60 overflow-y-auto py-1 bg-blue-700/10">
+                  {options.length > 0 ? (
+                    options.map((option) => (
+                      <div
+                        key={option.id}
+                        onClick={() => handleSelect(option.id)}
+                        className={`px-4 py-2.5 text-sm cursor-pointer transition-all duration-150 ${
+                          value === option.id 
+                            ? ' text-black text-[16px] font-medium hover:bg-three  border-b border-black/10' 
+                            : 'text-black text-[16px] font-medium hover:bg-three hover:pl-5 border-b border-black/10'
+                        }`}
+                      >
+                        {option.name}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-400 text-center italic">
+                      No options available
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      default: // text, number, email, etc.
+        return (
+          <input
+            type={type}
+            name={name}
+            value={value || ''}
+            onChange={onChange as React.ChangeEventHandler}
+            placeholder={placeholder}
+            disabled={disabled}
+            className={baseInputClass}
+          />
+        );
+    }
+  };
+
+  return (
+    <div className={className}>
+      {label && type !== 'checkbox' && (
+        <label className={`block text-sm font-medium text-gray-700 mb-1 ${labelClassName}`}>
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
+      {renderInput()}
+      {error && type !== 'select' && (
+        <p className="mt-1 text-sm text-red-500">{error}</p>
+      )}
+    </div>
+  );
+}

@@ -28,7 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${jakarta.variable}`}>
+    
+    <html lang="en" className={`${poppins.variable} ${jakarta.variable}`} suppressHydrationWarning>
       <body className="min-h-screen">
         <AuthProvider>
           {children}
@@ -36,4 +37,4 @@ export default function RootLayout({
       </body>
     </html>
   );
-}
+} 

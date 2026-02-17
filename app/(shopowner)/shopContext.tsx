@@ -1,6 +1,5 @@
 "use client";
 import * as React from 'react'
-
 import { createContext, useContext, useState, useEffect } from "react";
 
 interface ShopData {
@@ -41,7 +40,12 @@ export function ShopProvider({
     fetchShopData();
   }, [shopSlug]);
 
- 
+  // Don't render children until we have shop data
+  if (loading) {
+    return <div>Loading shop...</div>; // Or a loading spinner
+  }
+
+  
 
   return (
     <ShopContext.Provider value={shopData}>
