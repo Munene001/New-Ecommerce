@@ -3,6 +3,7 @@ import BaseLeftMenu from "@/app/components/layout/leftNav";
 import DashHeader from "@/app/components/layout/dashHeader";
 import { useParams } from "next/navigation";
 import { ShopProvider } from "../../shopContext";
+import * as React from 'react'
 
 export default function DashboardLayout({
   children,
