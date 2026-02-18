@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
     retail: {
       fields: [
         { name: 'brand', type: 'text', label: 'Brand/Manufacturer', required: true },
-        { name: 'model', type: 'text', label: 'Model/Material', required: true },
+        { name: 'model', type: 'text', label: 'Model/Type', required: true },
         { name: 'color', type: 'text', label: 'Color', required: false },
         { name: 'dimensions_cm', type: 'text', label: 'Dimensions', required: false },
         { name: 'weight_kg', type: 'number', label: 'Weight ', required: false },

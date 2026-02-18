@@ -112,7 +112,7 @@ export default function PrimaryForm({
           Primary Details
         </h2>
       </div>
-      <div className="bg-green-50 border border-blue-200 rounded-lg p-4 text-sm text-magenta-dark space-y-1">
+      <div className="bg-green-50  leading-[18px] rounded-lg p-4 text-[16px] text-black/90 space-y-2">
         <p>
           • All <span className="text-red-500">*</span> fields are required
           (only description and discount price are optional)

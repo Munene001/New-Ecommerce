@@ -86,7 +86,7 @@ export default function FormField({
 
       case 'checkbox':
         return (
-          <label className="flex items-center gap-3 text-gray-700 font-[Poppins] cursor-pointer">
+          <label className="flex items-center gap-3 text-black font-[Poppins] cursor-pointer">
             <input
               type="checkbox"
               name={name}
@@ -167,7 +167,7 @@ export default function FormField({
           </div>
         );
 
-      default: // text, number, email, etc.
+      default: 
         return (
           <input
             type={type}
@@ -185,7 +185,7 @@ export default function FormField({
   return (
     <div className={className}>
       {label && type !== 'checkbox' && (
-        <label className={`block text-sm font-medium text-gray-700 mb-1 ${labelClassName}`}>
+        <label className={`block text-sm font-medium text-black mb-1 ${labelClassName}`}>
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
