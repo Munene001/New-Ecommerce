@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import NavLink from "../ui/navLink";
-import { LayoutDashboard, ShoppingCart, Plus, SquareChartGantt, HandCoins, ChartNoAxesCombined, SunMoon, Settings, Store, LogOut } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, HandCoins, ChartNoAxesCombined, SunMoon, Settings, Store, LogOut } from "lucide-react";
 import Link from "next/link";
 
 interface BaseLeftMenuProps {
@@ -13,16 +13,6 @@ interface BaseLeftMenuProps {
 
 export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuProps) {
   const pathname = usePathname();
-  const [expandedParents, setExpandedParents] = useState<{ [key: string]: boolean }>({});
-
-  const normalize = (path: string) => path.replace(/\/+$/, "");
-
-  const toggleParent = (href: string) => {
-    setExpandedParents(prev => ({
-      ...prev,
-      [href]: !prev[href]
-    }));
-  };
 
   const navItems = [
     {
@@ -31,13 +21,9 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuPr
       icon: LayoutDashboard
     },
     {
-      href: "#",
       title: "Products",
       icon: ShoppingCart,
-      children: [
-        { href: `/dashboard/${shopSlug}/products/add`, title: "Add Product", icon: Plus },
-        { href: `/dashboard/${shopSlug}/products`, title: "All Products", icon: SquareChartGantt },
-      ]
+      href: `/dashboard/${shopSlug}/products`,
     },
     {
       href: `/dashboard/${shopSlug}/payments`,
@@ -71,41 +57,17 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuPr
   return (
     <nav className="space-y-3 mt-2 md:mt-0">
       <div className="">
-        {navItems.map((item) => {
-          const isParentActive = item.children?.some(child =>
-            pathname.startsWith(normalize(child.href))
-          );
-          const isExpanded = expandedParents[item.href] || false;
-
-          return (
-            <div key={item.href}>
-              <NavLink
-                href={item.href}
-                title={item.title}
-                icon={item.icon}
-                className=""
-                hasChildren={!!item.children}
-                expandChildren={() => toggleParent(item.href)}
-                expanded={isExpanded}
-                onMenuClicked={() => onMenuClicked(false)}
-                isChildActive={isParentActive}
-              />
-              {isExpanded && item.children && (
-                <div className="ms-4 transition-transform duration-500 ease-in-out overflow-hidden">
-                  {item.children.map((child) => (
-                    <NavLink
-                      key={child.href}
-                      href={child.href}
-                      title={child.title}
-                      icon={child.icon}
-                      onMenuClicked={() => onMenuClicked(false)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {navItems.map((item) => (
+          <div key={item.href}>
+            <NavLink
+              href={item.href}
+              title={item.title}
+              icon={item.icon}
+              className=""
+              onMenuClicked={() => onMenuClicked(false)}
+            />
+          </div>
+        ))}
 
         <div className="">
           <div className="w-full">
