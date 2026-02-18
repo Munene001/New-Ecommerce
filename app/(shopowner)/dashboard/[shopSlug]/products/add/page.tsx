@@ -109,9 +109,7 @@ export default function AddProductPage() {
             {shopType || "Loading..."}
           </span>
         </p>
-        <p className="text-sm text-magentaDark mt-1">
-          Complete all required fields in Primary Details before proceeding.
-        </p>
+       
       </div>
 
       <div className="mb-8">
@@ -182,7 +180,7 @@ export default function AddProductPage() {
 
             <div className="relative w-full h-[10px] bg-gray-400">
               <div
-                className="absolute h-[10px]  bg-three rounded-full transition-all duration-300"
+                className="absolute h-[10px]  bg-magenta-dark rounded-full transition-all duration-300"
                 style={{
                   width: `${100 / sections.length}%`,
                   left: `${(100 / sections.length) * activeIndex}%`,
