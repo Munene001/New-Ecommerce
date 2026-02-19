@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface ProductsTableProps {
   products: any[];
@@ -13,6 +14,7 @@ interface ProductsTableProps {
   onSelectOne: (productId: number) => void;
   loadMore: () => void;
   hasMore: boolean;
+  onBulkDelete?: (productIds: number[]) => void;
 }
 
 // Skeleton row component
@@ -55,8 +57,14 @@ export default function ProductsTable({
   onSelectOne,
   loadMore,
   hasMore,
+  onBulkDelete,
 }: ProductsTableProps) {
-  // Intersection Observer for infinite scroll
+  const router = useRouter();
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [actionValues, setActionValues] = useState<Record<number, string | number>>({});
+
+
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastProductRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -74,7 +82,10 @@ export default function ProductsTable({
     [loading, hasMore, loadMore]
   );
 
-  // Format date helper
+  useEffect(() => {
+    setShowBulkActions(selectedProducts.length > 0);
+  }, [selectedProducts]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -84,16 +95,88 @@ export default function ProductsTable({
     });
   };
 
-  // Get stock status color
   const getStockColor = (inStock: boolean) => {
     return inStock
       ? "bg-[#0FA965]/10 text-[#0FA965]"
       : "bg-red-500/10 text-red-500";
   };
 
+  const handleBulkDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteModal(false);
+    if (onBulkDelete) {
+      onBulkDelete(selectedProducts);
+    }
+  };
+
+  const handleClearSelection = () => {
+    if (selectedProducts.length === products.length) {
+      onSelectAll();
+    } else {
+      products.forEach((product) => {
+        if (selectedProducts.includes(product.product_id)) {
+          onSelectOne(product.product_id);
+        }
+      });
+    }
+  };
+
+  const handleActionChange = (value: string | number, productId: number) => {
+    setActionValues(prev => ({ ...prev, [productId]: value }));
+    if (value === "update") {
+      router.push(`/dashboard/${shopSlug}/products/${productId}/update`);
+    } else if (value === "delete") {
+      // Clear any existing selections first
+      if (selectedProducts.length > 0) {
+        // Deselect all
+        if (selectedProducts.length === products.length) {
+          onSelectAll(); // This will deselect all
+        } else {
+          selectedProducts.forEach((id) => onSelectOne(id));
+        }
+      }
+
+      
+      onSelectOne(productId);
+
+     
+    }
+    setTimeout(() => {
+      setActionValues(prev => ({ ...prev, [productId]: "" }));
+    }, 1000);
+  };
+
   return (
-    <div className="w-full">
-      {/* Header */}
+    <div className="w-full relative">
+      {showBulkActions && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-auto flex items-center justify-between bg-white shadow-lg rounded-full border border-gray-200 px-6 gap-4 py-3 animate-slideUp z-50">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-700">
+              {selectedProducts.length}{" "}
+              {selectedProducts.length === 1 ? "product" : "products"} selected
+            </span>
+            <button
+              onClick={handleClearSelection}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Clear selection
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkDeleteClick}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors text-sm font-medium shadow-sm"
+            >
+              <Icon icon="mdi:delete" className="w-4 h-4" />
+              Delete Selected
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-row border-b border-[#294248] h-[52px] items-center text-[#4B5563] font-medium text-sm min-w-full bg-gray-50">
         <div className="w-[5.7%] px-4">
           <input
@@ -114,9 +197,7 @@ export default function ProductsTable({
         <div className="w-[9.5%]">Actions</div>
       </div>
 
-      {/* Product rows */}
       {loading && products.length === 0 ? (
-        // Initial loading skeletons
         <div className="mt-2">
           <SkeletonRow />
           <SkeletonRow />
@@ -132,7 +213,6 @@ export default function ProductsTable({
               ref={index === products.length - 1 ? lastProductRef : null}
               className="flex flex-row border-b border-[#294248] h-[72px] items-center hover:bg-gray-50 transition-colors min-w-full"
             >
-              {/* Checkbox - 5.7% */}
               <div className="w-[5.7%] px-4">
                 <input
                   type="checkbox"
@@ -142,7 +222,6 @@ export default function ProductsTable({
                 />
               </div>
 
-              {/* Image - 13.5% */}
               <div className="w-[13.5%]">
                 {product.images && product.images.length > 0 ? (
                   <div
@@ -160,7 +239,6 @@ export default function ProductsTable({
                 )}
               </div>
 
-              {/* Product Name & Slug - 21% */}
               <div className="w-[21%] pr-4">
                 <div className="font-medium text-gray-900">
                   {product.product_name}
@@ -170,12 +248,10 @@ export default function ProductsTable({
                 </div>
               </div>
 
-              {/* Price - 12% */}
               <div className="w-[12%] pr-4">
                 <div className="text-gray-900 font-medium">{product.price}</div>
               </div>
 
-              {/* Discount - 12% */}
               <div className="w-[12%] pr-4">
                 {product.discount_price ? (
                   <div className="text-[#0FA965] font-medium">
@@ -186,7 +262,6 @@ export default function ProductsTable({
                 )}
               </div>
 
-              {/* Stock - 12% */}
               <div className="w-[12%]">
                 <span
                   className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStockColor(
@@ -197,41 +272,36 @@ export default function ProductsTable({
                 </span>
               </div>
 
-              {/* Created Date - 11% */}
               <div className="w-[11%] px-2 text-gray-500 text-sm">
                 {formatDate(product.created_at)}
               </div>
 
-              {/* Actions - 9.5% */}
+              {/* Actions with FormField Dropdown */}
               <div className="w-[9.5%]">
-                <Link
-                  href={`/dashboard/${shopSlug}/products/${product.product_id}/edit`}
+                <select
+                  className="border rounded-sm p-1"
+                  value={actionValues[product.product_id] || ""}
+                  onChange={(e) =>
+                    handleActionChange(e.target.value, product.product_id)
+                  }
                 >
-                  <button className="p-2 hover:bg-[#0FA965]/10 rounded-md transition-colors group">
-                    <Icon
-                      icon="mdi:pencil"
-                      className="w-5 h-5 text-gray-500 group-hover:text-[#0FA965]"
-                    />
-                  </button>
-                </Link>
+                  <option className="text-black/90" value="">Actions</option>
+                  <option value="update">Update</option>
+                  <option value="delete">Delete</option>
+                </select>
               </div>
             </div>
           ))}
 
-          {/* Loading more indicator */}
           {loading && products.length > 0 && (
             <div className="flex justify-center items-center py-4">
               <Icon
                 icon="mdi:loading"
                 className="animate-spin w-6 h-6 text-magenta-dark"
               />
-              <span className="ml-2 text-gray-500 animate-pulse">
-                
-              </span>
             </div>
           )}
 
-          {/* No more products message */}
           {!hasMore && products.length > 0 && (
             <div className="text-center py-4 text-gray-500">
               No more products to load
@@ -239,7 +309,6 @@ export default function ProductsTable({
           )}
         </div>
       ) : (
-        // No products found
         <div className="flex flex-col justify-center items-center h-64 text-gray-500">
           <Icon
             icon="mdi:package-variant"
@@ -249,6 +318,51 @@ export default function ProductsTable({
           <p className="text-sm">Try adjusting your search or filter</p>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Confirm Delete
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete {selectedProducts.length} selected
+              product(s)? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translate(-50%, 100%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

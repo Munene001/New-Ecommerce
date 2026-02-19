@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useProducts } from "@/lib/hooks/useProduct";
 import StatsCards from "./statsCard";
 import ProductsTable from "./productsTable";
 import Button from "@/app/components/ui/button";
 import { Plus, X } from "lucide-react";
 import Link from "next/link";
-import FormField from "@/app/components/ui/formField";
 import { Icon } from "@iconify/react";
 
 interface ProductsClientProps {
@@ -38,6 +37,12 @@ export default function ProductsClient({
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [categorySelect, setCategorySelect] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  
+  const messageRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     products,
@@ -46,7 +51,36 @@ export default function ProductsClient({
     loadMoreProducts,
     searchProducts,
     filterByCategory,
+    refreshProducts,
   } = useProducts(initialProducts, shopId.toString(), initialTotalPages);
+
+  // Show bulk actions when products are selected
+  useEffect(() => {
+    setShowBulkActions(selectedProducts.length > 0);
+  }, [selectedProducts]);
+
+  // Auto-hide message after 5 seconds
+  useEffect(() => {
+    if (message) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      
+      timerRef.current = setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+      
+      if (messageRef.current) {
+        messageRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+    
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [message]);
 
   const handleSelectAll = () => {
     if (selectedProducts.length === products.length) {
@@ -79,15 +113,60 @@ export default function ProductsClient({
   const handleReset = () => {
     setSearchInput("");
     setCategorySelect("");
-    searchProducts(""); // Clear search
-    filterByCategory(""); // Clear category filter (pass empty string for "All Categories")
+    setSelectedProducts([]);
+    setMessage(null);
+    searchProducts("");
+    filterByCategory("");
+  };
+
+  const handleBulkDeleteClick = () => {
+    // This will be handled by the modal in ProductsTable
+  };
+
+  const handleBulkDelete = async (productIds: number[]) => {
+    if (isDeleting) return;
+    
+    setIsDeleting(true);
+    setMessage(null);
+    
+    try {
+      const response = await fetch(`/api/shopowner/products?shopId=${shopId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete products');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setSelectedProducts([]);
+        await refreshProducts();
+        setMessage({
+          type: 'success',
+          text: `Successfully deleted ${result.deletedCount} product(s)`
+        });
+      }
+    } catch (error: any) {
+      setMessage({
+        type: 'error',
+        text: error.message || 'Failed to delete products'
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const hasActiveFilters = searchInput !== "" || categorySelect !== "";
 
   return (
-    <div className="p-6 font-[Poppins]">
-      {/* Stats Cards - Static (no skeleton needed) */}
+    <div className="p-6 font-[Poppins] relative">
       <StatsCards
         totalProducts={totalProducts}
         totalCategories={totalCategories}
@@ -108,9 +187,7 @@ export default function ProductsClient({
         </Link>
       </div>
 
-      {/* Search and Filter */}
       <div className="flex gap-4 my-4">
-        {/* Search input with icon */}
         <div className="flex-1 relative">
           <input
             type="text"
@@ -125,7 +202,6 @@ export default function ProductsClient({
           />
         </div>
 
-        {/* Category select */}
         <select
           value={categorySelect}
           onChange={handleCategoryChange}
@@ -139,12 +215,11 @@ export default function ProductsClient({
           ))}
         </select>
 
-        {/* Reset button - only show when filters are active */}
         {hasActiveFilters && (
           <Button
             onClick={handleReset}
             variant="secondary"
-            className="flex items-center  gap-2 px-4 h-[59px]"
+            className="flex items-center gap-2 px-4 h-[59px]"
           >
             <X size={18} />
             <span>Reset</span>
@@ -152,7 +227,38 @@ export default function ProductsClient({
         )}
       </div>
 
-      {/* Products Table with Skeleton Loader */}
+      {/* Message Banner - fixed at bottom in same position as bulk actions */}
+      {message && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-slideUp">
+          <div
+            ref={messageRef}
+            className={`flex items-center justify-between gap-4 px-6 py-3 rounded-full shadow-lg border ${
+              message.type === 'success' 
+                ? 'bg-green-50 border-green-200 text-green-700' 
+                : 'bg-red-50 border-red-200 text-red-600'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Icon 
+                icon={message.type === 'success' ? "mdi:check-circle" : "mdi:alert-circle"} 
+                className={`w-5 h-5 ${
+                  message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                }`} 
+              />
+              <span className="text-sm font-medium">{message.text}</span>
+            </div>
+            <button
+              onClick={() => setMessage(null)}
+              className={`p-1 rounded-full hover:bg-black/5 transition-colors ${
+                message.type === 'success' ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
+              <Icon icon="mdi:close" className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <ProductsTable
         products={products}
         loading={loading}
@@ -162,7 +268,24 @@ export default function ProductsClient({
         onSelectOne={handleSelectOne}
         loadMore={loadMoreProducts}
         hasMore={hasMore}
+        onBulkDelete={handleBulkDelete}
       />
+
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translate(-50%, 100%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

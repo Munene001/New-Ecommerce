@@ -10,7 +10,7 @@ interface Product {
   discount_price: number | null;
   in_stock: boolean;
   product_slug: string;
-  primary_image: string | null;  // ← ADDED primary image
+  primary_image: string | null;
   description?: string;
   created_at?: string;
 }
@@ -30,6 +30,7 @@ interface UseProductsReturn {
   goToPage: (page: number) => Promise<void>;
   loadMoreProducts: () => Promise<void>;
   resetProducts: () => void;
+  refreshProducts: () => Promise<void>; // Add this
 }
 
 export function useProducts(
@@ -90,6 +91,11 @@ export function useProducts(
     }
   }, [shopId]);
 
+  // Refresh - fetch current page with current filters
+  const refreshProducts = useCallback(async () => {
+    await fetchProducts(currentPage, currentSearch, currentCategory, false);
+  }, [currentPage, currentSearch, currentCategory, fetchProducts]);
+
   // Search - replaces products
   const searchProducts = async (term: string) => {
     setCurrentSearch(term);
@@ -133,11 +139,12 @@ export function useProducts(
     totalCount,
     hasMore,
     
-    // Actions
+    
     searchProducts,
     filterByCategory,
     goToPage,
     loadMoreProducts,
-    resetProducts
+    resetProducts,
+    refreshProducts 
   };
 }

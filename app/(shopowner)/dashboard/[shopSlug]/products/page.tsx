@@ -3,10 +3,10 @@ import { getConnection } from '@/lib/db';
 import ProductsClient from './components/productClient';
 
 interface PageProps {
-  params: Promise<{  // ← params is a Promise
+  params: Promise<{  
     shopSlug: string;
   }>;
-  searchParams: Promise<{  // ← searchParams is a Promise
+  searchParams: Promise<{  
     page?: string;
   }>;
 }
@@ -30,8 +30,7 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
     );
     
     if (!shopRows || (shopRows as any[]).length === 0) {
-      console.log('Shop not found for slug:', shopSlug); // Debug log
-      return <div>Shop not found</div>;
+      console.log('Shop not found for slug:', shopSlug); 
     }
     
     const shopId = (shopRows as any[])[0].shop_id;
@@ -94,7 +93,7 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
     
     const totalPages = Math.ceil(totalProducts / limit);
     
-    // 7. Get all categories for filter dropdown
+   
     const [categories] = await connection.query(
       'SELECT category_id, category_name FROM categories WHERE shop_id = ? ORDER BY category_name',
       [shopId]
@@ -107,20 +106,20 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
     // 8. Pass everything to client component
     return (
       <ProductsClient 
-        // Products data
+      
         initialProducts={initialProducts}
         shopId={shopId}
         shopSlug={shopSlug}
         initialPage={currentPage}
         totalPages={totalPages}
         
-        // Stats data
+     
         totalProducts={totalProducts}
         totalCategories={totalCategories}
         totalDiscounted={totalDiscounted}
         totalInstock={totalInstock}
         
-        // Categories for filter
+       
         categories={initialCategories}
       />
     );

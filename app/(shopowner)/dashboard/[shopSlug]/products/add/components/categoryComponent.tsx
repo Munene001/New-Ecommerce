@@ -92,7 +92,7 @@ export default function CategoryComponent({
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}
             placeholder="New category name"
-            className="bg-white border-gray-300 text-gray-900"
+            className="bg-white border-gray-300 !text-black placeholder-gray-600"
           />
         </div>
         <Button type="submit" variant="primary" loading={loading}>

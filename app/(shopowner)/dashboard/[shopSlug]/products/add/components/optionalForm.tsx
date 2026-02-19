@@ -12,6 +12,8 @@ interface OptionalFormProps {
   formData: any;
   setFormData: (data: any) => void;
   optionalAttributes: Attribute[];
+  onAddCategory?: (categoryId: number) => Promise<void>;  
+  onRemoveCategory?: (categoryId: number) => Promise<void>; 
 }
 
 export default function OptionalForm({
@@ -21,6 +23,8 @@ export default function OptionalForm({
   formData,
   setFormData,
   optionalAttributes,
+  onAddCategory,  // Make sure to receive these props
+  onRemoveCategory,
 }: OptionalFormProps) {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -30,7 +34,6 @@ export default function OptionalForm({
       return;
     }
 
-    // Handle event objects
     if (e && typeof e === "object" && "target" in e) {
       const { name, value, type } = e.target;
 
@@ -47,7 +50,6 @@ export default function OptionalForm({
     }
   };
 
-  // Specific handler for dropdown fields - returns a value
   const handleDropdownChange = (name: string) => (value: string | number) => {
     if (name.startsWith("attr.")) {
       const attrName = name.replace("attr.", "");
@@ -61,24 +63,19 @@ export default function OptionalForm({
     }
   };
 
-  // Wrapper for dropdown to match the expected FormField onChange type
   const createDropdownHandler = (name: string) => {
     const dropdownHandler = handleDropdownChange(name);
 
-    // Return a function that matches the expected signature
     return (e: React.ChangeEvent<any> | string | number) => {
-      // If it's a direct value (string or number), pass it directly
       if (typeof e === "string" || typeof e === "number") {
         dropdownHandler(e);
       }
-      // If it's an event, extract the value
       else if (e && typeof e === "object" && "target" in e) {
         dropdownHandler(e.target.value);
       }
     };
   };
 
-  // Handler for category dropdown - matches the expected type
   const handleCategoryChange = (
     e: React.ChangeEvent<any> | string | number
   ) => {
@@ -92,21 +89,16 @@ export default function OptionalForm({
 
     setSelectedCategoryId(catId);
 
-    if (catId && !formData.categoryIds.includes(catId)) {
-      setFormData({
-        ...formData,
-        categoryIds: [...formData.categoryIds, catId],
-      });
+    // Call the parent's addCategory function
+    if (catId && onAddCategory) {
+      onAddCategory(catId);
     }
   };
 
   const removeCategory = (catId: number) => {
-    setFormData({
-      ...formData,
-      categoryIds: formData.categoryIds.filter((id: number) => id !== catId),
-    });
-    if (selectedCategoryId === catId) {
-      setSelectedCategoryId("");
+    // Call the parent's removeCategory function
+    if (onRemoveCategory) {
+      onRemoveCategory(catId);
     }
   };
 
@@ -188,7 +180,7 @@ export default function OptionalForm({
               {selectedCategories.map((cat) => (
                 <div
                   key={cat.id}
-                  className="bg-three text-white px-3 py-1.5 rounded-full flex items-center gap-2 text-sm group hover:bg-gray-200 transition-colors"
+                  className="bg-three text-white px-3 py-1.5 rounded-full flex items-center gap-2 text-sm group  transition-colors"
                 >
                   <span>{cat.name}</span>
                   <button
