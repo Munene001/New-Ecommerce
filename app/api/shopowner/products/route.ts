@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/shopowner/products (unchanged)
+// POST /api/shopowner/products 
 export async function POST(req: NextRequest) {
   let connection;
   try {
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       attributes 
     } = await req.json();
 
-    // Validation
+  
     if (!shopId || !productName || !productSlug || !price || !attributes) {
       return NextResponse.json({ 
         error: 'Missing required fields: shopId, productName, productSlug, price, attributes' 
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
 
     connection = await getConnection();
 
-    // Get shop_type from shops table
+   
     const [shopRows] = await connection.query(
       'SELECT shop_type FROM shops WHERE shop_id = ?',
       [shopId]
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     
     const shopType = (shopRows as any[])[0].shop_type;
 
-    // Insert product with discount_price
+
     const [productResult] = await connection.query(
       `INSERT INTO products 
        (shop_id, shop_type, product_name, product_slug, description, price, discount_price, in_stock, attributes) 
@@ -164,6 +164,72 @@ export async function POST(req: NextRequest) {
     }
     
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
+  } finally {
+    if (connection) await connection.end();
+  }
+}
+
+// DELETE /api/shopowner/products - Bulk delete
+export async function DELETE(req: NextRequest) {
+  let connection;
+  try {
+    const { searchParams } = new URL(req.url);
+    const shopId = searchParams.get('shopId');
+    
+    // Get product IDs from request body
+    const { productIds } = await req.json();
+
+    if (!shopId) {
+      return NextResponse.json({ error: 'shopId required' }, { status: 400 });
+    }
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      return NextResponse.json({ error: 'Product IDs array required' }, { status: 400 });
+    }
+
+    connection = await getConnection();
+
+    // First, verify that all products belong to this shop
+    const [verification] = await connection.query(
+      `SELECT COUNT(*) as count FROM products 
+       WHERE product_id IN (?) AND shop_id = ?`,
+      [productIds, shopId]
+    );
+
+    const verifiedCount = (verification as any[])[0].count;
+    
+    if (verifiedCount !== productIds.length) {
+      return NextResponse.json({ 
+        error: 'Some products do not belong to this shop or do not exist' 
+      }, { status: 403 });
+    }
+
+    // Delete from product_categories first (foreign key constraint)
+    await connection.query(
+      'DELETE FROM product_categories WHERE product_id IN (?)',
+      [productIds]
+    );
+
+    // Delete product images
+    await connection.query(
+      'DELETE FROM product_images WHERE product_id IN (?)',
+      [productIds]
+    );
+
+    // Finally delete the products
+    const [result] = await connection.query(
+      'DELETE FROM products WHERE product_id IN (?) AND shop_id = ?',
+      [productIds, shopId]
+    );
+
+    return NextResponse.json({ 
+      success: true, 
+      deletedCount: productIds.length 
+    });
+
+  } catch (error) {
+    console.error('Bulk delete error:', error);
+    return NextResponse.json({ error: 'Failed to delete products' }, { status: 500 });
   } finally {
     if (connection) await connection.end();
   }

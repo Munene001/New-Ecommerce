@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { Icon } from "@iconify/react";
-import PrimaryForm from "./components/primaryForm";
-import OptionalForm from "./components/optionalForm";
-import ImagesForm from "./components/imagesForm";
-import CategoryComponent from "./components/categoryComponent";
-import ResultModal from "./components/resultModal";
-import { useProductForm } from "./hooks/useProductForm";
+import PrimaryForm from "../../add/components/primaryForm";
+import OptionalForm from "../../add/components/optionalForm";
+import ResultModal from "../../add/components/resultModal";
+import CategoryComponent from "../../add/components/categoryComponent";
 import Button from "@/app/components/ui/button";
+import { useProductUpdate } from "./hooks/useProductUpdate";
 
-export default function AddProductPage() {
+
+export default function UpdateProductPage() {
   const {
     activeIndex,
     sections,
@@ -32,6 +32,7 @@ export default function AddProductPage() {
     modalState,
     warningRef,
     showWarning,
+    isLoadingProduct,
 
     handleCategoryCreated,
     handleCategoryError,
@@ -39,9 +40,27 @@ export default function AddProductPage() {
     handlePrevious,
     handleTabClick,
     closeModal,
-  } = useProductForm();
+    addCategory,
+    removeCategory,
+  } = useProductUpdate();
 
   const renderComponent = () => {
+    if (isLoadingProduct) {
+      return (
+        <div className="space-y-4">
+         
+          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-6"></div>
+          <div className=" gap-6">
+            <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div className="h-32 bg-gray-200 rounded animate-pulse mt-4"></div>
+        </div>
+      );
+    }
+
     switch (activeIndex) {
       case 0:
         return (
@@ -62,15 +81,8 @@ export default function AddProductPage() {
             formData={formData}
             setFormData={setFormData}
             optionalAttributes={attributeSchema.filter((f) => !f.required)}
-          />
-        );
-      case 2:
-        return (
-          <ImagesForm
-            images={formData.images}
-            setImages={(images) => setFormData((prev) => ({ ...prev, images }))}
-            onError={(message) => showWarning(message, 'error')}
-           
+            onAddCategory={addCategory}        // Add this
+            onRemoveCategory={removeCategory}  
           />
         );
       default:
@@ -79,7 +91,7 @@ export default function AddProductPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 relative font-[Poppins]">
+    <div className=" relative min-h-screen bg-gray-50 p-6 font-[Poppins]">
       <ResultModal
         isOpen={modalState.isOpen}
         type={modalState.type}
@@ -100,7 +112,7 @@ export default function AddProductPage() {
 
       <div className="mb-8">
         <h1 className="text-3xl font-semibold text-black font-[Poppins]">
-          Add New Product
+          Update Product
         </h1>
         <p className="text-magenta-dark mt-2 font-[Poppins]">
           Shop: <span className="font-medium text-black">{shopSlug}</span> •
@@ -109,7 +121,10 @@ export default function AddProductPage() {
             {shopType || "Loading..."}
           </span>
         </p>
-       
+        <p className="text-black mt-2 font-[Poppins]">
+            To update the images you will have to delete this product and create a new one
+        
+        </p>
       </div>
 
       <div className="mb-8">
@@ -137,7 +152,7 @@ export default function AddProductPage() {
       {tabWarning && (
         <div
           ref={warningRef}
-          className={`mb-4 p-3 rounded-lg text-sm fixed bottom-6 left-1/2 transform -translate-x-1/2 w-auto   ${
+          className={`mb-4 p-3 rounded-lg text-sm fixed bottom-6 left-1/2 transform -translate-x-1/2 w-auto ${
             tabWarning.type === 'success' 
               ? 'bg-green-50 border border-green-200 text-green-700' 
               : 'bg-red-50 border border-red-200 text-red-600'
@@ -171,16 +186,13 @@ export default function AddProductPage() {
                   style={{ width: `${100 / sections.length}%` }}
                 >
                   {section}
-                  {index === 0 && (
-                    <span className="ml-1 text-red-500 text-xs">*</span>
-                  )}
                 </button>
               ))}
             </div>
 
             <div className="relative w-full h-[10px] bg-gray-400">
               <div
-                className="absolute h-[10px]  bg-magenta-dark rounded-full transition-all duration-300"
+                className="absolute h-[10px] bg-magenta-dark rounded-full transition-all duration-300"
                 style={{
                   width: `${100 / sections.length}%`,
                   left: `${(100 / sections.length) * activeIndex}%`,
@@ -210,16 +222,16 @@ export default function AddProductPage() {
 
         <button
           onClick={handleNext}
-          disabled={loading}
+          disabled={loading || isLoadingProduct}
           className="px-6 py-3 bg-black text-white rounded-lg font-[Poppins] text-sm font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300"
         >
           {loading ? (
             <span className="flex items-center gap-2">
               <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
-              Creating Product...
+              Updating Product...
             </span>
           ) : activeIndex === sections.length - 1 ? (
-            "Save Product"
+            "Update Product"
           ) : (
             "Next"
           )}
