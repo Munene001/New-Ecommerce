@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 import Image from "next/image";
 import { ProductImage } from "../types";
+import InstructionsList from "@/app/components/ui/instructionList";
 
 interface ImagesFormProps {
   images: ProductImage[];
@@ -11,7 +12,11 @@ interface ImagesFormProps {
   onError?: (message: string) => void; // Add this to show errors
 }
 
-export default function ImagesForm({ images, setImages, onError }: ImagesFormProps) {
+export default function ImagesForm({
+  images,
+  setImages,
+  onError,
+}: ImagesFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const additionalInputRef = useRef<HTMLInputElement>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -23,7 +28,7 @@ export default function ImagesForm({ images, setImages, onError }: ImagesFormPro
       const errorMsg = `Image "${file.name}" exceeds 5MB limit. Please choose a smaller file.`;
       setLocalError(errorMsg);
       if (onError) onError(errorMsg);
-      
+
       // Clear error after 5 seconds
       setTimeout(() => setLocalError(null), 5000);
       return false;
@@ -33,65 +38,68 @@ export default function ImagesForm({ images, setImages, onError }: ImagesFormPro
 
   const handlePrimaryImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalError(null);
-    
+
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
+
       // Validate file size
       if (!validateFileSize(file)) {
-        e.target.value = ''; // Clear the input
+        e.target.value = ""; // Clear the input
         return;
       }
-      
+
       const preview = URL.createObjectURL(file);
-      
+
       // Remove any existing primary image
-      const filteredImages = images.filter(img => !img.isPrimary);
-      
-      setImages([
-        { file, preview, isPrimary: true },
-        ...filteredImages
-      ]);
+      const filteredImages = images.filter((img) => !img.isPrimary);
+
+      setImages([{ file, preview, isPrimary: true }, ...filteredImages]);
     }
   };
 
   const handleAdditionalImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalError(null);
-    
+
     if (e.target.files) {
       const newImages: ProductImage[] = [];
       const remainingSlots = 6 - images.length;
       const files = Array.from(e.target.files);
-      
+
       // Check total slots first
       if (files.length > remainingSlots) {
-        const errorMsg = `You can only add ${remainingSlots} more image${remainingSlots !== 1 ? 's' : ''}.`;
+        const errorMsg = `You can only add ${remainingSlots} more image${
+          remainingSlots !== 1 ? "s" : ""
+        }.`;
         setLocalError(errorMsg);
         if (onError) onError(errorMsg);
         setTimeout(() => setLocalError(null), 5000);
-        e.target.value = '';
+        e.target.value = "";
         return;
       }
-      
+
       // Validate each file size
-      const invalidFiles = files.filter(file => file.size > MAX_FILE_SIZE);
+      const invalidFiles = files.filter((file) => file.size > MAX_FILE_SIZE);
       if (invalidFiles.length > 0) {
-        const fileNames = invalidFiles.map(f => `"${f.name}"`).join(', ');
-        const errorMsg = `${invalidFiles.length > 1 ? 'Files' : 'File'} ${fileNames} exceed${invalidFiles.length === 1 ? 's' : ''} 5MB limit.`;
+        const fileNames = invalidFiles.map((f) => `"${f.name}"`).join(", ");
+        const errorMsg = `${
+          invalidFiles.length > 1 ? "Files" : "File"
+        } ${fileNames} exceed${
+          invalidFiles.length === 1 ? "s" : ""
+        } 5MB limit.`;
         setLocalError(errorMsg);
         if (onError) onError(errorMsg);
         setTimeout(() => setLocalError(null), 5000);
-        e.target.value = '';
+        e.target.value = "";
         return;
       }
-      
+
       // Process valid files
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const preview = URL.createObjectURL(file);
         newImages.push({ file, preview, isPrimary: false });
       }
-      
+
       setImages([...images, ...newImages]);
     }
   };
@@ -107,37 +115,47 @@ export default function ImagesForm({ images, setImages, onError }: ImagesFormPro
   const setAsPrimary = (index: number) => {
     const newImages = images.map((img, i) => ({
       ...img,
-      isPrimary: i === index
+      isPrimary: i === index,
     }));
     setImages(newImages);
   };
 
-  const primaryImage = images.find(img => img.isPrimary);
-  const additionalImages = images.filter(img => !img.isPrimary);
+  const primaryImage = images.find((img) => img.isPrimary);
+  const additionalImages = images.filter((img) => !img.isPrimary);
 
   return (
-    <div className="space-y-6 bg-white p-6 rounded-lg">
-      <h2 className="text-lg font-semibold text-gray-800">Product Images</h2>
-      
-      {/* Instructions with better styling */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-magenta-dark space-y-1">
-        <p>• Maximum 6 images total</p>
-        <p>• No image should exceed <span className="font-semibold">5MB</span></p>
-        <p>• Primary image is the default image and will be presented to the customer as the main image.</p>
-        <p>• Clicking the star icon on an image makes it the primary image</p>
-      </div>
+    <div className="md:space-y-6 space-y-8 bg-white  md:p-6 rounded-lg">
+      <div className="text-xl font-semibold text-black">Product Images</div>
 
-   
-    
+      <InstructionsList
+        items={[
+          { text: "Maximum 6 images total" },
+          {
+            text: (
+              <>
+                No image should exceed{" "}
+                <span className="font-semibold">5MB</span>
+              </>
+            ),
+          },
+          {
+            text: "Primary image is the default image and will be presented to the customer as the main image.",
+          },
+          {
+            text: "Clicking the star icon on an image makes it the primary image",
+          },
+        ]}
+        variant="green"
+      />
 
       {/* Primary Image */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block md:text-sm text-[16px] font-medium text-gray-700">
           Primary Image <span className="text-red-500">*</span>
         </label>
-        
+
         {primaryImage ? (
-          <div className="relative w-48 h-48 border rounded-lg overflow-hidden group">
+          <div className="relative w-40 h-40 border rounded-lg overflow-hidden group">
             <Image
               src={primaryImage.preview}
               alt="Primary"
@@ -174,8 +192,13 @@ export default function ImagesForm({ images, setImages, onError }: ImagesFormPro
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors group"
             >
-              <Icon icon="mdi:cloud-upload" className="text-3xl text-gray-400 mx-auto mb-2 group-hover:text-blue-500" />
-              <span className="text-sm text-gray-600 group-hover:text-blue-500">Click to upload primary image</span>
+              <Icon
+                icon="mdi:cloud-upload"
+                className="text-3xl text-gray-400 mx-auto mb-2 group-hover:text-blue-500"
+              />
+              <span className="text-sm text-gray-600 group-hover:text-blue-500">
+                Click to upload primary image
+              </span>
             </button>
           </div>
         )}
@@ -183,10 +206,10 @@ export default function ImagesForm({ images, setImages, onError }: ImagesFormPro
 
       {/* Additional Images */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block md:text-sm text-[16px] font-medium text-gray-700">
           Additional Images ({additionalImages.length}/5)
         </label>
-        
+
         <input
           ref={additionalInputRef}
           type="file"
@@ -195,12 +218,15 @@ export default function ImagesForm({ images, setImages, onError }: ImagesFormPro
           onChange={handleAdditionalImages}
           className="hidden"
         />
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {additionalImages.map((image, idx) => {
             const originalIndex = images.indexOf(image);
             return (
-              <div key={idx} className="relative aspect-square border rounded-lg overflow-hidden group">
+              <div
+                key={idx}
+                className="relative aspect-square border rounded-lg overflow-hidden group "
+              >
                 <Image
                   src={image.preview}
                   alt={`Additional ${idx + 1}`}
@@ -232,13 +258,16 @@ export default function ImagesForm({ images, setImages, onError }: ImagesFormPro
               </div>
             );
           })}
-          
+
           {additionalImages.length < 5 && (
             <button
               onClick={() => additionalInputRef.current?.click()}
               className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-blue-500 hover:text-blue-500 transition-colors group"
             >
-              <Icon icon="mdi:plus" className="w-8 h-8 group-hover:scale-110 transition-transform" />
+              <Icon
+                icon="mdi:plus"
+                className="w-8 h-8 group-hover:scale-110 transition-transform"
+              />
               <span className="text-xs mt-1">Add More</span>
             </button>
           )}

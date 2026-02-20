@@ -55,7 +55,7 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuPr
   const handleLogout = () => { };
 
   return (
-    <nav className="space-y-3 mt-2 md:mt-0">
+    <nav className="space-y-3 ">
       <div className="">
         {navItems.map((item) => (
           <div key={item.href}>
@@ -65,6 +65,7 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuPr
               icon={item.icon}
               className=""
               onMenuClicked={() => onMenuClicked(false)}
+              
             />
           </div>
         ))}

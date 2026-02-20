@@ -24,17 +24,19 @@ export default function StatsCards({
       title: "Total Products", 
       value: totalProducts, 
       icon: Package, 
-      subtitle: `Showing ${currentShown}`,
+      subtitle: `Showing ${totalProducts}`,
     },
     { 
       title: "Categories", 
       value: totalCategories, 
       icon: Tag, 
+      subtitle: `Showing ${totalCategories}`,
     },
     { 
       title: "Discounted Products", 
       value: totalDiscounted, 
       icon: Percent, 
+      subtitle: ` ${totalProducts - totalDiscounted} not discounted`,
     },
     { 
       title: "In Stock", 
@@ -45,7 +47,7 @@ export default function StatsCards({
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 md:gap-4 gap-2 mb-8">
       {statsData.map((data) => (
         <DashCard
           key={data.title}

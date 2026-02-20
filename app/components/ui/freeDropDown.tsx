@@ -112,7 +112,7 @@ export default function FreeDropDown({
       <button
         type="button"
         onClick={handleButtonClick}
-        className="w-full rounded-[10px] bg-[#10323b]  h-[50px] px-3 text-left focus:outline-none focus:border-tunga-contrast-three focus:ring-1 focus:ring-tunga-contrast-three hover:border-tunga-contrast-three transition-colors flex items-center justify-between pr-10"
+        className="w-full rounded-[10px] bg-[#10323b]  md:h-[50px]  px-3 text-left focus:outline-none focus:border-tunga-contrast-three focus:ring-1 focus:ring-tunga-contrast-three hover:border-tunga-contrast-three transition-colors flex items-center justify-between pr-10"
       >
         {/* Text with overflow handling */}
         <span 

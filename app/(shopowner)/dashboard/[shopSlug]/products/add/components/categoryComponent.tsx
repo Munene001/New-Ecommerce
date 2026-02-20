@@ -87,7 +87,7 @@ export default function CategoryComponent({
      
       
       <div className="flex gap-2 items-start">
-        <div className="flex-1">
+        <div className="md:flex-1 ">
           <Input
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}

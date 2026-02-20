@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { Icon } from "@iconify/react";
 import { useState, useRef, useEffect } from "react";
@@ -65,8 +65,8 @@ export default function FormField({
     setIsOpen(false);
   };
 
-  // Base input classes
-  const baseInputClass = `w-full px-4 py-3 border ${error ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black disabled:bg-gray-100 disabled:cursor-not-allowed ${inputClassName}`;
+  // Base input classes - increased touch target on mobile
+  const baseInputClass = `w-full px-4 md:py-3 py-4 border ${error ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black disabled:bg-gray-100 disabled:cursor-not-allowed ${inputClassName}`;
 
   // Render different input types
   const renderInput = () => {
@@ -86,7 +86,7 @@ export default function FormField({
 
       case 'checkbox':
         return (
-          <label className="flex items-center gap-3 text-black font-[Poppins] cursor-pointer">
+          <label className="flex items-center gap-3 text-black font-[Poppins] cursor-pointer min-h-[44px]">
             <input
               type="checkbox"
               name={name}
@@ -95,7 +95,7 @@ export default function FormField({
               disabled={disabled}
               className="w-5 h-5 text-black border-gray-300 rounded focus:ring-black disabled:cursor-not-allowed"
             />
-            <span className="text-sm">{placeholder || 'Yes'}</span>
+            <span className="text-sm md:text-base">{placeholder || 'Yes'}</span>
           </label>
         );
 
@@ -119,16 +119,16 @@ export default function FormField({
               ))}
             </select>
 
-            {/* Custom dropdown button */}
+            {/* Custom dropdown button - bigger touch target on mobile */}
             <button
               type="button"
               onClick={() => !disabled && setIsOpen(!isOpen)}
               disabled={disabled}
-              className={`${baseInputClass} text-left flex items-center justify-between ${
+              className={`${baseInputClass} text-left flex items-center justify-between min-h-[52px] md:min-h-[44px] ${
                 isOpen ? 'ring-2 ring-black border-transparent' : ''
               }`}
             >
-              <span className={`truncate ${!selectedOption ? 'text-gray-400' : 'text-gray-900'}`}>
+              <span className={`truncate text-[16px] ${!selectedOption ? 'text-gray-400' : 'text-gray-900'}`}>
                 {selectedOption ? selectedOption.name : placeholder || 'Select an option'}
               </span>
               <Icon
@@ -137,27 +137,26 @@ export default function FormField({
               />
             </button>
 
-            {/* Dropdown menu */}
+            {/* Dropdown menu - full width on mobile with better touch targets */}
             {isOpen && !disabled && (
               <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden animate-fadeIn">
-                {/* Options with better styling */}
                 <div className="max-h-60 overflow-y-auto py-1 bg-blue-700/10">
                   {options.length > 0 ? (
                     options.map((option) => (
                       <div
                         key={option.id}
                         onClick={() => handleSelect(option.id)}
-                        className={`px-4 py-2.5 text-sm cursor-pointer transition-all duration-150 ${
+                        className={`px-4 py-4 md:py-2.5 text-[16px] cursor-pointer transition-all duration-150 min-h-[52px] md:min-h-[44px] flex items-center ${
                           value === option.id 
-                            ? ' text-black text-[16px] font-medium hover:bg-three  border-b border-black/10' 
-                            : 'text-black text-[16px] font-medium hover:bg-three hover:pl-5 border-b border-black/10'
+                            ? 'text-black font-medium hover:bg-three border-b border-black/10' 
+                            : 'text-black font-medium hover:bg-three hover:pl-5 border-b border-black/10'
                         }`}
                       >
                         {option.name}
                       </div>
                     ))
                   ) : (
-                    <div className="px-4 py-3 text-sm text-gray-400 text-center italic">
+                    <div className="px-4 py-4 text-sm text-gray-400 text-center italic min-h-[52px] flex items-center justify-center">
                       No options available
                     </div>
                   )}
@@ -176,7 +175,7 @@ export default function FormField({
             onChange={onChange as React.ChangeEventHandler}
             placeholder={placeholder}
             disabled={disabled}
-            className={baseInputClass}
+            className={`${baseInputClass} min-h-[52px] md:min-h-[44px]`}
           />
         );
     }
@@ -185,14 +184,14 @@ export default function FormField({
   return (
     <div className={className}>
       {label && type !== 'checkbox' && (
-        <label className={`block text-sm font-medium text-black mb-1 ${labelClassName}`}>
+        <label className={`block md:text-sm text-[16px] font-medium text-black mb-2 ${labelClassName}`}>
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       {renderInput()}
       {error && type !== 'select' && (
-        <p className="mt-1 text-sm text-red-500">{error}</p>
+        <p className="mt-2 text-sm text-red-500">{error}</p>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import BulkActions from "@/app/components/ui/bulkAction";
 
 interface ProductsTableProps {
   products: any[];
@@ -62,8 +63,9 @@ export default function ProductsTable({
   const router = useRouter();
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [actionValues, setActionValues] = useState<Record<number, string | number>>({});
-
+  const [actionValues, setActionValues] = useState<
+    Record<number, string | number>
+  >({});
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastProductRef = useCallback(
@@ -82,9 +84,7 @@ export default function ProductsTable({
     [loading, hasMore, loadMore]
   );
 
-  useEffect(() => {
-    setShowBulkActions(selectedProducts.length > 0);
-  }, [selectedProducts]);
+ 
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -125,7 +125,7 @@ export default function ProductsTable({
   };
 
   const handleActionChange = (value: string | number, productId: number) => {
-    setActionValues(prev => ({ ...prev, [productId]: value }));
+    setActionValues((prev) => ({ ...prev, [productId]: value }));
     if (value === "update") {
       router.push(`/dashboard/${shopSlug}/products/${productId}/update`);
     } else if (value === "delete") {
@@ -139,185 +139,174 @@ export default function ProductsTable({
         }
       }
 
-      
       onSelectOne(productId);
-
-     
     }
     setTimeout(() => {
-      setActionValues(prev => ({ ...prev, [productId]: "" }));
+      setActionValues((prev) => ({ ...prev, [productId]: "" }));
     }, 1000);
   };
 
   return (
-    <div className="w-full relative">
-      {showBulkActions && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-auto flex items-center justify-between bg-white shadow-lg rounded-full border border-gray-200 px-6 gap-4 py-3 animate-slideUp z-50">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">
-              {selectedProducts.length}{" "}
-              {selectedProducts.length === 1 ? "product" : "products"} selected
-            </span>
-            <button
-              onClick={handleClearSelection}
-              className="text-sm text-gray-500 hover:text-gray-700 underline"
-            >
-              Clear selection
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleBulkDeleteClick}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors text-sm font-medium shadow-sm"
-            >
-              <Icon icon="mdi:delete" className="w-4 h-4" />
-              Delete Selected
-            </button>
-          </div>
-        </div>
-      )}
+    <div className="md:w-full relative">
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedCount={selectedProducts.length}
+        onClearSelection={handleClearSelection}
+        onDelete={handleBulkDeleteClick}
+      />
 
-      <div className="flex flex-row border-b border-[#294248] h-[52px] items-center text-[#4B5563] font-medium text-sm min-w-full bg-gray-50">
-        <div className="w-[5.7%] px-4">
-          <input
-            type="checkbox"
-            className="rounded border-gray-300 text-[#0FA965] focus:ring-[#0FA965]"
-            checked={
-              selectedProducts.length === products.length && products.length > 0
-            }
-            onChange={onSelectAll}
-          />
-        </div>
-        <div className="w-[13.5%]">Image</div>
-        <div className="w-[21%]">Product Name</div>
-        <div className="w-[12%]">Price(ksh)</div>
-        <div className="w-[12%]">Discount</div>
-        <div className="w-[12%]">Stock</div>
-        <div className="w-[11%]">Created</div>
-        <div className="w-[9.5%]">Actions</div>
-      </div>
-
-      {loading && products.length === 0 ? (
-        <div className="mt-2">
-          <SkeletonRow />
-          <SkeletonRow />
-          <SkeletonRow />
-          <SkeletonRow />
-          <SkeletonRow />
-        </div>
-      ) : products.length > 0 ? (
-        <div className="mt-2">
-          {products.map((product, index) => (
-            <div
-              key={product.product_id}
-              ref={index === products.length - 1 ? lastProductRef : null}
-              className="flex flex-row border-b border-[#294248] h-[72px] items-center hover:bg-gray-50 transition-colors min-w-full"
-            >
-              <div className="w-[5.7%] px-4">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300 text-[#0FA965] focus:ring-[#0FA965]"
-                  checked={selectedProducts.includes(product.product_id)}
-                  onChange={() => onSelectOne(product.product_id)}
-                />
-              </div>
-
-              <div className="w-[13.5%]">
-                {product.images && product.images.length > 0 ? (
-                  <div
-                    className="w-[98px] h-[67px] bg-gray-100 rounded-sm overflow-hidden"
-                    style={{
-                      backgroundImage: `url(/api/shopowner/products/${product.product_id}/images/primary?w=200)`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  />
-                ) : (
-                  <div className="w-[98px] h-[67px] bg-gray-100 rounded-sm flex items-center justify-center text-gray-400">
-                    <Icon icon="mdi:image-off" className="w-6 h-6" />
-                  </div>
-                )}
-              </div>
-
-              <div className="w-[21%] pr-4">
-                <div className="font-medium text-gray-900">
-                  {product.product_name}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {product.product_slug}
-                </div>
-              </div>
-
-              <div className="w-[12%] pr-4">
-                <div className="text-gray-900 font-medium">{product.price}</div>
-              </div>
-
-              <div className="w-[12%] pr-4">
-                {product.discount_price ? (
-                  <div className="text-[#0FA965] font-medium">
-                    ${product.discount_price}
-                  </div>
-                ) : (
-                  <div className="text-gray-400">—</div>
-                )}
-              </div>
-
-              <div className="w-[12%]">
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStockColor(
-                    product.in_stock
-                  )}`}
-                >
-                  {product.in_stock ? "In Stock" : "Out of Stock"}
-                </span>
-              </div>
-
-              <div className="w-[11%] px-2 text-gray-500 text-sm">
-                {formatDate(product.created_at)}
-              </div>
-
-              {/* Actions with FormField Dropdown */}
-              <div className="w-[9.5%]">
-                <select
-                  className="border rounded-sm p-1"
-                  value={actionValues[product.product_id] || ""}
-                  onChange={(e) =>
-                    handleActionChange(e.target.value, product.product_id)
-                  }
-                >
-                  <option className="text-black/90" value="">Actions</option>
-                  <option value="update">Update</option>
-                  <option value="delete">Delete</option>
-                </select>
-              </div>
-            </div>
-          ))}
-
-          {loading && products.length > 0 && (
-            <div className="flex justify-center items-center py-4">
-              <Icon
-                icon="mdi:loading"
-                className="animate-spin w-6 h-6 text-magenta-dark"
+      {/* Add this wrapper div for horizontal scroll on mobile */}
+      <div className="w-full overflow-x-auto">
+        <div className="min-w-[900px] md:min-w-full">
+          {/* Table header */}
+          <div className="flex flex-row border-b border-[#294248] h-[52px] items-center text-[#4B5563] font-medium text-sm bg-gray-50">
+            <div className="w-[5.7%] px-4">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300 text-[#0FA965] focus:ring-[#0FA965]"
+                checked={
+                  selectedProducts.length === products.length &&
+                  products.length > 0
+                }
+                onChange={onSelectAll}
               />
             </div>
-          )}
+            <div className="w-[13.5%]">Image</div>
+            <div className="w-[21%]">Product Name</div>
+            <div className="w-[12%]">Price(ksh)</div>
+            <div className="w-[12%]">Discount</div>
+            <div className="w-[12%]">Stock</div>
+            <div className="w-[11%]">Created</div>
+            <div className="w-[9.5%]">Actions</div>
+          </div>
 
-          {!hasMore && products.length > 0 && (
-            <div className="text-center py-4 text-gray-500">
-              No more products to load
+          {/* Table content */}
+          {loading && products.length === 0 ? (
+            <div className="mt-2">
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+            </div>
+          ) : products.length > 0 ? (
+            <div className="mt-2">
+              {products.map((product, index) => (
+                <div
+                  key={product.product_id}
+                  ref={index === products.length - 1 ? lastProductRef : null}
+                  className="flex flex-row border-b border-[#294248] h-[72px] items-center hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-[5.7%] px-4">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-[#0FA965] focus:ring-[#0FA965]"
+                      checked={selectedProducts.includes(product.product_id)}
+                      onChange={() => onSelectOne(product.product_id)}
+                    />
+                  </div>
+
+                  <div className="w-[13.5%]">
+                    {product.images && product.images.length > 0 ? (
+                      <div
+                        className="w-[98px] h-[67px] bg-gray-100 rounded-sm overflow-hidden"
+                        style={{
+                          backgroundImage: `url(/api/shopowner/products/${product.product_id}/images/primary?w=200)`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }}
+                      />
+                    ) : (
+                      <div className="w-[98px] h-[67px] bg-gray-100 rounded-sm flex items-center justify-center text-gray-400">
+                        <Icon icon="mdi:image-off" className="w-6 h-6" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-[21%] pr-4">
+                    <div className="font-medium text-gray-900">
+                      {product.product_name}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {product.product_slug}
+                    </div>
+                  </div>
+
+                  <div className="w-[12%] pr-4">
+                    <div className="text-gray-900 font-medium">
+                      {product.price}
+                    </div>
+                  </div>
+
+                  <div className="w-[12%] pr-4">
+                    {product.discount_price ? (
+                      <div className="text-[#0FA965] font-medium">
+                        ${product.discount_price}
+                      </div>
+                    ) : (
+                      <div className="text-gray-400">—</div>
+                    )}
+                  </div>
+
+                  <div className="w-[12%]">
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStockColor(
+                        product.in_stock
+                      )}`}
+                    >
+                      {product.in_stock ? "In Stock" : "Out of Stock"}
+                    </span>
+                  </div>
+
+                  <div className="w-[11%] px-2 text-gray-500 text-sm">
+                    {formatDate(product.created_at)}
+                  </div>
+
+                  <div className="w-[9.5%]">
+                    <select
+                      className="border rounded-sm p-1"
+                      value={actionValues[product.product_id] || ""}
+                      onChange={(e) =>
+                        handleActionChange(e.target.value, product.product_id)
+                      }
+                    >
+                      <option className="text-black/90" value="">
+                        Actions
+                      </option>
+                      <option value="update">Update</option>
+                      <option value="delete">Delete</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+
+              {loading && products.length > 0 && (
+                <div className="flex justify-center items-center py-4">
+                  <Icon
+                    icon="mdi:loading"
+                    className="animate-spin w-6 h-6 text-magenta-dark"
+                  />
+                </div>
+              )}
+
+              {!hasMore && products.length > 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No more products to load
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col justify-center items-center h-64 text-gray-500">
+              <Icon
+                icon="mdi:package-variant"
+                className="w-16 h-16 mb-4 text-gray-400"
+              />
+              <p className="text-lg font-medium">No products found</p>
+              <p className="text-sm">Try adjusting your search or filter</p>
             </div>
           )}
         </div>
-      ) : (
-        <div className="flex flex-col justify-center items-center h-64 text-gray-500">
-          <Icon
-            icon="mdi:package-variant"
-            className="w-16 h-16 mb-4 text-gray-400"
-          />
-          <p className="text-lg font-medium">No products found</p>
-          <p className="text-sm">Try adjusting your search or filter</p>
-        </div>
-      )}
+      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
