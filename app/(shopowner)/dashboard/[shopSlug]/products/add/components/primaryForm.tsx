@@ -3,6 +3,7 @@
 import { Icon } from "@iconify/react";
 import FormField from "@/app/components/ui/formField";
 import { Attribute } from "../types";
+import InstructionsList from "@/app/components/ui/instructionList";
 
 interface PrimaryFormProps {
   formData: any;
@@ -106,24 +107,29 @@ export default function PrimaryForm({
   const hasRequiredAttributes = requiredAttributes.length > 0;
 
   return (
-    <div className="space-y-6 font-[Poppins]">
+    <div className="md:space-y-6 space-y-8 font-[Poppins]">
       <div>
-        <h2 className="text-xl font-semibold text-black mb-1">
+        <div className="text-xl font-semibold text-black mb-1">
           Primary Details
-        </h2>
+        </div>
       </div>
-      <div className="bg-green-50  leading-[18px] rounded-lg p-4 text-[16px] text-black/90 space-y-2">
-        <p>
-          • All <span className="text-red-500">*</span> fields are required
-          (only description and discount price are optional)
-        </p>
-        <p>
-          • Discount price becomes the customer-facing price - must be less than
-          regular price
-        </p>
-        <p>• Product name and slug are automatically synced</p>
-      </div>
-
+      <InstructionsList
+        items={[
+          {
+            text: (
+              <>
+                All <span className="text-red-500">*</span> fields are required
+                (only description and discount price are optional)
+              </>
+            ),
+          },
+          {
+            text: "Discount price becomes the customer-facing price - must be less than regular price",
+          },
+          { text: "Product name and slug are automatically synced" },
+        ]}
+        variant="green"
+      />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Product Name */}
         <FormField

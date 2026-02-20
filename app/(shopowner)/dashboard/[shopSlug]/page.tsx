@@ -1,23 +1,54 @@
 "use client"
 
 import Link from "next/link";
-import { CheckCircle, ExternalLink, ShoppingCart, CreditCard, Palette, Share2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { CheckCircle, ExternalLink, ShoppingCart, CreditCard, Palette, Share2, MonitorSmartphone, Monitor } from "lucide-react";
+import { useState } from "react";
 
-interface DashboardPageProps {
-  params: {
-    shopSlug: string;
+export default function Dashboard() {
+  const params = useParams();
+  const shopSlug = params?.shopSlug as string;
+  const [showShareTooltip, setShowShareTooltip] = useState(false);
+
+  // Guard against undefined shopSlug
+  if (!shopSlug) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#0FA965] border-r-transparent"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'My Shop',
+      text: 'Check out my shop',
+      url: `https://thamanitech.com/shop/${shopSlug}`,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log('Share cancelled');
+      }
+    } else {
+      // Fallback - copy to clipboard
+      navigator.clipboard.writeText(`https://thamanitech.com/shop/${shopSlug}`);
+      setShowShareTooltip(true);
+      setTimeout(() => setShowShareTooltip(false), 2000);
+    }
   };
-}
-
-export default function Dashboard({ params }: DashboardPageProps) {
-  const { shopSlug } = params;
 
   const guides = [
     {
       icon: ShoppingCart,
       title: "Add Your First Product",
       description: "Start by uploading your products with clear images, competitive prices, and detailed descriptions.",
-      link: `/dashboard/${shopSlug}/products/add`,
+      link: `/dashboard/${shopSlug}/products`,
       linkText: "Products →"
     },
     {
@@ -52,19 +83,59 @@ export default function Dashboard({ params }: DashboardPageProps) {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto font-[Poppins] p-4">
-      {/* Welcome Header */}
-      <div className="text-center mb-12">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-[#0FA965]/10 rounded-full mb-6">
-          <CheckCircle className="w-10 h-10 text-[#0FA965]" />
+    <div className="max-w-4xl mx-auto font-[Poppins] md:p-4 px-2 py-4">
+      {/* Mobile Notice - visible only on mobile */}
+      <div className="md:hidden bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+        <MonitorSmartphone className="w-9 h-9 text-amber-600  mt-0.5" />
+        <div className="text-sm text-amber-800">
+          <p className="font-medium mb-1">Mobile View</p>
+          <p>For the best dashboard experience with full features, please use a computer or laptop.</p>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Welcome to Your Shop Dashboard
-        </h1>
-        <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-          Your shop <span className="font-semibold text-[#0FA965]">{shopSlug}</span> is ready. 
-          Here's how to set everything up:
-        </p>
+      </div>
+
+      <div className="bg-black bg-[url('/assets/mazehex4.svg')] rounded-xl p-6 mb-8 relative">
+        {/* Desktop Notice - visible only on desktop */}
+        <div className="hidden md:flex absolute top-4 right-4 items-center gap-2 text-white/60 text-xs">
+          <Monitor className="w-4 h-4" />
+          <span>Best dashboard view on desktop</span>
+        </div>
+
+        <div className="text-center">
+          <p className="text-white mb-4 font-medium text-2xl">Your shop is live and ready for customers:</p>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white/10 rounded-lg p-3 mb-3">
+            <Link 
+              href={`/shop/${shopSlug}`}
+              target="_blank"
+              className="text-white hover:underline font-medium text-sm sm:text-base break-all"
+            >
+              thamanitech.com/shop/{shopSlug}
+            </Link>
+            
+            {/* Share Button */}
+            <div className="relative">
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-2 bg-[#0FA965] hover:bg-[#0c8a52] text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Share Shop</span>
+                <span className="sm:hidden">Share</span>
+              </button>
+              
+              {/* Tooltip for copy fallback */}
+              {showShareTooltip && (
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-gray-900 text-white text-xs py-1 px-2 rounded whitespace-nowrap">
+                  Link copied!
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <p className="text-white/80 text-sm">
+            Share this link on social media, WhatsApp, or with your contacts
+          </p>
+        </div>
       </div>
 
       {/* Guide Cards */}
@@ -78,15 +149,13 @@ export default function Dashboard({ params }: DashboardPageProps) {
             >
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center">
-                    <Icon className="w-6 h-6 text-gray-700" />
-                  </div>
+                  <Icon className="w-8 h-8 text-[#0FA965]" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     {guide.title}
                   </h3>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-800 mb-4">
                     {guide.description}
                   </p>
                   <Link
@@ -118,26 +187,6 @@ export default function Dashboard({ params }: DashboardPageProps) {
             </Link>
           ))}
         </div>
-      </div>
-
-      {/* Shop URL Display */}
-      <div className="bg-[#0FA965]/5 border border-[#0FA965]/20 rounded-xl p-6 text-center">
-        <p className="text-gray-700 mb-3 font-medium">Your shop is live and ready for customers:</p>
-        <div className="inline-flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-4 py-3">
-          <span className="text-gray-800 font-medium">
-            thamanitech.com/shop/{shopSlug}
-          </span>
-          <Link 
-            href={`/shop/${shopSlug}`}
-            target="_blank"
-            className="text-[#0FA965] hover:underline ml-3 font-medium"
-          >
-            Preview Shop
-          </Link>
-        </div>
-        <p className="text-gray-500 text-sm mt-3">
-          Share this link on social media, WhatsApp, or with your contacts
-        </p>
       </div>
     </div>
   );

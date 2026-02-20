@@ -1,6 +1,7 @@
 "use client";
 import * as React from 'react'
 import { createContext, useContext, useState, useEffect } from "react";
+import DashboardSkeleton from '../components/layout/skeletonDash';
 
 interface ShopData {
   shopId: number;
@@ -21,9 +22,18 @@ export function ShopProvider({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Don't fetch if shopSlug is undefined or empty
+    if (!shopSlug) {
+      setLoading(false);
+      return;
+    }
+
     const fetchShopData = async () => {
       try {
         const res = await fetch(`/api/shops/${shopSlug}`);
+        if (!res.ok) {
+          throw new Error('Shop not found');
+        }
         const data = await res.json();
         setShopData({
           shopId: data.shop_id,
@@ -32,6 +42,7 @@ export function ShopProvider({
         });
       } catch (error) {
         console.error("Failed to fetch shop:", error);
+        setShopData(null);
       } finally {
         setLoading(false);
       }
@@ -40,12 +51,15 @@ export function ShopProvider({
     fetchShopData();
   }, [shopSlug]);
 
-  // Don't render children until we have shop data
-  if (loading) {
-    return <div>Loading shop...</div>; // Or a loading spinner
+  // Show loading only when we have a shopSlug and are fetching
+  if (loading && shopSlug) {
+    return <DashboardSkeleton />;
   }
 
-  
+  // If no shopSlug or shop not found, show error or redirect
+  if (!shopSlug || !shopData) {
+    return <div>Shop not found</div>;
+  }
 
   return (
     <ShopContext.Provider value={shopData}>

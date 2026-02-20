@@ -8,6 +8,7 @@ import Button from "@/app/components/ui/button";
 import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import SimpleToast from "@/app/components/ui/simpleToast";
 
 interface ProductsClientProps {
   initialProducts: any[];
@@ -166,7 +167,7 @@ export default function ProductsClient({
   const hasActiveFilters = searchInput !== "" || categorySelect !== "";
 
   return (
-    <div className="p-6 font-[Poppins] relative">
+    <div className="md:p-4 px-2  py-6 font-[Poppins] relative">
       <StatsCards
         totalProducts={totalProducts}
         totalCategories={totalCategories}
@@ -187,77 +188,50 @@ export default function ProductsClient({
         </Link>
       </div>
 
-      <div className="flex gap-4 my-4">
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            placeholder="Search products..."
-            value={searchInput}
-            onChange={handleSearch}
-            className="w-full border border-black/70 px-4 h-[59px] pl-13 rounded bg-white text-black placeholder-black/80"
-          />
-          <Icon
-            icon="mdi:magnify"
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-three w-7 h-7"
-          />
-        </div>
+      <div className="flex gap-4 my-4 overflow-x-auto pb-2 md:pb-0">
+  {/* Search input - fixed width on mobile, flexible on desktop */}
+  <div className="flex-1 min-w-[280px] md:min-w-0 relative">
+    <input
+      type="text"
+      placeholder="Search products..."
+      value={searchInput}
+      onChange={handleSearch}
+      className="w-full border border-black/70 px-4 h-[59px] pl-13 rounded bg-white text-black placeholder-black/80"
+    />
+    <Icon
+      icon="mdi:magnify"
+      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-three w-7 h-7"
+    />
+  </div>
 
-        <select
-          value={categorySelect}
-          onChange={handleCategoryChange}
-          className="w-64 border h-[59px] px-4 rounded focus:outline-none focus:ring-1 focus:ring-magenta-dark"
-        >
-          <option value="">All Categories</option>
-          {categories.map((cat) => (
-            <option key={cat.category_id} value={cat.category_id}>
-              {cat.category_name}
-            </option>
-          ))}
-        </select>
+  {/* Category select - fixed width on mobile */}
+  <select
+    value={categorySelect}
+    onChange={handleCategoryChange}
+    className="w-48 md:w-64 border h-[59px] px-4 rounded focus:outline-none focus:ring-1 focus:ring-magenta-dark flex-shrink-0"
+  >
+    <option value="">All Categories</option>
+    {categories.map((cat) => (
+      <option key={cat.category_id} value={cat.category_id}>
+        {cat.category_name}
+      </option>
+    ))}
+  </select>
 
-        {hasActiveFilters && (
-          <Button
-            onClick={handleReset}
-            variant="secondary"
-            className="flex items-center gap-2 px-4 h-[59px]"
-          >
-            <X size={18} />
-            <span>Reset</span>
-          </Button>
-        )}
-      </div>
+  {/* Reset button - fixed width on mobile */}
+  {hasActiveFilters && (
+    <Button
+      onClick={handleReset}
+      variant="secondary"
+      className="flex items-center gap-2 px-4 h-[59px] flex-shrink-0"
+    >
+      <X size={18} />
+      <span>Reset</span>
+    </Button>
+  )}
+</div>
 
-      {/* Message Banner - fixed at bottom in same position as bulk actions */}
-      {message && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-slideUp">
-          <div
-            ref={messageRef}
-            className={`flex items-center justify-between gap-4 px-6 py-3 rounded-full shadow-lg border ${
-              message.type === 'success' 
-                ? 'bg-green-50 border-green-200 text-green-700' 
-                : 'bg-red-50 border-red-200 text-red-600'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Icon 
-                icon={message.type === 'success' ? "mdi:check-circle" : "mdi:alert-circle"} 
-                className={`w-5 h-5 ${
-                  message.type === 'success' ? 'text-green-600' : 'text-red-600'
-                }`} 
-              />
-              <span className="text-sm font-medium">{message.text}</span>
-            </div>
-            <button
-              onClick={() => setMessage(null)}
-              className={`p-1 rounded-full hover:bg-black/5 transition-colors ${
-                message.type === 'success' ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              <Icon icon="mdi:close" className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+<SimpleToast message={message} onClose={() => setMessage(null)} />
 
       <ProductsTable
         products={products}

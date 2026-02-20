@@ -9,6 +9,7 @@ import CategoryComponent from "./components/categoryComponent";
 import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
 import Button from "@/app/components/ui/button";
+import SimpleToast from "@/app/components/ui/simpleToast";
 
 export default function AddProductPage() {
   const {
@@ -69,8 +70,7 @@ export default function AddProductPage() {
           <ImagesForm
             images={formData.images}
             setImages={(images) => setFormData((prev) => ({ ...prev, images }))}
-            onError={(message) => showWarning(message, 'error')}
-           
+            onError={(message) => showWarning(message, "error")}
           />
         );
       default:
@@ -91,7 +91,7 @@ export default function AddProductPage() {
       <div className="mb-6">
         <Link
           href={`/dashboard/${shopSlug}/products`}
-          className="inline-flex items-center text-gray-700 hover:text-black transition-colors font-[Poppins]"
+          className="inline-flex items-center text-gray-700 hover:text-black text-[16px] transition-colors font-[Poppins]"
         >
           <Icon icon="mdi:arrow-left" className="w-5 h-5 mr-2" />
           Back to Products
@@ -102,14 +102,13 @@ export default function AddProductPage() {
         <h1 className="text-3xl font-semibold text-black font-[Poppins]">
           Add New Product
         </h1>
-        <p className="text-magenta-dark mt-2 font-[Poppins]">
+        <p className=" hidden md:block text-magenta-dark mt-2 font-[Poppins]">
           Shop: <span className="font-medium text-black">{shopSlug}</span> •
           Type:{" "}
           <span className="font-medium text-black">
             {shopType || "Loading..."}
           </span>
         </p>
-       
       </div>
 
       <div className="mb-8">
@@ -134,30 +133,11 @@ export default function AddProductPage() {
         )}
       </div>
 
-      {tabWarning && (
-        <div
-          ref={warningRef}
-          className={`mb-4 p-3 rounded-lg text-sm fixed bottom-6 left-1/2 transform -translate-x-1/2 w-auto   ${
-            tabWarning.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-700' 
-              : 'bg-red-50 border border-red-200 text-red-600'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Icon 
-              icon={tabWarning.type === 'success' ? "mdi:check-circle" : "mdi:alert-circle"} 
-              className={`w-4 h-4 ${
-                tabWarning.type === 'success' ? 'text-green-600' : 'text-red-600'
-              }`} 
-            />
-            {tabWarning.text}
-          </div>
-        </div>
-      )}
+      <SimpleToast message={tabWarning} onClose={() => {}} />
 
       <div className="w-full mb-8">
         <div className="flex">
-          <div className="w-[75%]">
+          <div className="md:w-[75%] w-full">
             <div className="flex justify-between mb-1">
               {sections.map((section, index) => (
                 <button
@@ -191,7 +171,7 @@ export default function AddProductPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm md:p-6 px-3 py-6">
         {renderComponent()}
       </div>
 

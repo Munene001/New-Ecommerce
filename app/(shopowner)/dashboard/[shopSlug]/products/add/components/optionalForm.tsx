@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import FormField from "@/app/components/ui/formField";
 import { Category, Attribute } from "../types";
+import InstructionsList from "@/app/components/ui/instructionList";
 
 interface OptionalFormProps {
   categories: Category[];
@@ -12,8 +13,8 @@ interface OptionalFormProps {
   formData: any;
   setFormData: (data: any) => void;
   optionalAttributes: Attribute[];
-  onAddCategory?: (categoryId: number) => Promise<void>;  
-  onRemoveCategory?: (categoryId: number) => Promise<void>; 
+  onAddCategory?: (categoryId: number) => Promise<void>;
+  onRemoveCategory?: (categoryId: number) => Promise<void>;
 }
 
 export default function OptionalForm({
@@ -23,7 +24,7 @@ export default function OptionalForm({
   formData,
   setFormData,
   optionalAttributes,
-  onAddCategory,  // Make sure to receive these props
+  onAddCategory, // Make sure to receive these props
   onRemoveCategory,
 }: OptionalFormProps) {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
@@ -69,8 +70,7 @@ export default function OptionalForm({
     return (e: React.ChangeEvent<any> | string | number) => {
       if (typeof e === "string" || typeof e === "number") {
         dropdownHandler(e);
-      }
-      else if (e && typeof e === "object" && "target" in e) {
+      } else if (e && typeof e === "object" && "target" in e) {
         dropdownHandler(e.target.value);
       }
     };
@@ -119,21 +119,26 @@ export default function OptionalForm({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 md:space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800">
-          Optional Details
-        </h2>
+        <div className="text-xl font-semibold text-black">Optional Details</div>
       </div>
-      <div className="bg-green-50 border border-blue-200 rounded-lg p-4 text-sm text-magenta-dark space-y-1">
-        <p>• Fill details that apply.</p>
-        <p>
-          • Create a category with the button{" "}
-          <span className="font-semibold">"Add New Category"</span> at the top,
-          before selecting a category below to group your products.
-        </p>
-        <p>• A product can be in more than one category</p>
-      </div>
+      <InstructionsList
+        items={[
+          { text: "Fill details that apply." },
+          {
+            text: (
+              <>
+                Create a category with the button{" "}
+                <span className="font-semibold">"Add New Category"</span> at the
+                top, before selecting a category below to group your products.
+              </>
+            ),
+          },
+          { text: "A product can be in more than one category" },
+        ]}
+        variant="green"
+      />
 
       {/* Categories Section */}
       <div className="space-y-4">
