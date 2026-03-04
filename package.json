@@ -12,6 +12,7 @@
     "@iconify/react": "^6.0.2",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
+    "embla-carousel-react": "^8.6.0",
     "lucide-react": "^0.563.0",
     "mysql2": "^3.16.2",
     "next": "16.1.6",

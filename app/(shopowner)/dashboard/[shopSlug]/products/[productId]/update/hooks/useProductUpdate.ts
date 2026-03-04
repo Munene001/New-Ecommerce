@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { useShop } from "@/app/(shopowner)/shopContext";
+import { useShop } from "@/app/(shopowner)/shopownerContext";
 import { Attribute, Category, ProductFormData } from "../../../add/types";
 
 export function useProductUpdate() {

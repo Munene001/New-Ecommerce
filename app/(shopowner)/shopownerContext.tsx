@@ -36,8 +36,8 @@ export function ShopProvider({
         }
         const data = await res.json();
         setShopData({
-          shopId: data.shop_id,
-          shopType: data.shop_type,
+          shopId: data.shopId,
+          shopType: data.shopType,
           shopSlug: shopSlug
         });
       } catch (error) {

@@ -1,36 +1,40 @@
 // app/lib/hooks/useProducts.ts
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
-interface Product {
+export interface Product {
   product_id: number;
   product_name: string;
   price: number;
   discount_price: number | null;
   in_stock: boolean;
   product_slug: string;
-  primary_image: string | null;
+  // Support both formats
+  primary_image?: string | null;
+  images?: {
+    image_id: number;
+    image_path: string;
+    is_primary: boolean;
+    created_at: string;
+  }[];
   description?: string;
   created_at?: string;
 }
 
 interface UseProductsReturn {
-  // State
   products: Product[];
   loading: boolean;
   currentPage: number;
   totalPages: number;
   totalCount: number;
   hasMore: boolean;
-  
-  // Actions
   searchProducts: (term: string) => Promise<void>;
   filterByCategory: (categoryId: string) => Promise<void>;
   goToPage: (page: number) => Promise<void>;
   loadMoreProducts: () => Promise<void>;
   resetProducts: () => void;
-  refreshProducts: () => Promise<void>; // Add this
+  refreshProducts: () => Promise<void>;
 }
 
 export function useProducts(
@@ -38,21 +42,25 @@ export function useProducts(
   shopId: string,
   initialTotalPages: number = 1
 ): UseProductsReturn {
-  // State
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
   const [totalCount, setTotalCount] = useState<number>(0);
   
-  // Track current filters
   const [currentSearch, setCurrentSearch] = useState<string>('');
   const [currentCategory, setCurrentCategory] = useState<string>('');
 
-  // Computed
+  // Only sync if products array is empty and initialProducts has items
+  // This helps the public shop but doesn't interfere with dashboard
+  useEffect(() => {
+    if (products.length === 0 && initialProducts.length > 0) {
+      setProducts(initialProducts);
+    }
+  }, [initialProducts, products.length]);
+
   const hasMore = currentPage < totalPages;
 
-  // Core fetch function
   const fetchProducts = useCallback(async (
     page: number,
     search?: string,
@@ -78,7 +86,6 @@ export function useProducts(
       
       const data = await res.json();
       
-      // Update state
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       setCurrentPage(data.pagination.currentPage);
       setTotalPages(data.pagination.totalPages);
@@ -91,38 +98,32 @@ export function useProducts(
     }
   }, [shopId]);
 
-  // Refresh - fetch current page with current filters
   const refreshProducts = useCallback(async () => {
     await fetchProducts(currentPage, currentSearch, currentCategory, false);
   }, [currentPage, currentSearch, currentCategory, fetchProducts]);
 
-  // Search - replaces products
   const searchProducts = async (term: string) => {
     setCurrentSearch(term);
     setCurrentCategory('');
     await fetchProducts(1, term, undefined, false);
   };
 
-  // Filter by category - replaces products
   const filterByCategory = async (categoryId: string) => {
     setCurrentCategory(categoryId);
     setCurrentSearch('');
     await fetchProducts(1, undefined, categoryId, false);
   };
 
-  // Traditional pagination - replaces products
   const goToPage = async (page: number) => {
     if (page < 1 || page > totalPages) return;
     await fetchProducts(page, currentSearch, currentCategory, false);
   };
 
-  // Infinite scroll - appends products
   const loadMoreProducts = async () => {
     if (loading || !hasMore) return;
     await fetchProducts(currentPage + 1, currentSearch, currentCategory, true);
   };
 
-  // Reset to initial state
   const resetProducts = () => {
     setProducts(initialProducts);
     setCurrentPage(1);
@@ -131,15 +132,12 @@ export function useProducts(
   };
 
   return {
-    // State
     products,
     loading,
     currentPage,
     totalPages,
     totalCount,
     hasMore,
-    
-    
     searchProducts,
     filterByCategory,
     goToPage,
