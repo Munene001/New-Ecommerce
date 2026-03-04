@@ -2,7 +2,7 @@
 import BaseLeftMenu from "@/app/components/layout/leftNav";
 import DashHeader from "@/app/components/layout/dashHeader";
 import { useParams } from "next/navigation";
-import { ShopProvider } from "../../shopContext";
+import { ShopProvider } from "../../shopownerContext";
 import * as React from 'react'
 import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'

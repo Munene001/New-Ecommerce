@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useShop } from "@/app/(shopowner)/shopContext";
+import { useShop } from "@/app/(shopowner)/shopownerContext";
 import { Attribute, Category, ProductFormData } from "../types";
 
 export function useProductForm() {
