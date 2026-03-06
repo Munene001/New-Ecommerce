@@ -4,15 +4,12 @@ import { createContext, useContext, useState, useEffect } from "react";
 
 // Expanded interface with all shop data
 interface ShopData {
-  // From shops table
   shopId: number;
   shopName: string;
   shopSlug: string;
   shopType: string;
   contactEmail?: string;
   contactPhone?: string;
-  
-  // From shop_settings table
   primaryColor: string;
   secondaryColor: string;
   logoUrl?: string;
@@ -66,6 +63,7 @@ export function ShopProvider({
           throw new Error('Shop not found');
         }
         const data = await res.json();
+        console.log('Shop data from API:', data);
         setShop(data);
         setError(null);
       } catch (error) {
@@ -120,8 +118,8 @@ export function useShop() {
 export function useShopColors() {
   const { shop } = useShop();
   return {
-    primary: shop?.primaryColor || '#3B82F6',
-    secondary: shop?.secondaryColor || '#10B981'
+    primary: shop?.primaryColor ,
+    secondary: shop?.secondaryColor
   };
 }
 
