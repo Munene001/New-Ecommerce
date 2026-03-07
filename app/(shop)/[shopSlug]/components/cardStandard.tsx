@@ -2,8 +2,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Product } from "@/lib/hooks/useProduct";
+import ButtonNav from "@/app/components/ui/buttonNav";
+import { Eye, ShoppingCart } from "lucide-react";
+import ButtonCart from "@/app/components/ui/buttonCart";
 
 interface Props {
   product: Product;
@@ -11,177 +14,105 @@ interface Props {
 }
 
 export default function ProductCardStandard({ product, shopSlug }: Props) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [imageUrl, setImageUrl] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(210);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
   
-  const images = product.images || [];
+  // Format price with commas and no decimals
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-KE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(price);
+  };
   
-  // Fetch ALL images for this product using mode=all
+  // Calculate discount percentage
+  const calculateDiscountPercentage = () => {
+    if (!product.discount_price || !product.price) return 0;
+    const discount = ((product.price - product.discount_price) / product.price) * 100;
+    return Math.round(discount);
+  };
+  
+  // Fetch primary image with appropriate size
   useEffect(() => {
-    const fetchAllImages = async () => {
+    const fetchPrimaryImage = async () => {
       try {
-        // Use mode=all to get ALL images, not just primary
-        const res = await fetch(`/api/shopowner/products/${product.product_id}/images?mode=all`);
-        if (res.ok) {
-          const imageData = await res.json();
-          // Generate URLs for each image
-          const urls = imageData.map((img: any) => 
-            `/api/shopowner/products/${product.product_id}/images/primary?w=600`
-          );
-          setImageUrls(urls);
-        }
+       
+        const url = `/api/shopowner/products/${product.product_id}/images/primary?w=300`;
+        setImageUrl(url);
       } catch (error) {
-        console.error('Failed to fetch images:', error);
+        console.error('Failed to fetch image:', error);
+        setImageUrl('/placeholder.jpg');
       }
     };
     
     if (product.product_id) {
-      fetchAllImages();
+      fetchPrimaryImage();
     }
   }, [product.product_id]);
-  
-  // Use fetched image URLs or fallback to product.images
-  const displayImages = imageUrls.length > 0 ? imageUrls : images.map(img => 
-    `/api/shopowner/products/${product.product_id}/images/primary?w=600`
-  );
-  
-  // Handle resize
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.clientWidth);
-      }
-    };
-    
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-  
-  // Mouse move handler for desktop
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (displayImages.length <= 1) return;
-    
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const sectionWidth = containerWidth / displayImages.length;
-    const index = Math.floor(x / sectionWidth);
-    
-    if (index !== currentIndex && index < displayImages.length) {
-      setCurrentIndex(index);
-    }
-  };
-  
-  // Touch handler for mobile
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (displayImages.length <= 1) return;
-    
-    const startX = e.touches[0].clientX;
-    
-    const handleTouchEnd = (endEvent: TouchEvent) => {
-      const endX = endEvent.changedTouches[0].clientX;
-      const diff = startX - endX;
-      
-      if (diff > 50 && currentIndex < displayImages.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else if (diff < -50 && currentIndex > 0) {
-        setCurrentIndex(currentIndex - 1);
-      }
-      
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-    
-    document.addEventListener('touchend', handleTouchEnd, { once: true });
-  };
-  
-  // Handle indicator click
-  const handleIndicatorClick = (index: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    setCurrentIndex(index);
-  };
-  
+
+  const discountPercentage = calculateDiscountPercentage();
+
   return (
-    <div className="pl-7 md:pl-0">
+    <div className="w-full font-[Poppins]">
       <Link
         href={`/shop/${shopSlug}/product/${product.product_slug}`}
-        className="block h-[410px] w-[207px] flex flex-col justify-center no-underline text-inherit group"
+        className="block no-underline text-inherit group border border-gray-300/10 "
       >
-        <div
+        {/* Image container with fixed aspect ratio */}
+        <div 
           ref={containerRef}
-          className="relative w-full max-w-[210px] h-[310px] flex items-center justify-center border border-gray-300 overflow-hidden cursor-pointer bg-transparent"
-          onMouseMove={handleMouseMove}
-          onTouchStart={handleTouchStart}
+          className="relative w-full aspect-[245/266] max-w-[260px] flex items-center justify-center bg-gray-100 overflow-hidden rounded-sm"
         >
+          {/* Discount Badge - Absolute positioned at top of image */}
+          {product.discount_price && discountPercentage > 0 && (
+            <div className="absolute top-2 left-2 z-10  text-white text-xs font-medium font-[Poppins] px-2 py-1 rounded-sm bg-blue-600" >
+              {discountPercentage}% off
+            </div>
+          )}
+          
           <img
-            src={displayImages.length > 0 ? displayImages[currentIndex] : '/placeholder.jpg'}
-            alt={`${product.product_name} - ${currentIndex + 1}`}
-            className="w-full h-full object-scale-down"
+            src={imageUrl || '/placeholder.jpg'}
+            alt={product.product_name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => {
               e.currentTarget.src = '/placeholder.jpg';
             }}
           />
+        </div>
+        
+        {/* Product details */}
+        <div className="mt-4 px-1 space-y-1 ">
+        
+          <h3 className="text-[16px] font-medium line-clamp-2 font-[Poppins]"  >
+            {product.product_name}
+          </h3>
           
-          {/* Full-width rectangular indicators */}
-          {displayImages.length > 1 && (
-            <div className="absolute bottom-0 left-0 right-0 flex gap-[2px] w-full">
-              {displayImages.map((_, i) => (
-                <div
-                  key={i}
-                  className={`flex-1 h-1 transition-colors cursor-pointer ${
-                    i === currentIndex ? 'bg-black' : 'bg-white/60'
-                  }`}
-                  onClick={(e) => handleIndicatorClick(i, e)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+          <div className="flex flex-row items-center gap-2 font-[Poppins]">
+            {product.discount_price ? (
+              <>
+                <span className="text-gray-900 text-base">
+                  <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.discount_price)}
+                </span>
+                <span className="text-gray-400 italic line-through text-sm">
+                  <span className="text-gray-400 text-xs">ksh</span> {formatPrice(product.price)}
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-900 text-base">
+                <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.price)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex justify-end md:mt-5 mt-[10px]">
+            <ButtonCart className="flex flex-row gap-[6px] justify-between text-white items-center justify-center py-1 text-[14px]" style={{ backgroundColor: "var(--secondary)" }}> 
+              <span className="w-4 h-4 flex justify-center items-center"><ShoppingCart/></span>
+              <span>Cart</span>
+            </ButtonCart>
+          </div>
         
-        <div className="text-[15px] font-normal leading-[18px] mt-2 font-['Jost']">
-          {product.product_name}
-        </div>
-        
-        <div className="flex flex-row gap-1.5 mt-2 leading-[22.5px] font-bold text-[17px]">
-          {product.discount_price ? (
-            <>
-              <div className="text-gray-500 line-through text-[15px]">
-                <i>
-                  <span className="text-xs">Ksh</span>
-                  {product.price}
-                </i>
-              </div>
-              <div className="text-gray-900">
-                <span className="text-sm">Ksh</span>
-                {product.discount_price}
-              </div>
-            </>
-          ) : (
-            <div className="text-gray-900">
-              <span className="text-sm">Ksh</span>
-              {product.price}
-            </div>
-          )}
         </div>
       </Link>
-
-      {/* Mobile responsive styles as Tailwind classes */}
-      <style jsx>{`
-        @media (max-width: 768px) {
-          div > a {
-            width: calc(50vw - 22px);
-            height: 370px;
-          }
-          div > a > div:first-child {
-            width: 98%;
-            height: 65%;
-          }
-        }
-      `}</style>
     </div>
   );
 }

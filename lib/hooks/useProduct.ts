@@ -10,7 +10,6 @@ export interface Product {
   discount_price: number | null;
   in_stock: boolean;
   product_slug: string;
-  // Support both formats
   primary_image?: string | null;
   images?: {
     image_id: number;
@@ -40,24 +39,32 @@ interface UseProductsReturn {
 export function useProducts(
   initialProducts: Product[],
   shopId: string,
-  initialTotalPages: number = 1
+  initialTotalCount?: number,
+  initialTotalPages: number = 1,
+  shouldFetchOnMount: boolean = true
 ): UseProductsReturn {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
-  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(initialTotalCount || 0);
   
   const [currentSearch, setCurrentSearch] = useState<string>('');
   const [currentCategory, setCurrentCategory] = useState<string>('');
 
-  // Only sync if products array is empty and initialProducts has items
-  // This helps the public shop but doesn't interfere with dashboard
+  // Sync with initial products when provided (for shop page)
   useEffect(() => {
     if (products.length === 0 && initialProducts.length > 0) {
       setProducts(initialProducts);
     }
   }, [initialProducts, products.length]);
+
+  // Fetch initial data on mount for dashboard (when shouldFetchOnMount is true)
+  useEffect(() => {
+    if (shopId && shouldFetchOnMount) {
+      fetchProducts(1, currentSearch, currentCategory, false);
+    }
+  }, [shopId, shouldFetchOnMount]);
 
   const hasMore = currentPage < totalPages;
 

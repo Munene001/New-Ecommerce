@@ -21,9 +21,9 @@ export async function GET(
     const quality = parseInt(searchParams.get('q') || '80');
     const mode = searchParams.get('mode') || 'primary'; // 'primary' or 'all'
 
-    const allowedWidths = [200, 600, 1200];
+    const allowedWidths = [200,300, 600, 1200];
     if (!allowedWidths.includes(width)) {
-      return new NextResponse('Invalid width. Use 200, 600, or 1200', { status: 400 });
+      return new NextResponse('Invalid width. Use 200,300, 600, or 1200', { status: 400 });
     }
 
     connection = await getConnection();

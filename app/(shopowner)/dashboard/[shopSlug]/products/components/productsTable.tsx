@@ -227,9 +227,7 @@ export default function ProductsTable({
                     <div className="font-medium text-gray-900">
                       {product.product_name}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {product.product_slug}
-                    </div>
+                   
                   </div>
 
                   <div className="w-[12%] pr-4">
