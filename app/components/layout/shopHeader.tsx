@@ -38,7 +38,7 @@ export default function ShopHeader() {
         style={{ backgroundColor: `${shop?.secondaryColor}` }}
       >
         <span>✨</span>
-        <span>{shop?.headerMessage || `Welcome to our Store"`}</span>
+        <span>{shop?.headerMessage || `Welcome to our Store`}</span>
       </div>
 
       {/* Layer 2: Main Header - Desktop  */}
