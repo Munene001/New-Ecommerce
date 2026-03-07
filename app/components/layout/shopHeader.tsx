@@ -43,7 +43,7 @@ export default function ShopHeader() {
 
       {/* Layer 2: Main Header - Desktop  */}
       <div className="">
-        <div className=" mx-auto  md:pt-10 md:px-4 pl-2 pr-3  py-4">
+        <div className=" mx-auto  md:pt-5 md:px-4 pl-2 pr-3  py-4">
           <div className="hidden md:block">
             <div className="flex items-center justify-between w-full">
               {/* Search Bar - Left section */}
@@ -59,7 +59,7 @@ export default function ShopHeader() {
               </div>
 
               {/* Shop Name/Title - Center section */}
-              <div className="w-1/3 flex justify-center">
+              <div className="w-1/3 flex text-center justify-center">
                 <span
                   className="text-[40px] leading-[65px] font-medium"
                   style={{ color: shop?.primaryColor }}
@@ -97,8 +97,8 @@ export default function ShopHeader() {
             </div>
 
             {/* Navigation Links - Desktop */}
-            <div className="flex justify-center mt-6">
-              <nav className="flex gap-12 text-lg font-[Inter] text-black">
+            <div className="flex justify-end mt-3">
+              <nav className="flex gap-12 text-lg font-[Inter]" style={{ color: "var(--secondary)" }}>
                 <NavIcon href={`/`} icon={<ShoppingCart />} label="Shop" />
                 <NavIcon
                   href={`/shop/${shop?.shopSlug}/blog`}

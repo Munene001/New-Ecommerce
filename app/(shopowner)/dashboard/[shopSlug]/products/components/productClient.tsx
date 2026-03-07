@@ -45,6 +45,8 @@ export default function ProductsClient({
   const messageRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // For dashboard: shouldFetchOnMount=true (default) to load initial products
+  // Pass empty array as initialProducts since we want hook to fetch on mount
   const {
     products,
     loading,
@@ -53,7 +55,14 @@ export default function ProductsClient({
     searchProducts,
     filterByCategory,
     refreshProducts,
-  } = useProducts(initialProducts, shopId.toString(), initialTotalPages);
+    totalCount,
+  } = useProducts(
+    [], // Start with empty array - let hook fetch on mount
+    shopId.toString(),
+    totalProducts, // Pass total count for pagination
+    initialTotalPages,
+    true // shouldFetchOnMount - true for dashboard
+  );
 
   // Show bulk actions when products are selected
   useEffect(() => {
@@ -167,7 +176,7 @@ export default function ProductsClient({
   const hasActiveFilters = searchInput !== "" || categorySelect !== "";
 
   return (
-    <div className="md:p-4 px-2  py-6 font-[Poppins] relative">
+    <div className="md:p-4 px-2 py-6 font-[Poppins] relative">
       <StatsCards
         totalProducts={totalProducts}
         totalCategories={totalCategories}
@@ -189,49 +198,46 @@ export default function ProductsClient({
       </div>
 
       <div className="flex gap-4 my-4 overflow-x-auto pb-2 md:pb-0">
-  {/* Search input - fixed width on mobile, flexible on desktop */}
-  <div className="flex-1 min-w-[280px] md:min-w-0 relative">
-    <input
-      type="text"
-      placeholder="Search products..."
-      value={searchInput}
-      onChange={handleSearch}
-      className="w-full border border-black/70 px-4 h-[59px] pl-13 rounded bg-white text-black placeholder-black/80"
-    />
-    <Icon
-      icon="mdi:magnify"
-      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-three w-7 h-7"
-    />
-  </div>
+        <div className="flex-1 min-w-[280px] md:min-w-0 relative">
+          <input
+            type="text"
+            placeholder="Search products..."
+            value={searchInput}
+            onChange={handleSearch}
+            className="w-full border border-black/70 px-4 h-[59px] pl-13 rounded bg-white text-black placeholder-black/80"
+          />
+          <Icon
+            icon="mdi:magnify"
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-three w-7 h-7"
+          />
+        </div>
 
-  {/* Category select - fixed width on mobile */}
-  <select
-    value={categorySelect}
-    onChange={handleCategoryChange}
-    className="w-48 md:w-64 border h-[59px] px-4 rounded focus:outline-none focus:ring-1 focus:ring-magenta-dark flex-shrink-0"
-  >
-    <option value="">All Categories</option>
-    {categories.map((cat) => (
-      <option key={cat.category_id} value={cat.category_id}>
-        {cat.category_name}
-      </option>
-    ))}
-  </select>
+        <select
+          value={categorySelect}
+          onChange={handleCategoryChange}
+          className="w-48 md:w-64 border h-[59px] px-4 rounded focus:outline-none focus:ring-1 focus:ring-magenta-dark flex-shrink-0"
+        >
+          <option value="">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat.category_id} value={cat.category_id}>
+              {cat.category_name}
+            </option>
+          ))}
+        </select>
 
-  {/* Reset button - fixed width on mobile */}
-  {hasActiveFilters && (
-    <Button
-      onClick={handleReset}
-      variant="secondary"
-      className="flex items-center gap-2 px-4 h-[59px] flex-shrink-0"
-    >
-      <X size={18} />
-      <span>Reset</span>
-    </Button>
-  )}
-</div>
+        {hasActiveFilters && (
+          <Button
+            onClick={handleReset}
+            variant="secondary"
+            className="flex items-center gap-2 px-4 h-[59px] flex-shrink-0"
+          >
+            <X size={18} />
+            <span>Reset</span>
+          </Button>
+        )}
+      </div>
 
-<SimpleToast message={message} onClose={() => setMessage(null)} />
+      <SimpleToast message={message} onClose={() => setMessage(null)} />
 
       <ProductsTable
         products={products}

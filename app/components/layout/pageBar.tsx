@@ -13,7 +13,7 @@ export default function PageBar({ breadcrumb, itemCount, itemName }: PageContext
     return (
       <div className="bg-gray-100 py-3 border-y border-gray-200 font-[Poppins]">
         <div className="container mx-auto px-4">
-          <div className="flex md:justify-end justify-center items-center gap-2 text-sm font-[Inter]">
+          <div className="flex md:justify-center justify-center items-center gap-2 text-sm font-[Inter]">
             <span className="text-gray-500">{breadcrumb}</span>
             {itemCount !== undefined && (
               <>
