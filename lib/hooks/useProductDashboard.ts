@@ -1,27 +1,10 @@
-// app/lib/hooks/useProducts.ts
+// lib/hooks/useDashboardProducts.ts
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Product } from '../types/product';
 
-export interface Product {
-  product_id: number;
-  product_name: string;
-  price: number;
-  discount_price: number | null;
-  in_stock: boolean;
-  product_slug: string;
-  primary_image?: string | null;
-  images?: {
-    image_id: number;
-    image_path: string;
-    is_primary: boolean;
-    created_at: string;
-  }[];
-  description?: string;
-  created_at?: string;
-}
-
-interface UseProductsReturn {
+interface UseDashboardProductsReturn {
   products: Product[];
   loading: boolean;
   currentPage: number;
@@ -36,14 +19,12 @@ interface UseProductsReturn {
   refreshProducts: () => Promise<void>;
 }
 
-export function useProducts(
-  initialProducts: Product[],
+export function useDashboardProducts(
   shopId: string,
   initialTotalCount?: number,
-  initialTotalPages: number = 1,
-  shouldFetchOnMount: boolean = true
-): UseProductsReturn {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  initialTotalPages: number = 1
+): UseDashboardProductsReturn {
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
@@ -52,21 +33,8 @@ export function useProducts(
   const [currentSearch, setCurrentSearch] = useState<string>('');
   const [currentCategory, setCurrentCategory] = useState<string>('');
 
-  // Sync with initial products when provided (for shop page)
-  useEffect(() => {
-    if (products.length === 0 && initialProducts.length > 0) {
-      setProducts(initialProducts);
-    }
-  }, [initialProducts, products.length]);
-
-  // Fetch initial data on mount for dashboard (when shouldFetchOnMount is true)
-  useEffect(() => {
-    if (shopId && shouldFetchOnMount) {
-      fetchProducts(1, currentSearch, currentCategory, false);
-    }
-  }, [shopId, shouldFetchOnMount]);
-
-  const hasMore = currentPage < totalPages;
+ 
+  const initialFetchDone = useRef(false);
 
   const fetchProducts = useCallback(async (
     page: number,
@@ -105,6 +73,17 @@ export function useProducts(
     }
   }, [shopId]);
 
+  // Initial fetch - with proper dependencies and mount protection
+  useEffect(() => {
+    // Only fetch once
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchProducts(1, currentSearch, currentCategory, false);
+    }
+  }, [fetchProducts, currentSearch, currentCategory]); 
+
+  const hasMore = currentPage < totalPages;
+
   const refreshProducts = useCallback(async () => {
     await fetchProducts(currentPage, currentSearch, currentCategory, false);
   }, [currentPage, currentSearch, currentCategory, fetchProducts]);
@@ -132,10 +111,12 @@ export function useProducts(
   };
 
   const resetProducts = () => {
-    setProducts(initialProducts);
+    setProducts([]);
     setCurrentPage(1);
     setCurrentSearch('');
     setCurrentCategory('');
+    initialFetchDone.current = false;
+    fetchProducts(1, '', '', false);
   };
 
   return {
@@ -150,6 +131,6 @@ export function useProducts(
     goToPage,
     loadMoreProducts,
     resetProducts,
-    refreshProducts 
+    refreshProducts,
   };
 }

@@ -6,7 +6,7 @@ export default function ShopFooter() {
   const { shop } = useShop();
 
   return (
-    <footer className="border-t mt-auto py-6">
+    <footer className="border-t mt-auto py-6 bg-black rounded-t-lg text-white">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Shop Info */}
@@ -14,7 +14,7 @@ export default function ShopFooter() {
             <h3 className="font-bold mb-2" style={{ color: shop?.primaryColor }}>
               {shop?.shopName}
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm">
               {shop?.contactEmail}<br />
               {shop?.contactPhone}
             </p>
@@ -23,7 +23,7 @@ export default function ShopFooter() {
           {/* Quick Links */}
           <div>
             <h4 className="font-semibold mb-2">Quick Links</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
+            <ul className="text-sm  space-y-1">
               <li><a href={`/shop/${shop?.shopSlug}/products`}>Products</a></li>
               <li><a href={`/shop/${shop?.shopSlug}/cart`}>Cart</a></li>
             </ul>

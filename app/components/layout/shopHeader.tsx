@@ -34,11 +34,11 @@ export default function ShopHeader() {
     <header className="bg-white">
       {/* Layer 1: Header Message - Secondary Color Background */}
       <div
-        className="text-center text-[15px] md:py-2 py-3   font-semibold font-[Inter] text-white flex items-center justify-center gap-2"
+        className="text-center text-[15px] h-[50px]   font-bold font-[Inter] text-white flex items-center justify-center gap-2 rounded-b-sm"
         style={{ backgroundColor: `${shop?.secondaryColor}` }}
       >
         <span>✨</span>
-        <span>{shop?.headerMessage || `Welcome to our Store`}</span>
+        <span>{shop?.headerMessage || `Get Deals Upto 50% Off`}</span>
       </div>
 
       {/* Layer 2: Main Header - Desktop  */}
@@ -87,7 +87,7 @@ export default function ShopHeader() {
                     <ShoppingCart className="w-7 h-7" />
                   </span>
                   <span
-                    className="absolute -top-2 -right-2 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center"
+                    className="absolute  animate-bounce -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
                     style={{ backgroundColor: "var(--secondary)" }}
                   >
                     0
@@ -134,12 +134,12 @@ export default function ShopHeader() {
                 {shop?.shopName}
               </span>
 
-              <button className="relative hover:opacity-70 transition">
+              <button className="relative hover:opacity-70 transition ">
                   <span style={{ color: shop?.primaryColor }}>
                     <ShoppingCart className="w-7 h-7" />
                   </span>
                   <span
-                    className="absolute -top-2 -right-2 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center"
+                    className="absolute -top-2  animate-bounce -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
                     style={{ backgroundColor: "var(--secondary)" }}
                   >
                     0

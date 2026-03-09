@@ -56,17 +56,17 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
     <div className="w-full font-[Poppins]">
       <Link
         href={`/shop/${shopSlug}/product/${product.product_slug}`}
-        className="block no-underline text-inherit group border border-gray-300/10 "
+        className="block no-underline text-inherit group border border-gray-300/20 "
       >
         {/* Image container with fixed aspect ratio */}
         <div 
           ref={containerRef}
-          className="relative w-full aspect-[245/266] max-w-[260px] flex items-center justify-center bg-gray-100 overflow-hidden rounded-sm"
+          className="relative w-full aspect-[245/266] max-w-[260px] flex items-center justify-center bg-gray-100 overflow-hidden box-border rounded-sm"
         >
           {/* Discount Badge - Absolute positioned at top of image */}
           {product.discount_price && discountPercentage > 0 && (
-            <div className="absolute top-2 left-2 z-10  text-white text-xs font-medium font-[Poppins] px-2 py-1 rounded-sm bg-blue-600" >
-              {discountPercentage}% off
+            <div className="absolute top-2 left-2 z-10  text-white text-xs font-bold font-[Poppins] px-2 py-1  bg-green-700" >
+              -{discountPercentage}% 
             </div>
           )}
           
@@ -81,7 +81,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
         </div>
         
         {/* Product details */}
-        <div className="mt-4 px-1 space-y-1 ">
+        <div className="mt-4  pb-2 space-y-1 px-1 ">
         
           <h3 className="text-[16px] font-medium line-clamp-2 font-[Poppins]"  >
             {product.product_name}
@@ -106,8 +106,9 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
 
           <div className="flex justify-end md:mt-5 mt-[10px]">
             <ButtonCart className="flex flex-row gap-[6px] justify-between text-white items-center justify-center py-1 text-[14px]" style={{ backgroundColor: "var(--secondary)" }}> 
-              <span className="w-4 h-4 flex justify-center items-center"><ShoppingCart/></span>
-              <span>Cart</span>
+              <span className="w-4 h-4 flex justify-center items-center animate-bounce"   style={{ animationDuration: '2s' }}
+              ><ShoppingCart/></span>
+              <span >Cart</span>
             </ButtonCart>
           </div>
         

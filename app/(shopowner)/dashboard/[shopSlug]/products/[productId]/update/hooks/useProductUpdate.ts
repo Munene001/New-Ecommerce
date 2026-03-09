@@ -394,7 +394,6 @@ export function useProductUpdate() {
   const closeModal = () => {
     setModalState(prev => ({ ...prev, isOpen: false }));
     if (modalState.type === 'success') {
-      window.location.href = `/dashboard/${shopSlug}/products`;
     }
   };
 

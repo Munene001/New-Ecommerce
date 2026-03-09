@@ -1,8 +1,9 @@
+// app/(shop)/ShopContext.tsx
 "use client";
 import * as React from 'react'
 import { createContext, useContext, useState, useEffect } from "react";
 
-// Expanded interface with all shop data
+
 interface ShopData {
   shopId: number;
   shopName: string;
@@ -40,66 +41,33 @@ const ShopContext = createContext<ShopContextType | null>(null);
 
 export function ShopProvider({ 
   children, 
-  shopSlug 
+  initialShopData 
 }: { 
   children: React.ReactNode;
-  shopSlug: string;
+  initialShopData: ShopData;
 }) {
-  const [shop, setShop] = useState<ShopData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [shop, setShop] = useState<ShopData | null>(initialShopData);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Optional: Fetch updates if needed (e.g., every 5 minutes)
+  // Remove this useEffect if you don't need real-time updates
   useEffect(() => {
-    if (!shopSlug) {
-      setError('No shop slug provided');
-      setLoading(false);
-      return;
-    }
-
-    const fetchShopData = async () => {
+    // Only if you need to refresh shop data periodically
+    const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/shops/${shopSlug}`);
-        if (!res.ok) {
-          throw new Error('Shop not found');
+        const res = await fetch(`/api/shops/${initialShopData.shopSlug}`);
+        if (res.ok) {
+          const data = await res.json();
+          setShop(data);
         }
-        const data = await res.json();
-        console.log('Shop data from API:', data);
-        setShop(data);
-        setError(null);
       } catch (error) {
-        console.error("Failed to fetch shop:", error);
-        setError('Shop not found');
-        setShop(null);
-      } finally {
-        setLoading(false);
+        console.error('Failed to refresh shop data:', error);
       }
-    };
-
-    fetchShopData();
-  }, [shopSlug]);
-
-  // Simple loading state
-  if (loading && shopSlug) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900">
-          
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error || !shop) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Shop Not Found</h1>
-          <p className="text-gray-600">The shop you're looking for doesn't exist.</p>
-        </div>
-      </div>
-    );
-  }
+    }, 300000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [initialShopData.shopSlug]);
 
   return (
     <ShopContext.Provider value={{ shop, loading, error }}>
@@ -120,7 +88,7 @@ export function useShop() {
 export function useShopColors() {
   const { shop } = useShop();
   return {
-    primary: shop?.primaryColor ,
+    primary: shop?.primaryColor,
     secondary: shop?.secondaryColor
   };
 }
