@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useProducts } from "@/lib/hooks/useProduct";
+import { useDashboardProducts } from "@/lib/hooks/useProductDashboard";
 import StatsCards from "./statsCard";
 import ProductsTable from "./productsTable";
 import Button from "@/app/components/ui/button";
@@ -45,8 +45,7 @@ export default function ProductsClient({
   const messageRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // For dashboard: shouldFetchOnMount=true (default) to load initial products
-  // Pass empty array as initialProducts since we want hook to fetch on mount
+ 
   const {
     products,
     loading,
@@ -56,12 +55,10 @@ export default function ProductsClient({
     filterByCategory,
     refreshProducts,
     totalCount,
-  } = useProducts(
-    [], // Start with empty array - let hook fetch on mount
+  } = useDashboardProducts(
     shopId.toString(),
-    totalProducts, // Pass total count for pagination
-    initialTotalPages,
-    true // shouldFetchOnMount - true for dashboard
+    totalProducts,  // initialTotalCount
+    // initialTotalPages is optional with default=1
   );
 
   // Show bulk actions when products are selected

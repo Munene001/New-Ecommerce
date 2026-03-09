@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnection } from '@/lib/db';
 
-// GET /api/shopowner/products?shopId=1&search=shoes&category=5&page=2&limit=20
+// GET /api/shopowner/products?shopId=1&search=shoes&categories=electronics,fashion&minPrice=0&maxPrice=150000&sortBy=price_low&inStock=true&page=2&limit=20
+// Also supports legacy: &category=5 (single category for dashboard)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const shopId = searchParams.get('shopId');
@@ -10,12 +11,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'shopId required' }, { status: 400 });
   }
 
-  // Get filter parameters
+  // Get ALL filter parameters
   const search = searchParams.get('search') || '';
-  const category = searchParams.get('category');
+  
+  // Support BOTH single category (dashboard) and multiple categories (shop)
+  const categories = searchParams.get('categories'); // "electronics,fashion"
+  const singleCategory = searchParams.get('category'); // "5" (legacy for dashboard)
+  
+  const minPrice = searchParams.get('minPrice');
+  const maxPrice = searchParams.get('maxPrice');
+  const sortBy = searchParams.get('sortBy') || 'newest';
+  const inStock = searchParams.get('inStock');
+  
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
   const offset = (page - 1) * limit;
+
+  console.log('API received filters:', { 
+    shopId, search, categories, singleCategory, minPrice, maxPrice, sortBy, inStock, page, limit 
+  });
 
   let connection;
   try {
@@ -25,14 +39,66 @@ export async function GET(req: NextRequest) {
     let whereClause = 'WHERE p.shop_id = ?';
     const queryParams: any[] = [shopId];
     
+    // Add search filter
     if (search) {
       whereClause += ' AND p.product_name LIKE ?';
       queryParams.push(`%${search}%`);
     }
     
-    if (category) {
-      whereClause += ' AND EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.product_id AND pc.category_id = ?)';
-      queryParams.push(category);
+    // Add category filter - supports BOTH multiple and single
+    if (categories) {
+      // Multiple categories (shop page)
+      const categoryArray = categories.split(',');
+      const placeholders = categoryArray.map(() => '?').join(',');
+      whereClause += ` AND EXISTS (
+        SELECT 1 FROM product_categories pc 
+        WHERE pc.product_id = p.product_id 
+        AND pc.category_id IN (${placeholders})
+      )`;
+      queryParams.push(...categoryArray);
+    } else if (singleCategory) {
+      // Single category (dashboard)
+      whereClause += ` AND EXISTS (
+        SELECT 1 FROM product_categories pc 
+        WHERE pc.product_id = p.product_id 
+        AND pc.category_id = ?
+      )`;
+      queryParams.push(singleCategory);
+    }
+    
+    // Add price range filter
+    if (minPrice && maxPrice) {
+      whereClause += ' AND p.price BETWEEN ? AND ?';
+      queryParams.push(minPrice, maxPrice);
+    } else if (minPrice) {
+      whereClause += ' AND p.price >= ?';
+      queryParams.push(minPrice);
+    } else if (maxPrice) {
+      whereClause += ' AND p.price <= ?';
+      queryParams.push(maxPrice);
+    }
+    
+    // Add stock filter
+    if (inStock === 'true') {
+      whereClause += ' AND p.in_stock = 1';
+    }
+    
+    // Build ORDER BY clause based on sortBy
+    let orderByClause = 'ORDER BY ';
+    switch(sortBy) {
+      case 'price_low':
+        orderByClause += 'p.price ASC';
+        break;
+      case 'price_high':
+        orderByClause += 'p.price DESC';
+        break;
+      case 'oldest':
+        orderByClause += 'p.created_at ASC';
+        break;
+      case 'newest':
+      default:
+        orderByClause += 'p.created_at DESC';
+        break;
     }
     
     // Get TOTAL COUNT for pagination (with same filters)
@@ -71,7 +137,7 @@ export async function GET(req: NextRequest) {
         ) as images
       FROM products p
       ${whereClause}
-      ORDER BY p.created_at DESC
+      ${orderByClause}
       LIMIT ? OFFSET ?
     `, [...queryParams, limit, offset]);
     
@@ -109,7 +175,6 @@ export async function POST(req: NextRequest) {
       attributes 
     } = await req.json();
 
-  
     if (!shopId || !productName || !productSlug || !price || !attributes) {
       return NextResponse.json({ 
         error: 'Missing required fields: shopId, productName, productSlug, price, attributes' 
@@ -118,7 +183,7 @@ export async function POST(req: NextRequest) {
 
     connection = await getConnection();
 
-   
+    // Get shop type
     const [shopRows] = await connection.query(
       'SELECT shop_type FROM shops WHERE shop_id = ?',
       [shopId]
@@ -130,7 +195,7 @@ export async function POST(req: NextRequest) {
     
     const shopType = (shopRows as any[])[0].shop_type;
 
-
+    // Insert product
     const [productResult] = await connection.query(
       `INSERT INTO products 
        (shop_id, shop_type, product_name, product_slug, description, price, discount_price, in_stock, attributes) 

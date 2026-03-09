@@ -40,6 +40,8 @@ export default function AddProductPage() {
     handlePrevious,
     handleTabClick,
     closeModal,
+    addCategory,      // Add this from the hook
+    removeCategory,
   } = useProductForm();
 
   const renderComponent = () => {
@@ -55,6 +57,8 @@ export default function AddProductPage() {
           />
         );
       case 1:
+       
+
         return (
           <OptionalForm
             categories={categories}
@@ -63,6 +67,8 @@ export default function AddProductPage() {
             formData={formData}
             setFormData={setFormData}
             optionalAttributes={attributeSchema.filter((f) => !f.required)}
+            onAddCategory={addCategory}        // Add this
+            onRemoveCategory={removeCategory} 
           />
         );
       case 2:

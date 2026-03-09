@@ -25,7 +25,7 @@ export default function NavIcon({
 }: NavIconProps) {
   
   // Desktop styles (default)
-  const desktopClasses = "text-gray-900 hover:text-[var(--secondary)] md:text-lg transition flex items-center gap-2";
+  const desktopClasses = "text-[var(--primary)] hover:text-[var(--secondary)] md:text-lg transition flex items-center gap-2";
   const desktopIconClasses = "[&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-5 md:[&>svg]:h-5";
   
   // Mobile styles (for the menu)

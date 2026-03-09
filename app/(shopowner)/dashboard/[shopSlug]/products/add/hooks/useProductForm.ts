@@ -397,6 +397,32 @@ export function useProductForm() {
     setModalState(prev => ({ ...prev, isOpen: false }));
   };
 
+  const removeCategory = (categoryId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      categoryIds: prev.categoryIds.filter(id => id !== categoryId)
+    }));
+    showWarning("Category removed", 'success');
+  };
+  
+  const addCategory = (categoryId: number) => {
+    // Check if category is already added
+    if (formData.categoryIds.includes(categoryId)) {
+      showWarning("Category already added", 'error');
+      return;
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      categoryIds: [...prev.categoryIds, categoryId]
+    }));
+    
+    setSelectedCategoryId("");
+    showWarning("Category added successfully", 'success');
+  };
+
+
+
   return {
     activeIndex,
     setActiveIndex,
@@ -427,5 +453,7 @@ export function useProductForm() {
     handleTabClick,
     resetForm,
     closeModal,
+    addCategory,
+  removeCategory,
   };
 }

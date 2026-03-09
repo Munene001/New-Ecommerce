@@ -1,85 +1,53 @@
 // app/(shop)/[shopSlug]/layout.tsx
-"use client";
+import { ShopProvider } from "../ShopContext";
+import ShopLayoutClient from "./components/shopLayoutClient";
 
-import { ShopProvider,useShop, useActiveBanners } from "../ShopContext";
-import { useParams } from "next/navigation";
-import { useEffect } from "react";
-import ShopHeader from "@/app/components/layout/shopHeader";
-import ShopFooter from "@/app/components/layout/shopFooter";
-import MobileBottomNav from "@/app/components/layout/mobileBottomNav";
-
-
-
-// Inner component that has access to shop context
-function ShopLayoutContent({ children }: { children: React.ReactNode }) {
-  const { shop, loading } = useShop();
-  const activeBanners = useActiveBanners();
-  
-  // Apply CSS variables when shop data loads
-  useEffect(() => {
-    if (shop) {
-      document.documentElement.style.setProperty('--primary', shop.primaryColor);
-      document.documentElement.style.setProperty('--secondary', shop.secondaryColor);
-    }
-  }, [shop]);
-
-  if (loading) {
-    return <div>Loading shop...</div>;
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col">
-     
-      <ShopHeader/>
-
-     
-      
+// Server function to fetch shop data
+async function getShopData(slug: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/shops/${slug}`, {
+      cache: 'no-store',
+    });
     
-      {activeBanners.length > 0 && (
-        <div className="container mx-auto px-4 py-4">
-          {activeBanners.map((banner) => (
-            <a
-              key={banner.bannerId}
-              href={banner.bannerType === 'default' 
-                ? `/shop/${shop?.shopSlug}/products?discounted=true`
-                : `/shop/${shop?.shopSlug}/categories/${banner.categoryId}`
-              }
-              className="block"
-            >
-              <img src={banner.bannerUrl} alt="Banner" className="w-full rounded-lg" />
-            </a>
-          ))}
-        </div>
-      )}
-
-     
-      <main className=" ">
-        {children}
-      </main>
-
-     
-      <ShopFooter/>
-      <MobileBottomNav/>
-    </div>
-  );
+    if (!res.ok) return null;
+    
+    return await res.json();
+  } catch (error) {
+    console.error('Error fetching shop:', error);
+    return null;
+  }
 }
 
-// Main layout with provider
-export default function ShopLayout({
+// Server Component Layout - FIXED: await params
+export default async function ShopLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ shopSlug: string }>; // params is a Promise
 }) {
-  const params = useParams();
-  const shopSlug = params?.shopSlug as string;
-
+  // Await the params Promise to get the actual params object
+  const { shopSlug } = await params;
+  
+  const shopData = await getShopData(shopSlug);
+  
+  if (!shopData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Shop Not Found</h1>
+          <p className="text-gray-600">The shop you're looking for doesn't exist.</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <ShopProvider shopSlug={shopSlug}>
-      <ShopLayoutContent>
+    <ShopProvider initialShopData={shopData}>
+      <ShopLayoutClient>
         {children}
-      </ShopLayoutContent>
+      </ShopLayoutClient>
     </ShopProvider>
   );
 }
-
-

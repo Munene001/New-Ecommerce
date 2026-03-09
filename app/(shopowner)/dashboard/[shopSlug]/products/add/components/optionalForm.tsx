@@ -13,8 +13,9 @@ interface OptionalFormProps {
   formData: any;
   setFormData: (data: any) => void;
   optionalAttributes: Attribute[];
-  onAddCategory?: (categoryId: number) => Promise<void>;
-  onRemoveCategory?: (categoryId: number) => Promise<void>;
+  // Updated interface to support both sync and async
+  onAddCategory?: ((categoryId: number) => void) | ((categoryId: number) => Promise<void>);
+  onRemoveCategory?: ((categoryId: number) => void) | ((categoryId: number) => Promise<void>);
 }
 
 export default function OptionalForm({
@@ -24,7 +25,7 @@ export default function OptionalForm({
   formData,
   setFormData,
   optionalAttributes,
-  onAddCategory, // Make sure to receive these props
+  onAddCategory,
   onRemoveCategory,
 }: OptionalFormProps) {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
@@ -76,7 +77,8 @@ export default function OptionalForm({
     };
   };
 
-  const handleCategoryChange = (
+  // Updated to be async and use await
+  const handleCategoryChange = async (
     e: React.ChangeEvent<any> | string | number
   ) => {
     let catId: number | "" = "";
@@ -89,16 +91,17 @@ export default function OptionalForm({
 
     setSelectedCategoryId(catId);
 
-    // Call the parent's addCategory function
+    // Call the parent's addCategory function with await
     if (catId && onAddCategory) {
-      onAddCategory(catId);
+      await onAddCategory(catId);  // await works with both sync and async
     }
   };
 
-  const removeCategory = (catId: number) => {
-    // Call the parent's removeCategory function
+  // Updated to be async and use await
+  const removeCategory = async (catId: number) => {
+    // Call the parent's removeCategory function with await
     if (onRemoveCategory) {
-      onRemoveCategory(catId);
+      await onRemoveCategory(catId);  // await works with both sync and async
     }
   };
 

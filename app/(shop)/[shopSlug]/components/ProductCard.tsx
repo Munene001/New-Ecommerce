@@ -2,7 +2,7 @@
 "use client";
 
 import { useShop } from "../../ShopContext";
-import { Product } from "@/lib/hooks/useProduct";
+import { Product } from "@/lib/types/product";
 import ProductCardStandard from "./cardStandard";
 import ProductCardMinimal from "./cardMinimal";
 import ProductCardCompact from "./cardCompact";
