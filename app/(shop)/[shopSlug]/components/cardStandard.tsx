@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from 'react';
-import { Product } from "@/lib/hooks/useProduct";
+import { Product } from "@/lib/types/product";
 import ButtonNav from "@/app/components/ui/buttonNav";
 import { Eye, ShoppingCart } from "lucide-react";
 import ButtonCart from "@/app/components/ui/buttonCart";
