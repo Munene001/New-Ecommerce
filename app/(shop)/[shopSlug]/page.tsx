@@ -2,6 +2,12 @@
 import { Product } from "@/lib/types/product";
 import ShopProductsClient from "./shopProductsClient";
 
+type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high';
+interface PriceRange {
+  min: number;
+  max: number;
+}
+
 // Server function to fetch initial products
 async function getInitialProducts(shopId: string) {
   try {
@@ -42,16 +48,31 @@ async function getShopData(slug: string) {
   }
 }
 
-// Server Component - FIXED: await params
+// Server Component
 export default async function ShopPage({
   params,
+  searchParams,
 }: {
-  params: Promise<{ shopSlug: string }>; // params is a Promise
+  params: Promise<{ shopSlug: string }>;
+  searchParams: Promise<{ 
+    search?: string;
+    categories?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    sortBy?: string;
+    inStock?: string;
+  }>;
 }) {
-  // Await the params Promise to get the actual params object
   const { shopSlug } = await params;
-  
-  // Fetch both shop data and products on the server
+  const { 
+    search,
+    categories,
+    minPrice,
+    maxPrice,
+    sortBy,
+    inStock 
+  } = await searchParams;
+
   const shopData = await getShopData(shopSlug);
   
   if (!shopData) {
@@ -59,14 +80,28 @@ export default async function ShopPage({
   }
   
   const { products, totalCount } = await getInitialProducts(shopData.shopId.toString());
-  
+
+  // Parse initial filter values from URL
+  const initialSearch = search || '';
+  const initialCategories = categories ? categories.split(',') : [];
+  const initialPriceRange = minPrice && maxPrice
+    ? { min: parseInt(minPrice), max: parseInt(maxPrice) }
+    : null;
+  const initialSortBy = (sortBy as SortOption) || 'newest';
+  const initialInStock = inStock === 'true';
+
   return (
     <ShopProductsClient 
       initialProducts={products}
       initialTotalCount={totalCount}
       shopSlug={shopSlug}
       shopId={shopData.shopId.toString()}
-      shopData={shopData} 
+      shopData={shopData}
+      initialSearch={initialSearch}
+      initialCategories={initialCategories}
+      initialPriceRange={initialPriceRange}
+      initialSortBy={initialSortBy}
+      initialInStock={initialInStock}
     />
   );
 }
