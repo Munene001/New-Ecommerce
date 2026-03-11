@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation'; // add these
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Product } from '../types/product';
 
 type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high';
@@ -37,8 +37,16 @@ export function useShopProducts({
   initialSortBy = 'newest',
   initialInStock = false,
 }: UseShopProductsProps) {
+  console.log('🔄 useShopProducts hook render, filters:', {
+    search: initialSearch,
+    categories: initialCategories,
+    priceRange: initialPriceRange,
+    sortBy: initialSortBy,
+    inStock: initialInStock,
+  });
+
   const router = useRouter();
-  const searchParams = useSearchParams(); // not directly used here but we could read initial from URL if preferred
+  const searchParams = useSearchParams();
 
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState(false);
@@ -54,7 +62,6 @@ export function useShopProducts({
     inStock: initialInStock,
   });
 
-  // Ref to skip the first URL sync (initial load)
   const isFirstRender = useRef(true);
 
   // Sync filters to URL on change (shallow)
@@ -75,11 +82,10 @@ export function useShopProducts({
     if (filters.sortBy !== 'newest') params.set('sortBy', filters.sortBy);
     if (filters.inStock) params.set('inStock', 'true');
 
-    // Update URL without page reload
+    console.log('🌐 Syncing filters to URL:', params.toString());
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [filters, router]);
 
-  // Build query params for API
   const buildQueryParams = (page: number) => {
     const params = new URLSearchParams({
       shopId,
@@ -100,31 +106,34 @@ export function useShopProducts({
   };
 
   const fetchProducts = useCallback(async (page: number, append: boolean = false) => {
+    console.log('📦 fetchProducts called - page:', page, 'append:', append, 'current filters:', filters);
     setLoading(true);
     try {
       const params = buildQueryParams(page);
+      console.log('🔗 Fetching with params:', params.toString());
       const res = await fetch(`/api/shopowner/products?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-
+      console.log('✅ Fetch response received, products count:', data.products?.length);
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       setCurrentPage(data.pagination.currentPage);
       setHasMore(data.pagination.currentPage < data.pagination.totalPages);
       setTotalCount(data.pagination.totalCount);
     } catch (error) {
-      console.error('Fetch error:', error);
+      console.error('❌ Fetch error:', error);
     } finally {
       setLoading(false);
     }
-  }, [shopId, filters]);
+  }, [shopId, filters]); // filters included so the callback updates when filters change
 
   // Fetch when filters change
   useEffect(() => {
+    console.log('🎯 Filters changed effect triggered, filters:', filters);
     fetchProducts(1, false);
   }, [filters, fetchProducts]);
 
-  // Filter actions (unchanged)
   const searchProducts = async (term: string) => {
+    console.log('🔍 searchProducts called with term:', term);
     setFilters(prev => ({ ...prev, search: term }));
   };
 

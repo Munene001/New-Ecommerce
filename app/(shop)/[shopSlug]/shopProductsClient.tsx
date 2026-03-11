@@ -1,12 +1,12 @@
 // app/(shop)/[shopSlug]/ShopProductsClient.tsx
 "use client";
 
-import { useShopProducts } from "@/lib/hooks/useProductShop";
+import { useShopFilter } from "@/context/shopFilterContext";
+import { useShop } from "../ShopContext";
 import ProductCardStandard from "./components/cardStandard";
 import PageBar from "@/app/components/layout/pageBar";
 import { ListFilterPlus, X } from 'lucide-react';
 import Button from "@/app/components/ui/button";
-import { Product } from "@/lib/types/product";
 import Filter from "./components/filter";
 import { useEffect, useRef, useState } from 'react';
 import FilterChip from "@/app/components/ui/filterChip";
@@ -30,50 +30,8 @@ const ProductCardSkeleton = () => (
   </div>
 );
 
-interface ShopData {
-  shopId: number;
-  shopName: string;
-  shopSlug: string;
-  shopType: string;
-  primaryColor: string;
-  secondaryColor: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  logoUrl?: string;
-  whatsappNumber?: string;
-  headerMessage?: string;
-  productCardStyle: 'standard' | 'minimal' | 'compact';
-  cartIcon: 'cart' | 'bag' | 'basket';
-  banners: any[];
-  maxPrice: number;
-  categories: { id: string; name: string }[];
-}
-
-interface ShopProductsClientProps {
-  initialProducts: Product[];
-  initialTotalCount: number;
-  shopSlug: string;
-  shopId: string;
-  shopData: ShopData;
-  initialSearch?: string;
-  initialCategories?: string[];
-  initialPriceRange?: PriceRange | null;
-  initialSortBy?: SortOption;
-  initialInStock?: boolean;
-}
-
-export default function ShopProductsClient({ 
-  initialProducts, 
-  initialTotalCount,
-  shopSlug,
-  shopId,
-  shopData,
-  initialSearch,
-  initialCategories,
-  initialPriceRange,
-  initialSortBy,
-  initialInStock
-}: ShopProductsClientProps) {
+export default function ShopProductsClient() {
+  const { shop } = useShop();
   const {
     products,
     loading,
@@ -88,16 +46,7 @@ export default function ShopProductsClient({
     toggleInStock,
     clearFilters,
     loadMoreProducts,
-  } = useShopProducts({
-    initialProducts,
-    shopId,
-    initialTotalCount,
-    initialSearch,
-    initialCategories,
-    initialPriceRange,
-    initialSortBy,
-    initialInStock,
-  });
+  } = useShopFilter();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const productsTopRef = useRef<HTMLDivElement>(null);
@@ -110,6 +59,8 @@ export default function ShopProductsClient({
     productsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [activeFilters]);
 
+  if (!shop) return null; // or a loader, but ShopContext should provide it
+
   return (
     <div>
       <PageBar breadcrumb="Shop" itemCount={totalCount} /> 
@@ -117,7 +68,7 @@ export default function ShopProductsClient({
       {/* Mobile filter bar */}
       <div className="lg:hidden px-4 py-4 font-[Poppins] cursor-pointer" onClick={() => setIsFilterOpen(true)}>
         <div className="flex flex-row gap-2">
-          <span style={{ color: shopData.secondaryColor }}><ListFilterPlus/></span> 
+          <span style={{ color: shop.secondaryColor }}><ListFilterPlus/></span> 
           <span className="md:text-[16px] text-[18px] font-semibold">Filter</span>
         </div>
       </div>
@@ -134,19 +85,19 @@ export default function ShopProductsClient({
               onClick={() => setIsFilterOpen(false)}
               className="absolute top-4 right-4 hover:opacity-70 transition z-10"
             >
-              <X className="w-6 h-6" style={{ color: shopData.secondaryColor }} />
+              <X className="w-6 h-6" style={{ color: shop.secondaryColor }} />
             </button>
             <div className="flex-1 overflow-y-auto pt-16 pb-6 px-4">
               <Filter
-                shopData={shopData}
+                shopData={shop}
                 activeFilters={activeFilters}
                 onToggleCategory={toggleCategory}
                 onSetPriceRange={setPriceRange}
                 onClearPriceRange={clearPriceRange}
                 onSetSortBy={setSortBy}
                 onClearFilters={clearFilters}
-                categories={shopData.categories || []}
-                maxPrice={shopData.maxPrice}
+                categories={shop.categories || []}
+                maxPrice={shop.maxPrice}
               />
             </div>
           </div>
@@ -160,15 +111,15 @@ export default function ShopProductsClient({
           {/* Desktop filter aside */}
           <aside className="hidden lg:block lg:w-[260px] flex-shrink-0">
             <Filter 
-              shopData={shopData}
+              shopData={shop}
               activeFilters={activeFilters}
               onToggleCategory={toggleCategory}
               onSetPriceRange={setPriceRange}
               onClearPriceRange={clearPriceRange}
               onSetSortBy={setSortBy}
-              maxPrice={shopData.maxPrice}  
+              maxPrice={shop.maxPrice}  
               onClearFilters={clearFilters}
-              categories={shopData.categories || []} 
+              categories={shop.categories || []} 
             />
           </aside>
           
@@ -183,18 +134,18 @@ export default function ShopProductsClient({
                     <FilterChip
                       label={`"${activeFilters.search}"`}
                       onRemove={() => searchProducts('')}
-                      color={shopData.secondaryColor}
+                      color={shop.secondaryColor}
                     />
                   )}
                   {/* Category chips */}
                   {activeFilters.categories.map(catId => {
-                    const cat = shopData.categories.find(c => c.id === catId);
+                    const cat = shop.categories.find(c => c.id === catId);
                     return cat ? (
                       <FilterChip
                         key={catId}
                         label={cat.name}
                         onRemove={() => toggleCategory(catId)}
-                        color={shopData.secondaryColor}
+                        color={shop.secondaryColor}
                       />
                     ) : null;
                   })}
@@ -203,7 +154,7 @@ export default function ShopProductsClient({
                     <FilterChip
                       label={`Ksh ${activeFilters.priceRange.min.toLocaleString()} – ${activeFilters.priceRange.max.toLocaleString()}`}
                       onRemove={clearPriceRange}
-                      color={shopData.secondaryColor}
+                      color={shop.secondaryColor}
                     />
                   )}
                   {/* Sort chip (only if not default) */}
@@ -215,7 +166,7 @@ export default function ShopProductsClient({
                         activeFilters.sortBy === 'oldest' ? 'Oldest' : 'Newest'
                       }`}
                       onRemove={() => setSortBy('newest')}
-                      color={shopData.secondaryColor}
+                      color={shop.secondaryColor}
                     />
                   )}
                   {/* In stock chip */}
@@ -223,7 +174,7 @@ export default function ShopProductsClient({
                     <FilterChip
                       label="In stock"
                       onRemove={toggleInStock}
-                      color={shopData.secondaryColor}
+                      color={shop.secondaryColor}
                     />
                   )}
                   {/* Clear all button */}
@@ -250,7 +201,7 @@ export default function ShopProductsClient({
                 <ProductCardStandard
                   key={product.product_id}
                   product={product}
-                  shopSlug={shopData.shopSlug}
+                  shopSlug={shop.shopSlug}
                 />
               ))}
               
@@ -265,7 +216,7 @@ export default function ShopProductsClient({
               <div className="text-center py-4 mt-8">
                 <Button 
                   onClick={loadMoreProducts}
-                  style={{ backgroundColor: shopData.primaryColor }}
+                  style={{ backgroundColor: shop.primaryColor }}
                 >
                   Load More
                 </Button>
@@ -274,20 +225,6 @@ export default function ShopProductsClient({
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slide-right {
-          from {
-            transform: translateX(-100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-        .animate-slide-right {
-          animation: slide-right 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
