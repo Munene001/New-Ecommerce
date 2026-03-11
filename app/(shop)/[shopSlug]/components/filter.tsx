@@ -25,8 +25,6 @@ interface FilterProps {
     secondaryColor: string;
   };
   activeFilters: ShopFilters;
-
-  // Allow both sync and async functions
   onToggleCategory: (categoryId: string) => void | Promise<void>;
   onSetPriceRange: (min: number, max: number) => void | Promise<void>;
   onClearPriceRange: () => void | Promise<void>;
@@ -76,7 +74,6 @@ export default function Filter({
     activeFilters.sortBy !== "newest" ||
     activeFilters.search !== "";
 
-  // Helper to compute track background gradient
   const getTrackBackground = () => {
     const minPercent = (priceRange[0] / maxLimit) * 100;
     const maxPercent = (priceRange[1] / maxLimit) * 100;
@@ -87,10 +84,7 @@ export default function Filter({
     <div className="bg-white p-4 rounded-lg border border-gray-200 sticky top-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-semibold text-lg flex items-center gap-2">
-          <ListFilterPlus
-            size={20}
-            style={{ color: shopData.secondaryColor }}
-          />
+          <ListFilterPlus size={20} style={{ color: shopData.secondaryColor }} />
           <span>Filter</span>
         </h2>
         {hasActiveFilters && (
@@ -105,7 +99,7 @@ export default function Filter({
       </div>
 
       <div className="space-y-6">
-        {/* Price Range Slider – react-range */}
+        {/* Price Range Slider */}
         <div className="space-y-3">
           <h3 className="font-medium mb-3 text-gray-700">Price Range</h3>
           <div className="px-2">
@@ -141,12 +135,8 @@ export default function Filter({
             />
           </div>
           <div className="flex justify-between text-sm mt-2">
-            <span className="text-gray-700">
-              Ksh {priceRange[0].toLocaleString()}
-            </span>
-            <span className="text-gray-700">
-              {priceRange[1].toLocaleString()}
-            </span>
+            <span className="text-gray-700">Ksh {priceRange[0].toLocaleString()}</span>
+            <span className="text-gray-700">{priceRange[1].toLocaleString()}</span>
           </div>
           <button
             onClick={() => onSetPriceRange(priceRange[0], priceRange[1])}
@@ -178,17 +168,13 @@ export default function Filter({
                 <div
                   className="w-4 h-4 rounded-full border flex items-center justify-center transition-colors"
                   style={{
-                    borderColor:
-                      activeFilters.sortBy === option.value
-                        ? shopData.secondaryColor
-                        : "#d1d5db",
+                    borderColor: activeFilters.sortBy === option.value
+                      ? shopData.secondaryColor
+                      : "#d1d5db",
                   }}
                 >
                   {activeFilters.sortBy === option.value && (
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: shopData.secondaryColor }}
-                    />
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: shopData.secondaryColor }} />
                   )}
                 </div>
                 <input
@@ -219,14 +205,10 @@ export default function Filter({
                 <div
                   className="w-4 h-4 rounded border flex items-center justify-center transition-colors"
                   style={{
-                    borderColor: activeFilters.categories.includes(
-                      String(cat.id)
-                    )
+                    borderColor: activeFilters.categories.includes(String(cat.id))
                       ? shopData.secondaryColor
                       : "#d1d5db",
-                    backgroundColor: activeFilters.categories.includes(
-                      String(cat.id)
-                    )
+                    backgroundColor: activeFilters.categories.includes(String(cat.id))
                       ? shopData.secondaryColor
                       : "transparent",
                   }}

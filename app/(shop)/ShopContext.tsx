@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { createContext, useContext, useState, useEffect } from "react";
 
-
 interface ShopData {
   shopId: number;
   shopName: string;
@@ -18,6 +17,10 @@ interface ShopData {
   headerMessage?: string;
   productCardStyle: 'standard' | 'minimal' | 'compact';
   cartIcon: 'cart' | 'bag' | 'basket';
+  
+  // Add missing properties for filtering
+  maxPrice: number;
+  categories: { id: string; name: string }[];
   
   // Banners (array since shop can have multiple)
   banners: {
@@ -51,9 +54,7 @@ export function ShopProvider({
   const [error, setError] = useState<string | null>(null);
 
   // Optional: Fetch updates if needed (e.g., every 5 minutes)
-  // Remove this useEffect if you don't need real-time updates
   useEffect(() => {
-    // Only if you need to refresh shop data periodically
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/shops/${initialShopData.shopSlug}`);
