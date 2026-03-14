@@ -6,14 +6,14 @@ import { X } from "lucide-react";
 interface FilterChipProps {
   label: string;
   onRemove: () => void;
-  color: string;
+  
 }
 
-export default function FilterChip({ label, onRemove, color }: FilterChipProps) {
+export default function FilterChip({ label, onRemove}: FilterChipProps) {
   return (
     <div 
-      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm text-white"
-      style={{ backgroundColor: color }}
+      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm text-white bg-black"
+      
     >
       <span>{label}</span>
       <button onClick={onRemove} className="hover:opacity-80">

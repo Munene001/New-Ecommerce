@@ -5,7 +5,8 @@ import { Heart, Search, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useState } from "react";
-import MobileSearchOverlay from "./mobileSearch";
+
+import MobileSearchOverlay from "@/app/(shop)/[shopSlug]/components/mobileSearch";
 
 export default function MobileBottomNav() {
   const { shop } = useShop();
