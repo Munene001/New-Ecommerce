@@ -63,11 +63,10 @@ export default function SearchBar({
             onChange={onChange}
             onFocus={handleFocus}
             placeholder={placeholder}
-            className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-opacity-50 transition-all"
+            className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none  focus:ring-opacity-50 transition-all"
             style={
               {
-                "--tw-ring-color": secondaryColor,
-                "--tw-ring-opacity": 0.3,
+              
                 borderColor: secondaryColor,
               } as React.CSSProperties
             }

@@ -10,20 +10,13 @@ import Link from "next/link";
 import HeaderMessage from "./headerMessage";
 import SearchBar from "../ui/searchBar";
 
-
+// Simple debounce hook (only needed for fallback)
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
-
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
-
   return debouncedValue;
 }
 
@@ -34,84 +27,73 @@ export default function ShopHeader() {
   const filterContext = useContext(ShopFilterContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Search state
-  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
-  const debouncedSearch = useDebounce(searchInput, 500);
+  // Determine if we are inside a shop page with filter context
+  const hasContext = !!filterContext;
 
-  // Refs to track user typing and previous search term
+  // For pages without context, we use local state and handle URL navigation
+  const [localSearchInput, setLocalSearchInput] = useState(searchParams.get("search") || "");
+  const debouncedLocalSearch = useDebounce(localSearchInput, 500);
+
+  // Refs for local state only
   const isUserTyping = useRef(false);
-  const prevDebouncedRef = useRef(debouncedSearch);
+  const prevDebouncedRef = useRef(debouncedLocalSearch);
 
-  // Update filter state or navigate when debounced search changes
+  // Use context state if available, otherwise local
+  const searchInput = hasContext ? filterContext.searchInput : localSearchInput;
+  const setSearchInput = hasContext ? filterContext.setSearchInput : setLocalSearchInput;
+  const loading = hasContext ? filterContext.loading : false;
+
+  // For local-only: Update URL when debounced search changes
   useEffect(() => {
+    if (hasContext) return; // Context handles its own debounce and API calls
+
     if (!shop?.shopSlug) return;
+    if (debouncedLocalSearch === prevDebouncedRef.current) return;
+    prevDebouncedRef.current = debouncedLocalSearch;
 
-    if (debouncedSearch === prevDebouncedRef.current) return;
-    prevDebouncedRef.current = debouncedSearch;
-
-    if (filterContext) {
-      filterContext.searchProducts(debouncedSearch);
+    const params = new URLSearchParams(searchParams.toString());
+    if (debouncedLocalSearch.trim()) {
+      params.set("search", debouncedLocalSearch.trim());
     } else {
-      const params = new URLSearchParams(searchParams.toString());
-      if (debouncedSearch.trim()) {
-        params.set("search", debouncedSearch.trim());
-      } else {
-        params.delete("search");
-      }
-      router.push(`/${shop.shopSlug}?${params.toString()}`, { scroll: false });
+      params.delete("search");
     }
-  }, [debouncedSearch, shop?.shopSlug, filterContext, router, searchParams]);
+    router.push(`/${shop.shopSlug}?${params.toString()}`, { scroll: false });
+  }, [debouncedLocalSearch, hasContext, shop?.shopSlug, router, searchParams]);
 
-  // Sync input when URL changes externally
+  // For local-only: Sync input when URL changes externally (e.g., back button)
   useEffect(() => {
+    if (hasContext) return;
+
     const urlSearch = searchParams.get("search") || "";
-    if (!isUserTyping.current && searchInput !== urlSearch) {
-      setSearchInput(urlSearch);
+    if (!isUserTyping.current && localSearchInput !== urlSearch) {
+      setLocalSearchInput(urlSearch);
     }
     const timer = setTimeout(() => {
       isUserTyping.current = false;
     }, 100);
     return () => clearTimeout(timer);
-  }, [searchParams, searchInput]);
+  }, [searchParams, localSearchInput, hasContext]);
 
+  // Handlers work the same for both cases (they just call setSearchInput)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    isUserTyping.current = true;
+    if (!hasContext) {
+      isUserTyping.current = true;
+    }
     setSearchInput(e.target.value);
   };
 
   const handleClearSearch = () => {
     setSearchInput("");
-    if (filterContext) {
-      filterContext.searchProducts("");
-    } else {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("search");
-      router.push(`/${shop?.shopSlug}?${params.toString()}`, { scroll: false });
-    }
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!shop?.shopSlug) return;
-
-    if (filterContext) {
-      filterContext.searchProducts(searchInput);
-    } else {
-      const params = new URLSearchParams(searchParams.toString());
-      if (searchInput.trim()) {
-        params.set("search", searchInput.trim());
-      } else {
-        params.delete("search");
-      }
-      router.push(`/${shop.shopSlug}?${params.toString()}`, { scroll: false });
-    }
+    // The debounced effect will handle the search
   };
-
-  const loading = filterContext?.loading || false;
 
   return (
     <header className="bg-white">
-      
       <HeaderMessage
         message={shop?.headerMessage || ""}
         secondaryColor={shop?.secondaryColor || "#000"}
@@ -198,7 +180,7 @@ export default function ShopHeader() {
           </div>
         </div>
 
-        {/* Mobile Layout */}
+        {/* Mobile Layout - NO SEARCH BAR HERE */}
         <div className="flex md:hidden flex-col gap-4 py-2">
           {/* Top row: menu, shop name, cart */}
           <div className="flex items-center justify-between">
@@ -228,23 +210,10 @@ export default function ShopHeader() {
               </span>
             </button>
           </div>
-
-          {/* Mobile Search Bar */}
-          <SearchBar
-            value={searchInput}
-            onChange={handleInputChange}
-            onSubmit={handleSearchSubmit}
-            onClear={handleClearSearch}
-            loading={loading}
-            secondaryColor={shop?.secondaryColor || "#000"}
-            shopSlug={shop?.shopSlug || ""}
-            variant="mobile"
-            placeholder="What are you looking for?"
-          />
         </div>
       </div>
 
-      {/* Mobile Menu (unchanged) */}
+      {/* Mobile Menu - unchanged */}
       {isMobileMenuOpen && (
         <>
           <div

@@ -101,13 +101,15 @@ export default function ActiveFilterChips({
         )}
 
         {/* Clear all button */}
-        <Button
-          onClick={onClearAll}
-          className="text-sm bg-black text-white flex items-center gap-1 ml-auto"
-        >
-          Clear all
-          <X size={14} />
-        </Button>
+        <button
+  onClick={onClearAll}
+  className="flex items-center bg-black gap-1 px-3 py-1 rounded-full text-sm text-white ml-auto"
+>
+  <X size={14} />
+  Clear all
+</button>
+
+      
       </div>
 
       {/* Result count */}
