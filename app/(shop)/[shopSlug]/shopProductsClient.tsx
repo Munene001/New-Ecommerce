@@ -9,7 +9,7 @@ import { ListFilterPlus, X } from 'lucide-react';
 import Button from "@/app/components/ui/button";
 import Filter from "./components/filter";
 import { useEffect, useRef, useState } from 'react';
-import FilterChip from "@/app/components/ui/filterChip";
+import ActiveFilterChips from "./components/activeFiltersChip";
 
 type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high';
 interface PriceRange {
@@ -49,17 +49,16 @@ export default function ShopProductsClient() {
   } = useShopFilter();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const productsTopRef = useRef<HTMLDivElement>(null);
   const prevFiltersRef = useRef(activeFilters);
 
-  // Scroll to top when filters change
+  // Scroll to top of page when filters change
   useEffect(() => {
     if (prevFiltersRef.current === activeFilters) return;
     prevFiltersRef.current = activeFilters;
-    productsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeFilters]);
 
-  if (!shop) return null; // or a loader, but ShopContext should provide it
+  if (!shop) return null;
 
   return (
     <div>
@@ -125,75 +124,19 @@ export default function ShopProductsClient() {
           
           {/* Products area */}
           <div className="flex-1 min-w-0">
-            {/* Active filters chips and clear all */}
-            <div ref={productsTopRef} className="mb-4 space-y-2">
-              {(activeFilters.search || activeFilters.categories.length > 0 || activeFilters.priceRange || activeFilters.sortBy !== 'newest' || activeFilters.inStock) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Search chip */}
-                  {activeFilters.search && (
-                    <FilterChip
-                      label={`"${activeFilters.search}"`}
-                      onRemove={() => searchProducts('')}
-                      color={shop.secondaryColor}
-                    />
-                  )}
-                  {/* Category chips */}
-                  {activeFilters.categories.map(catId => {
-                    const cat = shop.categories.find(c => c.id === catId);
-                    return cat ? (
-                      <FilterChip
-                        key={catId}
-                        label={cat.name}
-                        onRemove={() => toggleCategory(catId)}
-                        color={shop.secondaryColor}
-                      />
-                    ) : null;
-                  })}
-                  {/* Price range chip */}
-                  {activeFilters.priceRange && (
-                    <FilterChip
-                      label={`Ksh ${activeFilters.priceRange.min.toLocaleString()} – ${activeFilters.priceRange.max.toLocaleString()}`}
-                      onRemove={clearPriceRange}
-                      color={shop.secondaryColor}
-                    />
-                  )}
-                  {/* Sort chip (only if not default) */}
-                  {activeFilters.sortBy !== 'newest' && (
-                    <FilterChip
-                      label={`Sort: ${
-                        activeFilters.sortBy === 'price_low' ? 'Price low' :
-                        activeFilters.sortBy === 'price_high' ? 'Price high' :
-                        activeFilters.sortBy === 'oldest' ? 'Oldest' : 'Newest'
-                      }`}
-                      onRemove={() => setSortBy('newest')}
-                      color={shop.secondaryColor}
-                    />
-                  )}
-                  {/* In stock chip */}
-                  {activeFilters.inStock && (
-                    <FilterChip
-                      label="In stock"
-                      onRemove={toggleInStock}
-                      color={shop.secondaryColor}
-                    />
-                  )}
-                  {/* Clear all button */}
-                  {(activeFilters.search || activeFilters.categories.length > 0 || activeFilters.priceRange || activeFilters.sortBy !== 'newest' || activeFilters.inStock) && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1 ml-auto"
-                    >
-                      Clear all
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              )}
-              {/* Result count */}
-              <div className="text-sm text-gray-500">
-                {totalCount} {totalCount === 1 ? 'product' : 'products'} found
-              </div>
-            </div>
+            {/* Active Filters Chips Component */}
+            <ActiveFilterChips
+              activeFilters={activeFilters}
+              categories={shop.categories || []}
+              totalCount={totalCount}
+              onRemoveSearch={() => searchProducts('')}
+              onRemoveCategory={toggleCategory}
+              onRemovePriceRange={clearPriceRange}
+              onRemoveSort={() => setSortBy('newest')}
+              onRemoveInStock={toggleInStock}
+              onClearAll={clearFilters}
+              secondaryColor={shop.secondaryColor}
+            />
 
             {/* Products grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 sm:gap-5 gap-4">
