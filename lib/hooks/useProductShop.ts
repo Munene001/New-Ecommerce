@@ -1,4 +1,3 @@
-// lib/hooks/useShopProducts.ts
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -27,6 +26,18 @@ interface UseShopProductsProps {
   initialInStock?: boolean;
 }
 
+// Simple debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export function useShopProducts({
   initialProducts,
   shopId,
@@ -37,14 +48,6 @@ export function useShopProducts({
   initialSortBy = 'newest',
   initialInStock = false,
 }: UseShopProductsProps) {
-  console.log('🔄 useShopProducts hook render, filters:', {
-    search: initialSearch,
-    categories: initialCategories,
-    priceRange: initialPriceRange,
-    sortBy: initialSortBy,
-    inStock: initialInStock,
-  });
-
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -53,6 +56,10 @@ export function useShopProducts({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(initialTotalCount || 0);
   const [hasMore, setHasMore] = useState(initialProducts.length < (initialTotalCount || 0));
+
+  // Raw search input (before debounce)
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const debouncedSearch = useDebounce(searchInput, 500);
 
   const [filters, setFilters] = useState<ShopFilters>({
     search: initialSearch,
@@ -63,6 +70,11 @@ export function useShopProducts({
   });
 
   const isFirstRender = useRef(true);
+
+  // When debouncedSearch changes, update the committed filters.search
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, search: debouncedSearch }));
+  }, [debouncedSearch]);
 
   // Sync filters to URL on change (shallow)
   useEffect(() => {
@@ -82,7 +94,6 @@ export function useShopProducts({
     if (filters.sortBy !== 'newest') params.set('sortBy', filters.sortBy);
     if (filters.inStock) params.set('inStock', 'true');
 
-    console.log('🌐 Syncing filters to URL:', params.toString());
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [filters, router]);
 
@@ -106,15 +117,12 @@ export function useShopProducts({
   };
 
   const fetchProducts = useCallback(async (page: number, append: boolean = false) => {
-    console.log('📦 fetchProducts called - page:', page, 'append:', append, 'current filters:', filters);
     setLoading(true);
     try {
       const params = buildQueryParams(page);
-      console.log('🔗 Fetching with params:', params.toString());
       const res = await fetch(`/api/shopowner/products?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      console.log('✅ Fetch response received, products count:', data.products?.length);
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       setCurrentPage(data.pagination.currentPage);
       setHasMore(data.pagination.currentPage < data.pagination.totalPages);
@@ -124,17 +132,15 @@ export function useShopProducts({
     } finally {
       setLoading(false);
     }
-  }, [shopId, filters]); // filters included so the callback updates when filters change
+  }, [shopId, filters]);
 
   // Fetch when filters change
   useEffect(() => {
-    console.log('🎯 Filters changed effect triggered, filters:', filters);
     fetchProducts(1, false);
   }, [filters, fetchProducts]);
 
   const searchProducts = async (term: string) => {
-    console.log('🔍 searchProducts called with term:', term);
-    setFilters(prev => ({ ...prev, search: term }));
+    setSearchInput(term);
   };
 
   const toggleCategory = async (categoryId: string) => {
@@ -166,6 +172,7 @@ export function useShopProducts({
   };
 
   const clearFilters = async () => {
+    setSearchInput('');
     setFilters({
       search: '',
       categories: [],
@@ -183,6 +190,7 @@ export function useShopProducts({
   const resetProducts = () => {
     setProducts(initialProducts);
     setCurrentPage(1);
+    setSearchInput('');
     setFilters({
       search: '',
       categories: [],
@@ -199,6 +207,8 @@ export function useShopProducts({
     totalCount,
     hasMore,
     activeFilters: filters,
+    searchInput,
+    setSearchInput,
     searchProducts,
     toggleCategory,
     setPriceRange,

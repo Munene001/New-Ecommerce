@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search') || '';
   
   // Support BOTH single category (dashboard) and multiple categories (shop)
-  const categories = searchParams.get('categories'); // "electronics,fashion"
-  const singleCategory = searchParams.get('category'); // "5" (legacy for dashboard)
+  const categories = searchParams.get('categories'); 
+  const singleCategory = searchParams.get('category');
   
   const minPrice = searchParams.get('minPrice');
   const maxPrice = searchParams.get('maxPrice');
@@ -39,8 +39,14 @@ export async function GET(req: NextRequest) {
     
     // Add search filter
     if (search) {
-      whereClause += ' AND p.product_name LIKE ?';
-      queryParams.push(`%${search}%`);
+      const searchTerm = `%${search}%`;
+      whereClause += ` AND (
+        p.product_name LIKE ? 
+        OR p.description LIKE ? 
+        OR p.brand LIKE ? 
+        OR p.color LIKE ?
+      )`;
+      queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
     
     // Add category filter - supports BOTH multiple and single
