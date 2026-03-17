@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Product } from "@/lib/hooks/useProduct";
+import { Product } from "@/lib/types/product";
 
 interface Props {
   product: Product;
