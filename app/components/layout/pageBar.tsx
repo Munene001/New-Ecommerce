@@ -26,8 +26,11 @@ export default function PageBar({ breadcrumb, itemCount, itemName }: PageContext
             )}
             {itemName && (
               <>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-600">{itemName}</span>
+                                <span className="text-gray-400">—</span>
+
+                <span className="text-black flex flex-row gap-[2px] items-center">
+                <PackageCheck className="w-4 h-4" /> 
+                  {itemName}</span>
               </>
             )}
           </div>

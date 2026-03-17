@@ -55,7 +55,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   return (
     <div className="w-full font-[Poppins]">
       <Link
-        href={`/shop/${shopSlug}/product/${product.product_slug}`}
+        href={`/${shopSlug}/${product.product_slug}`}
         className="block no-underline text-inherit group border border-gray-300/20 "
       >
         {/* Image container with fixed aspect ratio */}

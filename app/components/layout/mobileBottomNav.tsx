@@ -16,8 +16,8 @@ export default function MobileBottomNav() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-400 z-50 md:hidden shadow-lg">
-      <div className="flex items-center justify-around py-2">
+    <div className="fixed bottom-0 h-18 left-0 right-0 bg-white border-t border-gray-400 z-50 md:hidden shadow-lg flex items-center">
+      <div className="flex items-center justify-around w-full">
         <Link 
           href={`/${shop?.shopSlug}`}
           className="flex flex-col items-center p-2 flex-1"

@@ -236,21 +236,21 @@ export default function ShopHeader() {
               <nav className="flex-1 px-6">
                 <div className="space-y-6">
                   <NavIcon
-                    href={`/shop/${shop?.shopSlug}`}
+                    href={`/${shop?.shopSlug}`}
                     icon={<ShoppingCart className="w-6 h-6" />}
                     label="Shop"
                     onClick={() => setIsMobileMenuOpen(false)}
                     isMobile={true}
                   />
                   <NavIcon
-                    href={`/shop/${shop?.shopSlug}/blog`}
+                    href={`/${shop?.shopSlug}/blog`}
                     icon={<Newspaper className="w-6 h-6" />}
                     label="Blog"
                     onClick={() => setIsMobileMenuOpen(false)}
                     isMobile={true}
                   />
                   <NavIcon
-                    href={`/shop/${shop?.shopSlug}/contact`}
+                    href={`/${shop?.shopSlug}/contact`}
                     icon={<PhoneForwarded className="w-6 h-6" />}
                     label="Contact"
                     onClick={() => setIsMobileMenuOpen(false)}
