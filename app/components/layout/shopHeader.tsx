@@ -9,6 +9,7 @@ import { ShopFilterContext } from "@/context/shopFilterContext";
 import Link from "next/link";
 import HeaderMessage from "./headerMessage";
 import SearchBar from "../ui/searchBar";
+import { useCart } from '@/context/shopCartContext';
 
 // Simple debounce hook (only needed for fallback)
 function useDebounce<T>(value: T, delay: number): T {
@@ -26,6 +27,7 @@ export default function ShopHeader() {
   const searchParams = useSearchParams();
   const filterContext = useContext(ShopFilterContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { totalItems } = useCart();
 
   // Determine if we are inside a shop page with filter context
   const hasContext = !!filterContext;
@@ -153,7 +155,7 @@ export default function ShopHeader() {
                   className="absolute animate-bounce -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
                   style={{ backgroundColor: "var(--secondary)" }}
                 >
-                  0
+                   {totalItems}
                 </span>
               </button>
             </div>
@@ -206,7 +208,7 @@ export default function ShopHeader() {
                 className="absolute -top-2 animate-bounce -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
                 style={{ backgroundColor: "var(--secondary)" }}
               >
-                0
+                 {totalItems}
               </span>
             </button>
           </div>

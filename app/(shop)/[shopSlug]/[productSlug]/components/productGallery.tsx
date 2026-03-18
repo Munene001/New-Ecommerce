@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 
 interface ImageType {
   id: number;
@@ -19,6 +20,7 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalImageId, setModalImageId] = useState<number | null>(null);
+  const mainImageRef = useRef<HTMLImageElement>(null);
 
   const imageUrl = (imageId: number, width = 800, quality = 80) =>
     `/api/shopowner/products/${productId}/images/primary?imageId=${imageId}&w=${width}&q=${quality}`;
@@ -33,6 +35,20 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
     });
   }, [images, productId]);
 
+  // Check if current image is already loaded (cached)
+  useEffect(() => {
+    const currentImageId = images[currentIndex]?.id;
+    if (!currentImageId) return;
+
+    // If already marked as loaded, do nothing
+    if (loadedImages.has(currentImageId)) return;
+
+    // If the image element exists and is already complete, mark it as loaded
+    if (mainImageRef.current?.complete) {
+      setLoadedImages(prev => new Set(prev).add(currentImageId));
+    }
+  }, [currentIndex, images, loadedImages]);
+
   const handleImageLoad = (imageId: number) => {
     setLoadedImages(prev => new Set(prev).add(imageId));
   };
@@ -40,7 +56,6 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
   const openModal = (imageId: number) => {
     setModalImageId(imageId);
     setIsModalOpen(true);
-    // Prevent body scroll
     document.body.style.overflow = 'hidden';
   };
 
@@ -50,7 +65,6 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
     document.body.style.overflow = '';
   };
 
-  // Handle ESC key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeModal();
@@ -59,7 +73,6 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       document.body.style.overflow = '';
@@ -80,13 +93,13 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
     <>
       <div className="flex flex-col md:flex-row gap-4 min-w-[250px]">
         {/* Thumbnails */}
-        <div className="flex md:flex-col gap-2 order-2 md:order-1 overflow-x-auto md:overflow-visible">
+        <div className="flex justify-center md:justify-start md:flex-col gap-2 order-2 md:order-1 overflow-x-auto md:overflow-visible ">
           {images.map((img, idx) => (
             <button
               key={img.id}
               onClick={() => setCurrentIndex(idx)}
               onMouseEnter={() => setCurrentIndex(idx)}
-              className={`flex-shrink-0 w-18 h-18 border-2 rounded-md overflow-hidden transition-all ${
+              className={`flex-shrink-0 w-18 h-18 border rounded-md overflow-hidden transition-all ${
                 idx === currentIndex
                   ? 'ring-1 ring-offset-1'
                   : 'border-gray-200 hover:border-gray-400'
@@ -122,6 +135,7 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
             <div className="absolute inset-0 bg-gray-200 animate-pulse" />
           )}
           <img
+            ref={mainImageRef}
             src={imageUrl(currentImage.id, 800)}
             alt=""
             className={`w-full h-full object-contain ${
@@ -139,7 +153,7 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
       {/* Modal/Lightbox */}
       {isModalOpen && modalImageId && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
+          className="fixed inset-0 z-50 flex lg:items-center py-5 lg:py-0 justify-center bg-black bg-opacity-80"
           onClick={closeModal}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
@@ -152,9 +166,7 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
               onClick={closeModal}
               className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-75"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X />
             </button>
           </div>
         </div>
