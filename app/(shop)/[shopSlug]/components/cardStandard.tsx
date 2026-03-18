@@ -4,9 +4,9 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from 'react';
 import { Product } from "@/lib/types/product";
-import ButtonNav from "@/app/components/ui/buttonNav";
 import { Eye, ShoppingCart } from "lucide-react";
 import ButtonCart from "@/app/components/ui/buttonCart";
+import { useCart } from '@/context/shopCartContext'; // import cart hook
 
 interface Props {
   product: Product;
@@ -16,7 +16,8 @@ interface Props {
 export default function ProductCardStandard({ product, shopSlug }: Props) {
   const [imageUrl, setImageUrl] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
-  
+  const { addToCart } = useCart(); // get addToCart function
+
   // Format price with commas and no decimals
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -36,7 +37,6 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   useEffect(() => {
     const fetchPrimaryImage = async () => {
       try {
-       
         const url = `/api/shopowner/products/${product.product_id}/images/primary?w=300`;
         setImageUrl(url);
       } catch (error) {
@@ -52,24 +52,34 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
 
   const discountPercentage = calculateDiscountPercentage();
 
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault(); // prevent any parent link navigation
+    e.stopPropagation();
+    addToCart({
+      product_id: product.product_id,
+      product_name: product.product_name,
+      price: product.price,
+      discount_price: product.discount_price,
+    }, 1); // default quantity 1
+  };
+
   return (
     <div className="w-full font-[Poppins]">
+      {/* Image – clickable to product */}
       <Link
         href={`/${shopSlug}/${product.product_slug}`}
-        className="block no-underline text-inherit group border border-gray-300/20 "
+        className="block no-underline text-inherit group"
       >
-        {/* Image container with fixed aspect ratio */}
         <div 
           ref={containerRef}
           className="relative w-full aspect-[245/266] max-w-[260px] flex items-center justify-center bg-gray-100 overflow-hidden box-border rounded-sm"
         >
-          {/* Discount Badge - Absolute positioned at top of image */}
+          {/* Discount Badge */}
           {product.discount_price && discountPercentage > 0 && (
-            <div className="absolute top-2 left-2 z-10  text-white text-xs font-bold font-[Poppins] px-2 py-1  bg-green-700" >
+            <div className="absolute top-2 left-2 z-10 text-white text-xs font-bold font-[Poppins] px-2 py-1 bg-green-700">
               -{discountPercentage}% 
             </div>
           )}
-          
           <img
             src={imageUrl || '/placeholder.jpg'}
             alt={product.product_name}
@@ -79,41 +89,51 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
             }}
           />
         </div>
-        
-        {/* Product details */}
-        <div className="mt-4  pb-2 space-y-1 px-1 ">
-        
-          <h3 className="text-[16px] font-medium line-clamp-2 font-[Poppins]"  >
+      </Link>
+
+      {/* Product details – name clickable, price not */}
+      <div className="mt-4 pb-2 space-y-1 px-1">
+        <Link
+          href={`/${shopSlug}/${product.product_slug}`}
+          className="no-underline text-inherit"
+        >
+          <h3 className="text-[16px] font-medium line-clamp-2 font-[Poppins] hover:underline">
             {product.product_name}
           </h3>
-          
-          <div className="flex flex-row items-center gap-2 font-[Poppins]">
-            {product.discount_price ? (
-              <>
-                <span className="text-gray-900 text-base">
-                  <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.discount_price)}
-                </span>
-                <span className="text-gray-400 italic line-through text-sm">
-                  <span className="text-gray-400 text-xs">ksh</span> {formatPrice(product.price)}
-                </span>
-              </>
-            ) : (
-              <span className="text-gray-900 text-base">
-                <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.price)}
-              </span>
-            )}
-          </div>
+        </Link>
 
-          <div className="flex justify-end md:mt-5 mt-[10px]">
-            <ButtonCart className="flex flex-row gap-[6px] justify-between text-white items-center justify-center py-1 text-[14px]" style={{ backgroundColor: "var(--secondary)" }}> 
-              <span className="w-4 h-4 flex justify-center items-center animate-bounce"   style={{ animationDuration: '2s' }}
-              ><ShoppingCart/></span>
-              <span >Cart</span>
-            </ButtonCart>
-          </div>
-        
+        <div className="flex flex-row items-center gap-2 font-[Poppins]">
+          {product.discount_price ? (
+            <>
+              <span className="text-gray-900 text-base">
+                <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.discount_price)}
+              </span>
+              <span className="text-gray-400 italic line-through text-sm">
+                <span className="text-gray-400 text-xs">ksh</span> {formatPrice(product.price)}
+              </span>
+            </>
+          ) : (
+            <span className="text-gray-900 text-base">
+              <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.price)}
+            </span>
+          )}
         </div>
-      </Link>
+
+        {/* Cart button – separate, triggers add to cart */}
+        <div className="flex justify-end md:mt-5 mt-[10px]">
+          <ButtonCart
+            onClick={handleAddToCart}
+            className="flex flex-row gap-[6px] justify-between text-white items-center justify-center py-1 text-[14px]"
+            style={{ backgroundColor: "var(--secondary)" }}
+            disabled={!product.in_stock} // optionally disable if out of stock
+          >
+            <span className="w-4 h-4 flex justify-center items-center animate-bounce" style={{ animationDuration: '2s' }}>
+              <ShoppingCart />
+            </span>
+            <span>Cart</span>
+          </ButtonCart>
+        </div>
+      </div>
     </div>
   );
 }

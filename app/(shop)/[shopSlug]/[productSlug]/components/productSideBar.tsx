@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Heart, Share2, ShoppingCart, Minus, Plus } from 'lucide-react';
-import Button from '@/app/components/ui/button';
+import { Heart, ShoppingCart, Minus, Plus } from "lucide-react";
+import Button from "@/app/components/ui/button";
+import { useCart } from "@/context/shopCartContext";
+import ShareButton from "@/app/components/ui/shareButton";
+import { useShop } from "@/app/(shop)/ShopContext";
+import { useToast } from "@/context/toastContext";
 
 interface Product {
   product_id: number;
@@ -12,61 +15,133 @@ interface Product {
   discount_price: number | null;
   in_stock: boolean;
   attributes: Record<string, any>;
+  product_slug: string; // add this
 }
 
 interface Props {
   product: Product;
   secondaryColor: string;
+  shopSlug: string; // keep this
 }
 
-export default function ProductSidebar({ product, secondaryColor }: Props) {
-  const [quantity, setQuantity] = useState(1);
+export default function ProductSidebar({
+  product,
+  secondaryColor,
+  shopSlug,
+}: Props) {
+  const { shop } = useShop(); // get shop data
+  const { items, addToCart, updateQuantity } = useCart();
+  const cartItem = items.find((i) => i.product_id === product.product_id);
+  const displayQuantity = cartItem ? cartItem.quantity : 1;
+  const { showToast } = useToast();
 
   const discountPercentage = product.discount_price
-    ? Math.round(((product.price - product.discount_price) / product.price) * 100)
+    ? Math.round(
+        ((product.price - product.discount_price) / product.price) * 100
+      )
     : 0;
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-KE', {
+    return new Intl.NumberFormat("en-KE", {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(price);
   };
 
-  const handleAddToCart = () => {
-    console.log('Add to cart:', { productId: product.product_id, quantity });
-    // Replace with actual cart logic
+  const handleIncrement = () => {
+    if (cartItem) {
+      updateQuantity(product.product_id, cartItem.quantity + 1);
+    } else {
+      addToCart(
+        {
+          product_id: product.product_id,
+          product_name: product.product_name,
+          price: product.price,
+          discount_price: product.discount_price,
+        },
+        1
+      );
+    }
   };
 
-  const renderAttributeValue = (value: any): string => {
-    if (value === null || value === undefined) return '—';
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (Array.isArray(value)) return value.join(', ');
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
+  const handleDecrement = () => {
+    if (cartItem) {
+      if (cartItem.quantity > 1) {
+        updateQuantity(product.product_id, cartItem.quantity - 1);
+      } else {
+        updateQuantity(product.product_id, 0);
+      }
+    }
+  };
+
+  // Complete renderAttributeValue function
+  const renderAttributeValue = (value: any): React.ReactNode => {
+    if (value === null || value === undefined) return "—";
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    if (Array.isArray(value)) {
+      return (
+        <ul className="list-disc list-inside text-gray-900">
+          {value.map((item, idx) => (
+            <li key={idx}>{String(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+    if (typeof value === "string") {
+      if (value.includes(",")) {
+        const items = value
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        if (items.length > 0) {
+          return (
+            <ul className="list-disc list-inside text-gray-900">
+              {items.map((item, idx) => (
+                <li key={idx}>{item}</li>
+              ))}
+            </ul>
+          );
+        }
+      }
+      return <span className="text-gray-900">{value}</span>;
+    }
+    if (typeof value === "object") {
+      return <span className="text-gray-900">{JSON.stringify(value)}</span>;
+    }
+    return <span className="text-gray-900">{String(value)}</span>;
   };
 
   const attributeEntries = Object.entries(product.attributes || {})
-    .filter(([key]) => !key.startsWith('_'))
+    .filter(([key]) => !key.startsWith("_"))
     .map(([key, value]) => ({
       key,
-      label: key.replace(/_/g, ' '),
-      value: renderAttributeValue(value),
+      label: key.replace(/_/g, " "),
+      value,
     }));
+
+  // Construct share URL (client-side only)
+  const shareUrl =
+    typeof window !== "undefined"
+      ? window.location.href
+      : `/${shopSlug}/${product.product_slug}`;
 
   return (
     <>
-      {/* Desktop version (hidden on mobile) */}
+      {/* Desktop version */}
       <div className="hidden md:block space-y-6">
-        <h1 className="text-3xl font-light">{product.product_name}</h1>
+        <h1 className="text-3xl font-medium">{product.product_name}</h1>
 
         {/* Price */}
         <div className="flex items-center gap-3">
           {product.discount_price ? (
             <>
-              <span className="text-2xl font-semibold">KSh {formatPrice(product.discount_price)}</span>
-              <span className="text-gray-400 line-through text-lg">KSh {formatPrice(product.price)}</span>
-              <span 
+              <span className="text-2xl font-semibold">
+                KSh {formatPrice(product.discount_price)}
+              </span>
+              <span className="text-gray-400 line-through text-lg">
+                KSh {formatPrice(product.price)}
+              </span>
+              <span
                 className="text-white text-xs px-2 py-1 rounded"
                 style={{ backgroundColor: secondaryColor }}
               >
@@ -74,64 +149,78 @@ export default function ProductSidebar({ product, secondaryColor }: Props) {
               </span>
             </>
           ) : (
-            <span className="text-2xl font-semibold">KSh {formatPrice(product.price)}</span>
+            <span className="text-2xl font-semibold">
+              KSh {formatPrice(product.price)}
+            </span>
           )}
         </div>
 
         {/* Stock status */}
         <div>
           {product.in_stock ? (
-            <span className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full">In Stock</span>
+            <span className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full">
+              In Stock
+            </span>
           ) : (
-            <span className="bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full">Out of Stock</span>
+            <span className="bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full">
+              Out of Stock
+            </span>
           )}
         </div>
 
-        {/* Quantity & Add to Cart */}
+        {/* Quantity controls & Add to Cart */}
         <div className="flex items-center gap-4">
           <div className="flex items-center border border-gray-300">
             <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              onClick={handleDecrement}
               className="px-3 py-2 hover:bg-gray-100"
+              disabled={!cartItem}
             >
               <Minus className="w-4 h-4" />
             </button>
-            <span className="px-4 py-2 text-center w-12">{quantity}</span>
+            <span className="px-4 py-2 text-center w-12">
+              {displayQuantity}
+            </span>
             <button
-              onClick={() => setQuantity(quantity + 1)}
+              onClick={handleIncrement}
               className="px-3 py-2 hover:bg-gray-100"
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
           <Button
-            onClick={handleAddToCart} 
+            onClick={handleIncrement}
             className="flex-1 flex flex-row gap-3 justify-center items-center text-white"
             style={{ backgroundColor: secondaryColor }}
           >
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            Add to Cart
+            <ShoppingCart className="w-6 h-6 mr-2" />
+            {cartItem ? "Update Cart" : "Add to Cart"}
           </Button>
         </div>
 
         {/* Wishlist & Share */}
         <div className="flex gap-4">
-          <button 
+          <button
             className="flex items-center gap-1 text-gray-600 transition-colors"
             onMouseEnter={(e) => (e.currentTarget.style.color = secondaryColor)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "")}
           >
             <Heart className="w-5 h-5" />
             <span>Wishlist</span>
           </button>
-          <button 
-            className="flex items-center gap-1 text-gray-600 transition-colors"
-            onMouseEnter={(e) => (e.currentTarget.style.color = secondaryColor)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '')}
-          >
-            <Share2 className="w-5 h-5" />
-            <span>Share</span>
-          </button>
+          <ShareButton
+            title={product.product_name}
+            text={`Check out ${product.product_name} on ${
+              shop?.shopName || "our store"
+            }`}
+            url={shareUrl}
+            color={secondaryColor}
+            showLabel
+            iconClassName="w-5 h-5"
+            labelClassName="text-sm"
+            onSuccess={() => showToast("Link copied to clipboard!", "success")}
+            onError={() => showToast("Failed to share", "error")}
+          />
         </div>
 
         {/* Description */}
@@ -142,10 +231,12 @@ export default function ProductSidebar({ product, secondaryColor }: Props) {
           <div className="border-t border-gray-200 pt-4">
             <h2 className="text-lg font-medium mb-3">Product Details</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-              {attributeEntries.map(attr => (
+              {attributeEntries.map((attr) => (
                 <div key={attr.key} className="flex flex-col">
-                  <span className="font-bold capitalize text-gray-700">{attr.label}</span>
-                  <span className="text-gray-900">{attr.value}</span>
+                  <span className="font-bold capitalize text-gray-700">
+                    {attr.label}
+                  </span>
+                  {renderAttributeValue(attr.value)}
                 </div>
               ))}
             </div>
@@ -153,59 +244,99 @@ export default function ProductSidebar({ product, secondaryColor }: Props) {
         )}
       </div>
 
-      {/* Mobile version – inline content (the fixed bottom bar will handle Add to Cart) */}
-      <div className="block md:hidden space-y-6 pb-24"> {/* pb-24 leaves space for fixed bars */}
-        <h1 className="text-3xl font-light">{product.product_name}</h1>
-        <div className="flex items-center gap-3">
+      {/* Mobile version */}
+      <div className="block md:hidden space-y-5 pb-6">
+        {/* Title */}
+        <h1 className="text-2xl font-semibold leading-tight text-black">
+          {product.product_name}
+        </h1>
+
+        {/* Price Section */}
+        <div className="flex items-end gap-3">
           {product.discount_price ? (
             <>
-              <span className="text-2xl font-semibold">KSh {formatPrice(product.discount_price)}</span>
-              <span className="text-gray-400 line-through text-lg">KSh {formatPrice(product.price)}</span>
-              <span 
-                className="text-white text-xs px-2 py-1 rounded"
+              <span className="text-2xl font-bold text-black">
+                KSh {formatPrice(product.discount_price)}
+              </span>
+
+              <span className="text-gray-400 line-through text-sm">
+                KSh {formatPrice(product.price)}
+              </span>
+
+              <span
+                className="text-white text-[10px] px-2 py-[2px] rounded font-medium"
                 style={{ backgroundColor: secondaryColor }}
               >
                 -{discountPercentage}%
               </span>
             </>
           ) : (
-            <span className="text-2xl font-semibold">KSh {formatPrice(product.price)}</span>
+            <span className="text-2xl font-bold text-black">
+              KSh {formatPrice(product.price)}
+            </span>
           )}
         </div>
+
+        {/* Stock */}
         <div>
           {product.in_stock ? (
-            <span className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full">In Stock</span>
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-700">
+              In Stock
+            </span>
           ) : (
-            <span className="bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full">Out of Stock</span>
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-400">
+              Out of Stock
+            </span>
           )}
         </div>
-        <div className="flex gap-4">
-          <button 
-            className="flex items-center gap-1 text-gray-600 transition-colors"
+
+        {/* Actions */}
+        <div className="flex items-center gap-5 text-sm text-gray-600">
+          <button
+            className="flex items-center gap-1 transition-colors"
             onMouseEnter={(e) => (e.currentTarget.style.color = secondaryColor)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "")}
           >
             <Heart className="w-5 h-5" />
             <span>Wishlist</span>
           </button>
-          <button 
-            className="flex items-center gap-1 text-gray-600 transition-colors"
-            onMouseEnter={(e) => (e.currentTarget.style.color = secondaryColor)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '')}
-          >
-            <Share2 className="w-5 h-5" />
-            <span>Share</span>
-          </button>
+
+          <ShareButton
+            title={product.product_name}
+            text={`Check out ${product.product_name} on ${
+              shop?.shopName || "our store"
+            }`}
+            url={shareUrl}
+            color={secondaryColor}
+            showLabel
+            iconClassName="w-5 h-5"
+            labelClassName="text-sm"
+            onSuccess={() => showToast("Link copied to clipboard!", "success")}
+            onError={() => showToast("Failed to share", "error")}
+          />
         </div>
-        <p className="text-gray-600">{product.description}</p>
+
+        {/* Description */}
+        <p className="text-gray-600 text-sm leading-relaxed">
+          {product.description}
+        </p>
+
+        {/* Attributes */}
         {attributeEntries.length > 0 && (
-          <div className="border-t border-gray-200 pt-4">
-            <h2 className="text-lg font-medium mb-3">Product Details</h2>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              {attributeEntries.map(attr => (
+          <div className="border-t border-gray-200 pt-4 space-y-3">
+            <h2 className="text-base font-semibold text-black">
+              Product Details
+            </h2>
+
+            <div className="grid grid-cols-2 gap-y-3 text-sm">
+              {attributeEntries.map((attr) => (
                 <div key={attr.key} className="flex flex-col">
-                  <span className="font-bold capitalize text-gray-700">{attr.label}</span>
-                  <span className="text-gray-900">{attr.value}</span>
+                  <span className="text-gray-600 text-xs uppercase tracking-wide">
+                    {attr.label}
+                  </span>
+                  <span className="text-black">
+                    {renderAttributeValue(attr.value)}
+                  </span>
                 </div>
               ))}
             </div>

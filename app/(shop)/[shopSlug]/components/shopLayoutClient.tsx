@@ -9,8 +9,11 @@ import ShopFooter from "@/app/components/layout/shopFooter";
 import MobileBottomNav from "@/app/components/layout/mobileBottomNav";
 import { ShopFilterProvider } from "@/context/shopFilterContext";
 import { Product } from "@/lib/types/product";
+import { ToastProvider } from "@/context/toastContext";
+import { CartProvider } from "@/context/shopCartContext";
+import { RecentlyViewedProvider } from "@/context/recentlyViewed";
 
-type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high';
+type SortOption = "newest" | "oldest" | "price_low" | "price_high";
 interface PriceRange {
   min: number;
   max: number;
@@ -34,30 +37,39 @@ interface ShopLayoutClientProps {
   initialTotalCount: number;
 }
 
-export default function ShopLayoutClient({ 
-  children, 
-  shopData, 
-  initialProducts, 
-  initialTotalCount 
+export default function ShopLayoutClient({
+  children,
+  shopData,
+  initialProducts,
+  initialTotalCount,
 }: ShopLayoutClientProps) {
   const { shop, loading } = useShop(); // from your existing ShopContext
   const activeBanners = useActiveBanners();
   const searchParams = useSearchParams();
 
   // Parse initial filter values from URL
-  const initialSearch = searchParams.get('search') || '';
-  const initialCategories = searchParams.get('categories')?.split(',') || [];
-  const minPrice = searchParams.get('minPrice');
-  const maxPrice = searchParams.get('maxPrice');
-  const initialPriceRange = minPrice && maxPrice ? { min: Number(minPrice), max: Number(maxPrice) } : null;
-  const initialSortBy = (searchParams.get('sortBy') as SortOption) || 'newest';
-  const initialInStock = searchParams.get('inStock') === 'true';
+  const initialSearch = searchParams.get("search") || "";
+  const initialCategories = searchParams.get("categories")?.split(",") || [];
+  const minPrice = searchParams.get("minPrice");
+  const maxPrice = searchParams.get("maxPrice");
+  const initialPriceRange =
+    minPrice && maxPrice
+      ? { min: Number(minPrice), max: Number(maxPrice) }
+      : null;
+  const initialSortBy = (searchParams.get("sortBy") as SortOption) || "newest";
+  const initialInStock = searchParams.get("inStock") === "true";
 
   // Apply CSS variables when shop data loads (shopData is from props)
   useEffect(() => {
     if (shopData) {
-      document.documentElement.style.setProperty('--primary', shopData.primaryColor);
-      document.documentElement.style.setProperty('--secondary', shopData.secondaryColor);
+      document.documentElement.style.setProperty(
+        "--primary",
+        shopData.primaryColor
+      );
+      document.documentElement.style.setProperty(
+        "--secondary",
+        shopData.secondaryColor
+      );
     }
   }, [shopData]);
 
@@ -70,6 +82,9 @@ export default function ShopLayoutClient({
   }
 
   return (
+    <RecentlyViewedProvider>
+    <ToastProvider>
+      <CartProvider>
     <ShopFilterProvider
       shopId={shopData.shopId.toString()}
       initialProducts={initialProducts}
@@ -82,31 +97,37 @@ export default function ShopLayoutClient({
     >
       <div className="min-h-screen flex flex-col">
         <ShopHeader />
-        
+
         {activeBanners.length > 0 && (
           <div className="container mx-auto px-4 py-4">
             {activeBanners.map((banner) => (
               <a
                 key={banner.bannerId}
-                href={banner.bannerType === 'default' 
-                  ? `/shop/${shopData.shopSlug}/products?discounted=true`
-                  : `/shop/${shopData.shopSlug}/categories/${banner.categoryId}`
+                href={
+                  banner.bannerType === "default"
+                    ? `/shop/${shopData.shopSlug}/products?discounted=true`
+                    : `/shop/${shopData.shopSlug}/categories/${banner.categoryId}`
                 }
                 className="block"
               >
-                <img src={banner.bannerUrl} alt="Banner" className="w-full rounded-lg" />
+                <img
+                  src={banner.bannerUrl}
+                  alt="Banner"
+                  className="w-full rounded-lg"
+                />
               </a>
             ))}
           </div>
         )}
 
-        <main>
-          {children}
-        </main>
+        <main>{children}</main>
 
         <ShopFooter />
         <MobileBottomNav />
       </div>
     </ShopFilterProvider>
+    </CartProvider>
+    </ToastProvider>
+    </RecentlyViewedProvider>
   );
 }

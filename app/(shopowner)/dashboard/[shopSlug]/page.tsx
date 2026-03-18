@@ -1,9 +1,19 @@
-"use client"
+"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { CheckCircle, ExternalLink, ShoppingCart, CreditCard, Palette, Share2, MonitorSmartphone, Monitor } from "lucide-react";
+import {
+  CheckCircle,
+  ExternalLink,
+  ShoppingCart,
+  CreditCard,
+  Palette,
+  Share2,
+  MonitorSmartphone,
+  Monitor,
+} from "lucide-react";
 import { useState } from "react";
+import ShareButton from "@/app/components/ui/shareButton";
 
 export default function Dashboard() {
   const params = useParams();
@@ -24,8 +34,8 @@ export default function Dashboard() {
 
   const handleShare = async () => {
     const shareData = {
-      title: 'My Shop',
-      text: 'Check out my shop',
+      title: "My Shop",
+      text: "Check out my shop",
       url: `https://thamanitech.com/shop/${shopSlug}`,
     };
 
@@ -33,7 +43,7 @@ export default function Dashboard() {
       try {
         await navigator.share(shareData);
       } catch (err) {
-        console.log('Share cancelled');
+        console.log("Share cancelled");
       }
     } else {
       // Fallback - copy to clipboard
@@ -47,31 +57,35 @@ export default function Dashboard() {
     {
       icon: ShoppingCart,
       title: "Add Your First Product",
-      description: "Start by uploading your products with clear images, competitive prices, and detailed descriptions.",
+      description:
+        "Start by uploading your products with clear images, competitive prices, and detailed descriptions.",
       link: `/dashboard/${shopSlug}/products`,
-      linkText: "Products →"
+      linkText: "Products →",
     },
     {
       icon: CreditCard,
       title: "Set Up Payment Methods",
-      description: "Connect your M-Pesa Till or Buy Goods number to start accepting payments from customers securely.",
+      description:
+        "Connect your M-Pesa Till or Buy Goods number to start accepting payments from customers securely.",
       link: `/dashboard/${shopSlug}/payments`,
-      linkText: "Payments →"
+      linkText: "Payments →",
     },
     {
       icon: Palette,
       title: "Customize Shop Appearance",
-      description: "Make your shop unique by changing colors, uploading your logo, and setting up your brand style.",
+      description:
+        "Make your shop unique by changing colors, uploading your logo, and setting up your brand style.",
       link: `/dashboard/${shopSlug}/appearance`,
-      linkText: "Appearance"
+      linkText: "Appearance",
     },
     {
       icon: Share2,
       title: "Share Your Shop & Start Selling",
-      description: "Your shop is live! Share the link with customers, post on social media, and start making sales.",
+      description:
+        "Your shop is live! Share the link with customers, post on social media, and start making sales.",
       link: `/shop/${shopSlug}`,
       external: true,
-      linkText: "Visit Your Shop →"
+      linkText: "Visit Your Shop →",
     },
   ];
 
@@ -89,7 +103,10 @@ export default function Dashboard() {
         <MonitorSmartphone className="w-9 h-9 text-amber-600  mt-0.5" />
         <div className="text-sm text-amber-800">
           <p className="font-medium mb-1">Mobile View</p>
-          <p>For the best dashboard experience with full features, please use a computer or laptop.</p>
+          <p>
+            For the best dashboard experience with full features, please use a
+            computer or laptop.
+          </p>
         </div>
       </div>
 
@@ -101,37 +118,29 @@ export default function Dashboard() {
         </div>
 
         <div className="text-center">
-          <p className="text-white mb-4 font-medium text-2xl">Your shop is live and ready for customers:</p>
-          
+          <p className="text-white mb-4 font-medium text-2xl">
+            Your shop is live and ready for customers:
+          </p>
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white/10 rounded-lg p-3 mb-3">
-            <Link 
+            <Link
               href={`/shop/${shopSlug}`}
               target="_blank"
               className="text-white hover:underline font-medium text-sm sm:text-base break-all"
             >
-              thamanitech.com/shop/{shopSlug}
+              thamanitech.com/{shopSlug}
             </Link>
-            
+
             {/* Share Button */}
-            <div className="relative">
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-2 bg-[#0FA965] hover:bg-[#0c8a52] text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Share Shop</span>
-                <span className="sm:hidden">Share</span>
-              </button>
-              
-              {/* Tooltip for copy fallback */}
-              {showShareTooltip && (
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-gray-900 text-white text-xs py-1 px-2 rounded whitespace-nowrap">
-                  Link copied!
-                </div>
-              )}
-            </div>
+            <ShareButton
+              title="My Shop"
+              text="Check out my shop"
+              url={`https://thamanitech.com/${shopSlug}`}
+              variant="primary"
+              showLabel
+            />
           </div>
-          
+
           <p className="text-white/80 text-sm">
             Share this link on social media, WhatsApp, or with your contacts
           </p>
@@ -143,7 +152,7 @@ export default function Dashboard() {
         {guides.map((guide, index) => {
           const Icon = guide.icon;
           return (
-            <div 
+            <div
               key={index}
               className="bg-white border border-gray-200 rounded-xl p-6 hover:border-gray-300 transition-colors hover:shadow-sm"
             >
@@ -155,9 +164,7 @@ export default function Dashboard() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     {guide.title}
                   </h3>
-                  <p className="text-gray-800 mb-4">
-                    {guide.description}
-                  </p>
+                  <p className="text-gray-800 mb-4">{guide.description}</p>
                   <Link
                     href={guide.link}
                     target={guide.external ? "_blank" : undefined}
@@ -175,7 +182,9 @@ export default function Dashboard() {
 
       {/* Other Sections You Might Need */}
       <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Other Sections</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Other Sections
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {quickLinks.map((link, index) => (
             <Link
