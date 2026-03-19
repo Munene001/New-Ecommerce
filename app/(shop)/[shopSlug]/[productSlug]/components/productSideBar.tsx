@@ -170,22 +170,22 @@ export default function ProductSidebar({
 
         {/* Quantity controls & Add to Cart */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center border border-gray-300">
+          <div className="flex items-center border rounded-xs border-black">
             <button
               onClick={handleDecrement}
               className="px-3 py-2 hover:bg-gray-100"
               disabled={!cartItem}
             >
-              <Minus className="w-4 h-4" />
+              <Minus className="w-4 h-4 text-bold"  />
             </button>
-            <span className="px-4 py-2 text-center w-12">
+            <span className="px-4 py-2 text-center text-bold w-12">
               {displayQuantity}
             </span>
             <button
               onClick={handleIncrement}
               className="px-3 py-2 hover:bg-gray-100"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 text-bold" />
             </button>
           </div>
           <Button

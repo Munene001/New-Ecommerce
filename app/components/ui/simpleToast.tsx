@@ -25,9 +25,9 @@ export default function SimpleToast({ message, onClose, duration = 5000 }: Simpl
   if (!message) return null;
 
   return (
-    <div className="fixed lg:bottom-6 bottom-[20vh] left-1/2 transform -translate-x-1/2 md:w-auto w-[80vw] z-50 animate-slideUp">
+    <div className="fixed lg:bottom-6 bottom-[20vh] right-2 md:w-auto w-[80vw] z-50 animate-slideUp">
       <div
-        className={`flex items-center justify-between gap-4 px-6 md:py-3 py-2 md:rounded-full rounded-lg shadow-lg border ${
+        className={`flex items-center justify-between gap-4 px-6 md:py-3 py-2  rounded-2xl shadow-lg border ${
           message.type === 'success' 
             ? 'bg-green-50 border-green-200 text-green-700' 
             : 'bg-red-50 border-red-200 text-red-600'

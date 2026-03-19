@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
+    console.log('Complete-onboarding - User from Supabase:', user?.id);
+
     const { shop_type } = await request.json();
     
     if (!shop_type || !['retail', 'clothing', 'pharmacy', 'bookshop'].includes(shop_type)) {
@@ -26,7 +28,16 @@ export async function POST(request: NextRequest) {
     }
 
     connection = await getConnection();
-    
+
+    // Check if user exists in MySQL
+    const [userCheck] = await connection.execute(
+      'SELECT user_id, role FROM users WHERE supabase_uid = ?',
+      [user.id]
+    ) as [any[], any];
+    console.log('User from MySQL:', userCheck);
+
+    console.log('Searching tenant for supabase_uid:', user.id);
+
     // Get user's tenant info
     const [tenantResult] = await connection.execute(
       `SELECT t.tenant_id, t.business_name, t.business_slug
@@ -36,6 +47,8 @@ export async function POST(request: NextRequest) {
       [user.id]
     ) as [any[], any];
     
+    console.log('Tenant query result:', tenantResult);
+
     if (tenantResult.length === 0) {
       return NextResponse.json({ 
         success: false, 
@@ -51,17 +64,13 @@ export async function POST(request: NextRequest) {
        VALUES (?, ?, ?, ?)`,
       [
         tenant.tenant_id,
-        tenant.business_name,  // From tenant table
-        tenant.business_slug,  // From tenant table (first shop inherits tenant slug)
+        tenant.business_name,
+        tenant.business_slug,
         shop_type
       ]
     ) as any;
     
     const shopId = shopResult.insertId;
-    
-    // Note: First shop inherits tenant's business_slug
-    // For additional shops in future, we would need to fetch the created shop
-    // But for now, tenant.business_slug = shop.shop_slug by design
     const shopSlug = tenant.business_slug;
     
     return NextResponse.json({
@@ -69,7 +78,7 @@ export async function POST(request: NextRequest) {
       message: 'Shop created successfully',
       shopId: shopId,
       shopSlug: shopSlug,
-      redirectTo: `/dashboard/${shopSlug}`  // Fixed: Use shopSlug variable
+      redirectTo: `/dashboard/${shopSlug}`
     });
     
   } catch (error: any) {

@@ -95,6 +95,7 @@ export default function ShopProductsClient() {
 
   return (
     <div>
+     
       <PageBar breadcrumb="Shop" itemCount={totalCount} />
 
      
