@@ -1,7 +1,15 @@
 "use client";
 
 import { useShop } from "@/app/(shop)/ShopContext";
-import { User, Heart, ShoppingCart, Menu, Newspaper, PhoneForwarded, X } from "lucide-react";
+import {
+  User,
+  Heart,
+  ShoppingCart,
+  Menu,
+  Newspaper,
+  PhoneForwarded,
+  X,
+} from "lucide-react";
 import { useState, useEffect, useContext, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavIcon from "../ui/navIcon";
@@ -9,7 +17,9 @@ import { ShopFilterContext } from "@/context/shopFilterContext";
 import Link from "next/link";
 import HeaderMessage from "./headerMessage";
 import SearchBar from "../ui/searchBar";
-import { useCart } from '@/context/shopCartContext';
+import { useCart } from "@/context/shopCartContext";
+import { useAuth } from "@/context/authcontext";
+import Button from "../ui/button";
 
 // Simple debounce hook (only needed for fallback)
 function useDebounce<T>(value: T, delay: number): T {
@@ -28,12 +38,15 @@ export default function ShopHeader() {
   const filterContext = useContext(ShopFilterContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { totalItems } = useCart();
+  const { user } = useAuth();
 
   // Determine if we are inside a shop page with filter context
   const hasContext = !!filterContext;
 
   // For pages without context, we use local state and handle URL navigation
-  const [localSearchInput, setLocalSearchInput] = useState(searchParams.get("search") || "");
+  const [localSearchInput, setLocalSearchInput] = useState(
+    searchParams.get("search") || ""
+  );
   const debouncedLocalSearch = useDebounce(localSearchInput, 500);
 
   // Refs for local state only
@@ -42,7 +55,9 @@ export default function ShopHeader() {
 
   // Use context state if available, otherwise local
   const searchInput = hasContext ? filterContext.searchInput : localSearchInput;
-  const setSearchInput = hasContext ? filterContext.setSearchInput : setLocalSearchInput;
+  const setSearchInput = hasContext
+    ? filterContext.setSearchInput
+    : setLocalSearchInput;
   const loading = hasContext ? filterContext.loading : false;
 
   // For local-only: Update URL when debounced search changes
@@ -130,17 +145,42 @@ export default function ShopHeader() {
               </span>
             </div>
 
-            {/* Icons - Right section */}
             <div className="w-1/3 flex justify-end items-center gap-6">
-              <Link
-                href={`/${shop?.shopSlug}/profile`}
-                className="hover:opacity-70 transition"
-              >
-                <User
-                  className="w-7 h-7"
-                  style={{ color: shop?.primaryColor }}
-                />
-              </Link>
+              {user ? (
+                // Logged in: show user icon + first name
+                <Link
+                  href={
+                    user.role === "shop_owner"
+                      ? `/dashboard/${shop?.shopSlug}`
+                      : `/${shop?.shopSlug}/profile`
+                  }
+                  className="flex flex-col items-center  hover:opacity-70 transition"
+                >
+                  <User
+                    className="w-7 h-7"
+                    style={{ color: shop?.primaryColor }}
+                  />
+                  <span
+                    className="text-xs  hidden sm:inline"
+                    style={{ color: shop?.primaryColor }}
+                  >
+                    {user.name?.split(" ")[0] || "Account"}
+                  </span>
+                </Link>
+              ) : (
+                // Not logged in: show sign up button only
+                <Link
+                  href={`/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`}
+                >
+                  <Button
+                    variant="primary"
+                    className="bg-black text-white hover:bg-gray-800"
+                  >
+                    Sign In
+                  </Button>
+                </Link>
+              )}
+              {/* Heart and Cart remain unchanged */}
               <button className="hover:opacity-70 transition">
                 <Heart
                   className="w-7 h-7"
@@ -155,7 +195,7 @@ export default function ShopHeader() {
                   className="absolute animate-bounce -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
                   style={{ backgroundColor: "var(--secondary)" }}
                 >
-                   {totalItems}
+                  {totalItems}
                 </span>
               </button>
             </div>
@@ -169,7 +209,7 @@ export default function ShopHeader() {
             >
               <NavIcon href={`/`} icon={<ShoppingCart />} label="Shop" />
               <NavIcon
-                href={`/shop/${shop?.shopSlug}/blog`}
+                href={`/${shop?.shopSlug}/blog`}
                 icon={<Newspaper />}
                 label="Blog"
               />
@@ -208,7 +248,7 @@ export default function ShopHeader() {
                 className="absolute -top-2 animate-bounce -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
                 style={{ backgroundColor: "var(--secondary)" }}
               >
-                 {totalItems}
+                {totalItems}
               </span>
             </button>
           </div>
@@ -255,6 +295,19 @@ export default function ShopHeader() {
                     href={`/${shop?.shopSlug}/contact`}
                     icon={<PhoneForwarded className="w-6 h-6" />}
                     label="Contact"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    isMobile={true}
+                  />
+                  <NavIcon
+                    href={
+                      user
+                        ? user.role === "shop_owner"
+                          ? `/dashboard/${shop?.shopSlug}`
+                          : `/${shop?.shopSlug}/profile`
+                        : `/login?context=customer&redirect=/${shop?.shopSlug}/profile`
+                    }
+                    icon={<User className="w-6 h-6" />}
+                    label={user ? "Profile" : "Login"}
                     onClick={() => setIsMobileMenuOpen(false)}
                     isMobile={true}
                   />

@@ -104,7 +104,7 @@ export default function Dashboard() {
         <div className="text-sm text-amber-800">
           <p className="font-medium mb-1">Mobile View</p>
           <p>
-            For the best dashboard experience with full features, please use a
+            For the best dashboard experience, please use a
             computer or laptop.
           </p>
         </div>

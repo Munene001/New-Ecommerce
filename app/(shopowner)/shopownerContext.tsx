@@ -1,6 +1,8 @@
 "use client";
-import * as React from 'react'
-import { createContext, useContext, useState, useEffect } from "react";
+import * as React from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '@/context/authcontext';
+import { useRouter } from 'next/navigation';
 import DashboardSkeleton from '../components/layout/skeletonDash';
 
 interface ShopData {
@@ -20,9 +22,26 @@ export function ShopProvider({
 }) {
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    // Don't fetch if shopSlug is undefined or empty
+    // Wait for auth to load
+    if (isAuthenticated === undefined) return;
+
+    // Not logged in – redirect to login with return URL
+    if (!isAuthenticated) {
+      router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+
+    // Logged in but not a shop owner – redirect to shop front page
+    if (user?.role !== 'shop_owner') {
+      router.push(`/${shopSlug}`); // Go to shop home instead of global home
+      return;
+    }
+
+    // If no shopSlug (should not happen), show error
     if (!shopSlug) {
       setLoading(false);
       return;
@@ -31,6 +50,11 @@ export function ShopProvider({
     const fetchShopData = async () => {
       try {
         const res = await fetch(`/api/shops/${shopSlug}`);
+        if (res.status === 401 || res.status === 403) {
+          // Unauthorized or forbidden – redirect to login
+          router.push('/auth/login');
+          return;
+        }
         if (!res.ok) {
           throw new Error('Shop not found');
         }
@@ -49,14 +73,14 @@ export function ShopProvider({
     };
 
     fetchShopData();
-  }, [shopSlug]);
+  }, [shopSlug, isAuthenticated, user, router]);
 
-  // Show loading only when we have a shopSlug and are fetching
-  if (loading && shopSlug) {
+  // Show loading while checking auth or fetching shop
+  if (loading || isAuthenticated === undefined) {
     return <DashboardSkeleton />;
   }
 
-  // If no shopSlug or shop not found, show error or redirect
+  // If no shopSlug or shop not found, show error
   if (!shopSlug || !shopData) {
     return <div>Shop not found</div>;
   }

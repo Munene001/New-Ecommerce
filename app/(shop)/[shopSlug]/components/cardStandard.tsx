@@ -64,7 +64,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   };
 
   return (
-    <div className="w-full font-[Poppins]">
+    <div className="w-full font-[Poppins]  bg-gray-100 md:p-2 p-1 rounded-sm">
       {/* Image – clickable to product */}
       <Link
         href={`/${shopSlug}/${product.product_slug}`}

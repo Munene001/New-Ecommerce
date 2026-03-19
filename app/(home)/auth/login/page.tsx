@@ -1,9 +1,8 @@
-// app/login/page.tsx
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { useAuth } from "@/context/authcontext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import Link from "next/link";
@@ -18,13 +17,34 @@ export default function LoginPage() {
     email: false,
     password: false,
   });
+  const [verifiedMessage, setVerifiedMessage] = useState("");
 
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Read query params on mount
+  useEffect(() => {
+    const redirect = searchParams.get("redirect");
+    const context = searchParams.get("context");
+    const verified = searchParams.get("verified");
+
+    if (verified === "true") {
+      setVerifiedMessage("Email verified! Please log in.");
+    }
+
+    // Store redirect in sessionStorage if present
+    if (redirect) {
+      sessionStorage.setItem("loginRedirect", redirect);
+    }
+
+    // Optionally store context for signup link logic (we'll use it directly in render)
+  }, [searchParams]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setVerifiedMessage("");
     setFieldErrors({ email: false, password: false });
 
     if (!email || !password) {
@@ -75,13 +95,28 @@ export default function LoginPage() {
         data.session.access_token
       );
 
-      // 4. Redirect based on role and onboarding status
+  // 4. Check for stored redirect – only for customers
+const storedRedirect = sessionStorage.getItem("loginRedirect");
+if (storedRedirect && userInfo.role === "customer") {
+  sessionStorage.removeItem("loginRedirect");
+  router.push(storedRedirect);
+  return;
+}
+
+      // 5. Fallback to role‑based redirect
       if (userInfo.role === "shop_owner") {
         if (userInfo.onboardingComplete && userInfo.shopSlug) {
           router.push(`/dashboard/${userInfo.shopSlug}`);
         } else {
           router.push("/shopType");
         }
+      } else if (userInfo.role === "customer") {
+        // Default customer landing page (can be changed)
+        router.push("/");
+      } else {
+        // Unknown role – logout and show error
+        await supabase.auth.signOut();
+        throw new Error("Invalid user role");
       }
     } catch (err: any) {
       setError(err.message || "Invalid email or password");
@@ -90,6 +125,20 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  // Determine signup link based on context
+  const context = searchParams.get("context");
+  const signupHref =
+    context === "customer"
+      ? `/auth/customer/signup${
+          searchParams.get("redirect")
+            ? `?redirect=${encodeURIComponent(searchParams.get("redirect")!)}`
+            : ""
+        }`
+      : "/auth/shopowner/signup";
+
+  const signupText =
+    context === "customer" ? "Sign up as customer" : "Sign up here";
 
   return (
     <div className="flex md:min-h-screen font-[Plus_Jakarta_Sans] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
@@ -101,6 +150,12 @@ export default function LoginPage() {
         {error && (
           <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded text-red-300 text-sm">
             {error}
+          </div>
+        )}
+
+        {verifiedMessage && (
+          <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded text-green-300 text-sm">
+            {verifiedMessage}
           </div>
         )}
 
@@ -148,11 +203,8 @@ export default function LoginPage() {
           <div className="flex md:flex-row flex-col gap-4 md:gap-0 justify-between">
             <p className="text-sm md:text-xs text-white">
               Don&apos;t have an account?{" "}
-              <Link
-                href="/auth/shopowner/signup"
-                className="hover:underline text-three"
-              >
-                Sign up here
+              <Link href={signupHref} className="hover:underline text-three">
+                {signupText}
               </Link>
             </p>
 
