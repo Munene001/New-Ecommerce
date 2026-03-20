@@ -86,7 +86,7 @@ export default function ShopLayoutClient({
     <ToastProvider>
       <CartProvider>
     <ShopFilterProvider
-      shopId={shopData.shopId.toString()}
+      shopSlug={shopData.shopSlug}
       initialProducts={initialProducts}
       initialTotalCount={initialTotalCount}
       initialSearch={initialSearch}

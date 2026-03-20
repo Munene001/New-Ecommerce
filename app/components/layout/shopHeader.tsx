@@ -304,7 +304,7 @@ export default function ShopHeader() {
                         ? user.role === "shop_owner"
                           ? `/dashboard/${shop?.shopSlug}`
                           : `/${shop?.shopSlug}/profile`
-                        : `/login?context=customer&redirect=/${shop?.shopSlug}/profile`
+                        : `/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`
                     }
                     icon={<User className="w-6 h-6" />}
                     label={user ? "Profile" : "Login"}

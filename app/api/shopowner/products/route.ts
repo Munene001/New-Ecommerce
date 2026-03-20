@@ -1,43 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateToken } from '@/lib/auth-utlis';
 import { getConnection } from '@/lib/db';
 
-// GET /api/shopowner/products?shopId=1&search=shoes&categories=electronics,fashion&minPrice=0&maxPrice=150000&sortBy=price_low&inStock=true&page=2&limit=20
-// Also supports legacy: &category=5 (single category for dashboard)
+// Helper to verify that the user owns the shop
+async function verifyShopOwnership(connection: any, shopId: number, supabaseUid: string): Promise<boolean> {
+  const [rows] = await connection.query(
+    `SELECT 1
+     FROM shops s
+     JOIN tenant t ON s.tenant_id = t.tenant_id
+     JOIN users u ON t.user_id = u.user_id
+     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
+    [shopId, supabaseUid]
+  );
+  return (rows as any[]).length > 0;
+}
+
+// GET /api/shopowner/products?shopId=1&...
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const shopId = searchParams.get('shopId');
-  
-  if (!shopId) {
-    return NextResponse.json({ error: 'shopId required' }, { status: 400 });
-  }
-
-  // Get ALL filter parameters
-  const search = searchParams.get('search') || '';
-  
-  // Support BOTH single category (dashboard) and multiple categories (shop)
-  const categories = searchParams.get('categories'); 
-  const singleCategory = searchParams.get('category');
-  
-  const minPrice = searchParams.get('minPrice');
-  const maxPrice = searchParams.get('maxPrice');
-  const sortBy = searchParams.get('sortBy') || 'newest';
-  const inStock = searchParams.get('inStock');
-  
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '20');
-  const offset = (page - 1) * limit;
-
- 
-
   let connection;
   try {
+    // Validate token
+    const auth = await validateToken(req);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const supabaseUid = auth.supabaseUser.id;
+
+    const { searchParams } = new URL(req.url);
+    const shopId = searchParams.get('shopId');
+    if (!shopId) {
+      return NextResponse.json({ error: 'shopId required' }, { status: 400 });
+    }
+
     connection = await getConnection();
-    
-    // Build the WHERE clause dynamically
+
+    // Verify ownership
+    const isOwner = await verifyShopOwnership(connection, parseInt(shopId), supabaseUid);
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // ... rest of the GET logic (same as before, but using connection)
+    const search = searchParams.get('search') || '';
+    const categories = searchParams.get('categories');
+    const singleCategory = searchParams.get('category');
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
+    const sortBy = searchParams.get('sortBy') || 'newest';
+    const inStock = searchParams.get('inStock');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const offset = (page - 1) * limit;
+
+    // Build WHERE clause
     let whereClause = 'WHERE p.shop_id = ?';
     const queryParams: any[] = [shopId];
-    
-    // Add search filter
+
     if (search) {
       const searchTerm = `%${search}%`;
       whereClause += ` AND (
@@ -48,10 +66,8 @@ export async function GET(req: NextRequest) {
       )`;
       queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
-    
-    // Add category filter - supports BOTH multiple and single
+
     if (categories) {
-      // Multiple categories (shop page)
       const categoryArray = categories.split(',');
       const placeholders = categoryArray.map(() => '?').join(',');
       whereClause += ` AND EXISTS (
@@ -61,7 +77,6 @@ export async function GET(req: NextRequest) {
       )`;
       queryParams.push(...categoryArray);
     } else if (singleCategory) {
-      // Single category (dashboard)
       whereClause += ` AND EXISTS (
         SELECT 1 FROM product_categories pc 
         WHERE pc.product_id = p.product_id 
@@ -69,8 +84,7 @@ export async function GET(req: NextRequest) {
       )`;
       queryParams.push(singleCategory);
     }
-    
-    // Add price range filter
+
     if (minPrice && maxPrice) {
       whereClause += ' AND p.price BETWEEN ? AND ?';
       queryParams.push(minPrice, maxPrice);
@@ -81,13 +95,11 @@ export async function GET(req: NextRequest) {
       whereClause += ' AND p.price <= ?';
       queryParams.push(maxPrice);
     }
-    
-    // Add stock filter
+
     if (inStock === 'true') {
       whereClause += ' AND p.in_stock = 1';
     }
-    
-    // Build ORDER BY clause based on sortBy
+
     let orderByClause = 'ORDER BY ';
     switch(sortBy) {
       case 'price_low':
@@ -104,15 +116,15 @@ export async function GET(req: NextRequest) {
         orderByClause += 'p.created_at DESC';
         break;
     }
-    
-    // Get TOTAL COUNT for pagination (with same filters)
+
+    // Total count
     const [countResult] = await connection.query(
       `SELECT COUNT(*) as total FROM products p ${whereClause}`,
       queryParams
     );
     const totalCount = (countResult as any[])[0].total;
-    
-    // Get PAGINATED products with ALL images
+
+    // Products with images
     const [products] = await connection.query(`
       SELECT 
         p.product_id,
@@ -144,8 +156,7 @@ export async function GET(req: NextRequest) {
       ${orderByClause}
       LIMIT ? OFFSET ?
     `, [...queryParams, limit, offset]);
-    
-    // Return products WITH pagination info
+
     return NextResponse.json({
       products,
       pagination: {
@@ -155,29 +166,27 @@ export async function GET(req: NextRequest) {
         limit
       }
     });
-    
   } catch (error) {
-    console.error('Database error:', error);
+    console.error('GET products error:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   } finally {
     if (connection) await connection.end();
   }
 }
 
-// POST /api/shopowner/products 
+// POST /api/shopowner/products - Create product
 export async function POST(req: NextRequest) {
   let connection;
   try {
-    const { 
-      shopId,
-      productName,
-      productSlug,
-      description,
-      price,
-      discountPrice,
-      inStock,
-      attributes 
-    } = await req.json();
+    // Validate token
+    const auth = await validateToken(req);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const supabaseUid = auth.supabaseUser.id;
+
+    const body = await req.json();
+    const { shopId, productName, productSlug, description, price, discountPrice, inStock, attributes } = body;
 
     if (!shopId || !productName || !productSlug || !price || !attributes) {
       return NextResponse.json({ 
@@ -187,16 +196,20 @@ export async function POST(req: NextRequest) {
 
     connection = await getConnection();
 
+    // Verify ownership
+    const isOwner = await verifyShopOwnership(connection, shopId, supabaseUid);
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Get shop type
     const [shopRows] = await connection.query(
       'SELECT shop_type FROM shops WHERE shop_id = ?',
       [shopId]
     );
-    
     if (!shopRows || (shopRows as any[]).length === 0) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
     }
-    
     const shopType = (shopRows as any[])[0].shop_type;
 
     // Insert product
@@ -227,11 +240,9 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Product creation error:', error);
-    
     if (error.code === 'ER_DUP_ENTRY') {
       return NextResponse.json({ error: 'Product name already exists' }, { status: 409 });
     }
-    
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   } finally {
     if (connection) await connection.end();
@@ -242,21 +253,31 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   let connection;
   try {
+    // Validate token
+    const auth = await validateToken(req);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const supabaseUid = auth.supabaseUser.id;
+
     const { searchParams } = new URL(req.url);
     const shopId = searchParams.get('shopId');
-    
-    // Get product IDs from request body
-    const { productIds } = await req.json();
-
     if (!shopId) {
       return NextResponse.json({ error: 'shopId required' }, { status: 400 });
     }
 
+    const { productIds } = await req.json();
     if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
       return NextResponse.json({ error: 'Product IDs array required' }, { status: 400 });
     }
 
     connection = await getConnection();
+
+    // Verify ownership
+    const isOwner = await verifyShopOwnership(connection, parseInt(shopId), supabaseUid);
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // First, verify that all products belong to this shop
     const [verification] = await connection.query(
@@ -264,28 +285,24 @@ export async function DELETE(req: NextRequest) {
        WHERE product_id IN (?) AND shop_id = ?`,
       [productIds, shopId]
     );
-
     const verifiedCount = (verification as any[])[0].count;
-    
     if (verifiedCount !== productIds.length) {
       return NextResponse.json({ 
         error: 'Some products do not belong to this shop or do not exist' 
       }, { status: 403 });
     }
 
-    // Delete from product_categories first (foreign key constraint)
+    // Delete from product_categories first
     await connection.query(
       'DELETE FROM product_categories WHERE product_id IN (?)',
       [productIds]
     );
-
     // Delete product images
     await connection.query(
       'DELETE FROM product_images WHERE product_id IN (?)',
       [productIds]
     );
-
-    // Finally delete the products
+    // Finally delete products
     const [result] = await connection.query(
       'DELETE FROM products WHERE product_id IN (?) AND shop_id = ?',
       [productIds, shopId]
@@ -295,7 +312,6 @@ export async function DELETE(req: NextRequest) {
       success: true, 
       deletedCount: productIds.length 
     });
-
   } catch (error) {
     console.error('Bulk delete error:', error);
     return NextResponse.json({ error: 'Failed to delete products' }, { status: 500 });

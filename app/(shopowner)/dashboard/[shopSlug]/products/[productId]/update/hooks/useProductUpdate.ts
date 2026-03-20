@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
+import { useAuth } from "@/context/authcontext";
 import { Attribute, Category, ProductFormData } from "../../../add/types";
 
 export function useProductUpdate() {
   const { shopId, shopType, shopSlug } = useShop();
   const params = useParams();
   const productId = params.productId as string;
-  
+  const { token, isAuthenticated } = useAuth();  // 👈 get token
+  const router = useRouter();
+
   const warningRef = useRef<HTMLDivElement>(null);
   
   const [activeIndex, setActiveIndex] = useState(0);
@@ -54,14 +57,19 @@ export function useProductUpdate() {
   
   const warningTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Redirect if not authenticated (optional)
+  useEffect(() => {
+    if (!isAuthenticated && token === null) {
+      router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+    }
+  }, [isAuthenticated, token, router]);
+
   const showWarning = (message: string, type: 'success' | 'error' = 'error') => {
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current);
     }
-    
     setTabWarning({ text: message, type });
     scrollToWarning();
-    
     warningTimerRef.current = setTimeout(() => {
       setTabWarning(null);
     }, 5000);
@@ -78,43 +86,48 @@ export function useProductUpdate() {
   const scrollToWarning = () => {
     setTimeout(() => {
       if (warningRef.current) {
-        warningRef.current.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
+        warningRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 100);
   };
 
   // Fetch product data
   useEffect(() => {
-    if (productId && shopId) {
+    if (productId && shopId && token) {
       fetchProduct();
     }
-  }, [productId, shopId]);
+  }, [productId, shopId, token]);
 
   // Fetch attribute schema
   useEffect(() => {
-    if (shopType) {
+    if (shopType && token) {
       fetchAttributeSchema(shopType);
     }
-  }, [shopType]);
+  }, [shopType, token]);
 
   // Fetch categories
   useEffect(() => {
-    if (shopId) {
+    if (shopId && token) {
       fetchCategories(shopId);
     }
-  }, [shopId]);
+  }, [shopId, token]);
 
   const fetchProduct = async () => {
     setIsLoadingProduct(true);
     try {
-      const productRes = await fetch(`/api/shopowner/products/${productId}`);
+      const productRes = await fetch(`/api/shopowner/products/${productId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,  // 👈 add token
+        },
+      });
       if (!productRes.ok) throw new Error('Failed to fetch product');
       const productData = await productRes.json();
 
-      const categoriesRes = await fetch(`/api/shopowner/products/${productId}/categories`);
+      const categoriesRes = await fetch(`/api/shopowner/products/${productId}/categories`, {
+        headers: {
+          Authorization: `Bearer ${token}`,  // 👈 add token
+        },
+      });
       if (!categoriesRes.ok) throw new Error('Failed to fetch product categories');
       const categoryData = await categoriesRes.json();
 
@@ -150,12 +163,14 @@ export function useProductUpdate() {
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
-      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`);
+      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,  // 👈 add token
+        },
+      });
       const data = await res.json();
-      
       const fields = data.fields || [];
       setAttributeSchema(fields);
-      
     } catch (error) {
       console.error("Failed to fetch attributes:", error);
     } finally {
@@ -165,7 +180,11 @@ export function useProductUpdate() {
 
   const fetchCategories = async (id: number) => {
     try {
-      const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
+      const res = await fetch(`/api/shopowner/categories?shopId=${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,  // 👈 add token
+        },
+      });
       const data = await res.json();
       setCategories(data.map((c: any) => ({ id: c.category_id, name: c.category_name })));
     } catch (error) {
@@ -183,28 +202,23 @@ export function useProductUpdate() {
     showWarning(errorMessage, 'error');
   };
 
-  // Validate Primary Tab
   const validatePrimaryTab = (): boolean => {
     const primaryErrors: Record<string, string> = {};
-    
     if (!formData.productName.trim()) {
       primaryErrors.productName = "Product name is required";
     }
-    
     if (!formData.productSlug.trim()) {
       primaryErrors.productSlug = "Product slug is required";
     }
-    
     if (!formData.price || Number(formData.price) <= 0) {
       primaryErrors.price = "Valid price is required";
-    } 
+    }
     if (formData.discountPrice && Number(formData.discountPrice) < 0) {
       primaryErrors.discountPrice = "Discount price cannot be negative";
     }
     if (formData.discountPrice && Number(formData.discountPrice) >= Number(formData.price)) {
       primaryErrors.discountPrice = "Discount price must be less than regular price";
     }
-    
     attributeSchema.filter(f => f.required).forEach(field => {
       const value = formData.attributes[field.name];
       if (field.type === 'boolean') return;
@@ -212,27 +226,21 @@ export function useProductUpdate() {
         primaryErrors[`attr.${field.name}`] = `${field.label} is required`;
       }
     });
-    
     setErrors(primaryErrors);
     return Object.keys(primaryErrors).length === 0;
   };
 
-  // Validate entire form
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
     if (!formData.productName.trim()) {
       newErrors.productName = "Product name is required";
     }
-    
     if (!formData.productSlug.trim()) {
       newErrors.productSlug = "Product slug is required";
     }
-    
     if (!formData.price || Number(formData.price) <= 0) {
       newErrors.price = "Valid price is required";
     }
-    
     attributeSchema.filter(f => f.required).forEach(field => {
       const value = formData.attributes[field.name];
       if (field.type === 'boolean') return;
@@ -240,16 +248,17 @@ export function useProductUpdate() {
         newErrors[`attr.${field.name}`] = `${field.label} is required`;
       }
     });
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle category removal
   const removeCategory = async (categoryId: number) => {
     try {
       const res = await fetch(`/api/shopowner/products/${productId}/categories?categoryId=${categoryId}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,  // 👈 add token
+        },
       });
 
       if (!res.ok) {
@@ -263,18 +272,19 @@ export function useProductUpdate() {
       }));
 
       showWarning("Category removed successfully", 'success');
-
     } catch (error: any) {
       showWarning(error.message || 'Failed to remove category', 'error');
     }
   };
 
-  // Handle category addition
   const addCategory = async (categoryId: number) => {
     try {
       const res = await fetch(`/api/shopowner/products/${productId}/categories`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,  // 👈 add token
+        },
         body: JSON.stringify({ category_id: categoryId })
       });
 
@@ -290,7 +300,6 @@ export function useProductUpdate() {
 
       setSelectedCategoryId("");
       showWarning("Category added successfully", 'success');
-
     } catch (error: any) {
       showWarning(error.message || 'Failed to add category', 'error');
     }
@@ -303,11 +312,13 @@ export function useProductUpdate() {
     }
 
     setLoading(true);
-    
     try {
       const res = await fetch(`/api/shopowner/products/${productId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,  // 👈 add token
+        },
         body: JSON.stringify({
           productName: formData.productName,
           productSlug: formData.productSlug,
@@ -320,7 +331,6 @@ export function useProductUpdate() {
       });
 
       const data = await res.json();
-      
       if (!res.ok) {
         throw new Error(data.error || 'Failed to update product');
       }
@@ -331,10 +341,8 @@ export function useProductUpdate() {
         title: 'Success!',
         message: 'Product has been updated successfully.'
       });
-      
     } catch (error: any) {
       console.error("❌ Update failed:", error);
-      
       setModalState({
         isOpen: true,
         type: 'error',
@@ -347,14 +355,11 @@ export function useProductUpdate() {
   };
 
   const handleNext = () => {
-    // Only validate when moving from Primary to Optional
     if (activeIndex === 0 && !validatePrimaryTab()) {
       showWarning("Please fill out all required fields before proceeding", 'error');
       return;
     }
-    
     setTabWarning(null);
-    
     if (activeIndex < sections.length - 1) {
       setActiveIndex(activeIndex + 1);
     } else {
@@ -370,7 +375,6 @@ export function useProductUpdate() {
   };
 
   const handleTabClick = (index: number) => {
-    // Prevent clicking on Optional tab if Primary has errors
     if (index > 0) {
       const hasPrimaryErrors = 
         !formData.productName.trim() ||
@@ -381,7 +385,6 @@ export function useProductUpdate() {
           const value = formData.attributes[field.name];
           return !value || value.toString().trim() === '';
         });
-      
       if (hasPrimaryErrors) {
         showWarning("Please complete all required fields in Primary Details first", 'error');
         return;
@@ -394,6 +397,8 @@ export function useProductUpdate() {
   const closeModal = () => {
     setModalState(prev => ({ ...prev, isOpen: false }));
     if (modalState.type === 'success') {
+      // Optionally redirect to products list
+      // router.push(`/dashboard/${shopSlug}/products`);
     }
   };
 

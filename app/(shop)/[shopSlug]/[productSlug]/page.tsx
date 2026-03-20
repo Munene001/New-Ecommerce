@@ -69,18 +69,66 @@ export default async function ProductPage({ params }: PageProps) {
       [productData.product_id]
     );
 
-    // 4. Fetch reviews (placeholder)
-    const reviews: any[] = [];
+    // 4. Fetch reviews (main and replies)
+    const [reviewRows] = await connection.query(
+      `SELECT 
+        r.review_id,
+        r.user_id,
+        r.parent_review_id,
+        r.rating,
+        r.comment,
+        r.created_at,
+        r.is_owner_reply,
+        u.full_name,
+        u.email
+      FROM reviews r
+      JOIN users u ON r.user_id = u.user_id
+      WHERE r.product_id = ?
+      ORDER BY COALESCE(r.parent_review_id, r.review_id), r.created_at ASC`,
+      [productData.product_id]
+    );
 
-    // Parse attributes
+    // Build a map: main review id -> review object with replies array
+    const reviewsMap = new Map();
+    const mainReviews: any[] = [];
+
+    for (const row of reviewRows as any[]) {
+      if (row.parent_review_id === null) {
+        const reviewObj = {
+          review_id: row.review_id,
+          user_id: row.user_id,
+          user_name: row.full_name,
+          rating: row.rating,
+          comment: row.comment,
+          created_at: row.created_at,
+          is_owner_reply: row.is_owner_reply,
+          replies: [],
+        };
+        reviewsMap.set(row.review_id, reviewObj);
+        mainReviews.push(reviewObj);
+      } else {
+        const parent = reviewsMap.get(row.parent_review_id);
+        if (parent) {
+          parent.replies.push({
+            review_id: row.review_id,
+            user_id: row.user_id,
+            user_name: row.full_name,
+            comment: row.comment,
+            created_at: row.created_at,
+            is_owner_reply: row.is_owner_reply,
+          });
+        }
+      }
+    }
+
+    // 5. Parse attributes
     let parsedAttributes: ProductAttributes = {};
     if (productData.attributes) {
       const raw = productData.attributes;
       parsedAttributes = typeof raw === "string" ? JSON.parse(raw) : raw;
     }
 
-    // 5. Fetch related products
-    // Get current product's category IDs
+    // 6. Fetch related products 
     const [categoryRows] = await connection.query(
       `SELECT category_id FROM product_categories WHERE product_id = ?`,
       [productData.product_id]
@@ -90,7 +138,6 @@ export default async function ProductPage({ params }: PageProps) {
     let relatedProducts: any[] = [];
 
     if (categoryIds.length > 0) {
-      // Query for related products sharing any category
       const placeholders = categoryIds.map(() => '?').join(',');
       const [relatedRows] = await connection.query(
         `SELECT DISTINCT p.product_id, p.product_name, p.product_slug, p.price, p.discount_price
@@ -106,10 +153,8 @@ export default async function ProductPage({ params }: PageProps) {
       relatedProducts = relatedRows as any[];
     }
 
-    // If we have fewer than 6, fill with random products from same shop
     if (relatedProducts.length < 6) {
       const needed = 6 - relatedProducts.length;
-      // Exclude current product and already selected IDs
       const excludeIds = [productData.product_id, ...relatedProducts.map(p => p.product_id)];
       const excludePlaceholders = excludeIds.map(() => '?').join(',');
       const [randomRows] = await connection.query(
@@ -146,7 +191,6 @@ export default async function ProductPage({ params }: PageProps) {
         <PageBar breadcrumb="Product" itemName={product.product_name} />
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex flex-col lg:flex-row gap-6 lg:h-[75vh]">
-            {/* Gallery */}
             <div className="lg:w-[38%]">
               <ProductGallery
                 images={images}
@@ -154,8 +198,6 @@ export default async function ProductPage({ params }: PageProps) {
                 secondaryColor={secondaryColor}
               />
             </div>
-    
-            {/* Sidebar */}
             <div className="lg:w-[50%] lg:overflow-y-auto lg:pr-2">
               <ProductSidebar
                 product={product}
@@ -163,8 +205,6 @@ export default async function ProductPage({ params }: PageProps) {
                 shopSlug={shopSlug}
               />
             </div>
-    
-            {/* Recently Viewed - DESKTOP ONLY */}
             <div className="hidden lg:block lg:w-[12%] lg:overflow-y-auto">
               <RecentlyViewed
                 currentProductId={product.product_id}
@@ -172,21 +212,20 @@ export default async function ProductPage({ params }: PageProps) {
               />
             </div>
           </div>
-    
-          {/* Tabs */}
+
           <div className="mt-12">
             <ProductTabs
-              description={product.description}
               attributes={product.attributes}
-              reviews={reviews}
+              reviews={mainReviews}
               secondaryColor={secondaryColor}
+              productId={product.product_id}
+              shopSlug={shopSlug}
+              productSlug={product.product_slug}
             />
           </div>
 
-          {/* Related Products */}
-          <RelatedProducts products={relatedProducts} secondaryColor={secondaryColor}  shopSlug={shopSlug} />
-    
-          {/* Recently Viewed - MOBILE ONLY (below tabs and related) */}
+          <RelatedProducts products={relatedProducts} secondaryColor={secondaryColor} shopSlug={shopSlug} />
+
           <div className="block lg:hidden mt-6">
             <RecentlyViewed
               currentProductId={product.product_id}
@@ -195,7 +234,7 @@ export default async function ProductPage({ params }: PageProps) {
             />
           </div>
         </div>
-    
+
         <MobileProductBar
           productId={product.product_id}
           productName={product.product_name}

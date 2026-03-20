@@ -4,19 +4,43 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { getConnection } from '@/lib/db';
 import { randomUUID } from 'crypto';
+import { validateToken } from '@/lib/auth-utlis';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
+  const auth = await validateToken(req);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { productId } = await params;
-  
+  const productIdNum = parseInt(productId, 10);
+  if (isNaN(productIdNum)) {
+    return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
+  }
+
   let connection;
   try {
-    if (!/^\d+$/.test(productId)) {
-      return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
+    connection = await getConnection();
+
+    // Verify that the product belongs to a shop owned by the user
+    const [productRows] = await connection.query(
+      `SELECT p.product_id
+       FROM products p
+       JOIN shops s ON p.shop_id = s.shop_id
+       JOIN tenant t ON s.tenant_id = t.tenant_id
+       WHERE p.product_id = ? AND t.user_id = (
+         SELECT user_id FROM users WHERE supabase_uid = ?
+       )`,
+      [productId, auth.supabaseUser.id]
+    );
+    if ((productRows as any[]).length === 0) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Now proceed with image upload logic (the existing code)
     const formData = await req.formData();
     const file = formData.get('image') as File;
     const isPrimary = formData.get('isPrimary') === 'true';
@@ -28,39 +52,24 @@ export async function POST(
     const buffer = Buffer.from(await file.arrayBuffer());
     const originalSizeKb = Math.round(buffer.length / 1024);
     if (originalSizeKb > 5000) {
-      return NextResponse.json({ 
-        error: 'Image too large. Max 5MB.' 
-      }, { status: 400 });
+      return NextResponse.json({ error: 'Image too large. Max 5MB.' }, { status: 400 });
     }
-
-    connection = await getConnection();
 
     const [countRows] = await connection.query(
       'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
       [productId]
     );
-    
     if ((countRows as any[])[0].count >= 6) {
-      return NextResponse.json({ 
-        error: 'Maximum 6 images per product' 
-      }, { status: 400 });
+      return NextResponse.json({ error: 'Maximum 6 images per product' }, { status: 400 });
     }
 
     let quality = 75;
     let compressed = await sharp(buffer)
-      .resize(1000, null, { 
-        withoutEnlargement: true,
-        fit: 'inside'
-      })
-      .webp({ 
-        quality,
-        effort: 4
-      })
+      .resize(1000, null, { withoutEnlargement: true, fit: 'inside' })
+      .webp({ quality, effort: 4 })
       .toBuffer();
-    
+
     let fileSizeKb = Math.round(compressed.length / 1024);
-    
-    // First pass: reduce quality until under 200KB or hit quality 60
     while (fileSizeKb > 200 && quality > 60) {
       quality -= 5;
       compressed = await sharp(buffer)
@@ -69,8 +78,6 @@ export async function POST(
         .toBuffer();
       fileSizeKb = Math.round(compressed.length / 1024);
     }
-    
-    // Second pass: if still over 200KB, continue reducing down to 50
     while (fileSizeKb > 200 && quality > 50) {
       quality -= 5;
       compressed = await sharp(buffer)
@@ -113,7 +120,6 @@ export async function POST(
       size_kb: fileSizeKb,
       quality_used: quality
     });
-
   } catch (error) {
     console.error('Upload error:', error);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });

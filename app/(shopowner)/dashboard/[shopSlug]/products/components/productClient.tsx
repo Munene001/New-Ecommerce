@@ -9,6 +9,7 @@ import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import SimpleToast from "@/app/components/ui/simpleToast";
+import { useAuth } from "@/context/authcontext"; 
 
 interface ProductsClientProps {
   initialProducts: any[];
@@ -41,6 +42,7 @@ export default function ProductsClient({
   const [isDeleting, setIsDeleting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const { token, isAuthenticated } = useAuth();   
   
   const messageRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -57,8 +59,10 @@ export default function ProductsClient({
     totalCount,
   } = useDashboardProducts(
     shopId.toString(),
-    totalProducts,  // initialTotalCount
-    // initialTotalPages is optional with default=1
+    totalProducts,  
+    undefined,               // initialTotalPages not needed
+    token,               
+    
   );
 
   // Show bulk actions when products are selected
@@ -141,6 +145,7 @@ export default function ProductsClient({
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, 
         },
         body: JSON.stringify({ productIds }),
       });

@@ -1,10 +1,10 @@
-// app/(shopowner)/onboardfully/page.tsx
 'use client';
 
 import Button from '@/app/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/authcontext'; 
 
 interface ShopType {
   value: string;
@@ -18,17 +18,20 @@ export default function ShopTypeSelection() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [error, setError] = useState<string>('');
   const router = useRouter();
+  const { token, isAuthenticated, logout } = useAuth(); 
 
+  
   useEffect(() => {
-    fetchShopTypes();
-  }, []);
+    if (!isAuthenticated) {
+      router.push('/auth/login?redirect=/onboardfully');
+    }
+  }, [isAuthenticated, router]);
 
   const fetchShopTypes = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/shopowner/shop-type');
       const data = await response.json();
-      
       if (data.success) {
         setShopTypes(data.shopTypes);
       }
@@ -39,27 +42,39 @@ export default function ShopTypeSelection() {
     }
   };
 
+  useEffect(() => {
+    fetchShopTypes();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedType) return;
-    
+
     try {
       setSubmitting(true);
       setError('');
-      
+
       const response = await fetch('/api/shopowner/complete-onboarding', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_type: selectedType })
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // ✅ send token
+        },
+        body: JSON.stringify({ shop_type: selectedType }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
-        // Redirect to dashboard
         router.push(data.redirectTo || '/dashboard');
       } else {
-        setError(data.error || 'Failed to complete onboarding');
+        // If 401, token may be invalid – logout and redirect to login
+        if (response.status === 401) {
+          logout();
+          router.push('/auth/login?redirect=/onboardfully');
+        } else {
+          setError(data.error || 'Failed to complete onboarding');
+        }
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -82,13 +97,13 @@ export default function ShopTypeSelection() {
       <div className="w-full max-w-md p-8 border border-gray-100/30 rounded-xl md:bg-black/60 bg-black/20 shadow-md md:mt-0 mt-[80px]">
         <h1 className="text-2xl font-bold text-three/90 mb-6">Complete Onboarding</h1>
         <p className="text-gray-300 mb-6">Select your shop type to continue to your dashboard.</p>
-        
+
         {error && (
           <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded text-red-300">
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-3 mb-6">
             {shopTypes.map((shop) => (
@@ -103,7 +118,7 @@ export default function ShopTypeSelection() {
                   className="h-5 w-5 text-magenta focus:ring-magentaDark cursor-pointer"
                   disabled={submitting}
                 />
-                <label 
+                <label
                   htmlFor={shop.value}
                   className="ml-3 block text-lg font-medium text-white cursor-pointer"
                 >
@@ -112,7 +127,7 @@ export default function ShopTypeSelection() {
               </div>
             ))}
           </div>
-          
+
           <Button
             type="submit"
             variant="secondary"
