@@ -9,9 +9,10 @@ import CategoryComponent from "../../add/components/categoryComponent";
 import Button from "@/app/components/ui/button";
 import { useProductUpdate } from "./hooks/useProductUpdate";
 import SimpleToast from "@/app/components/ui/simpleToast";
-
+import { useAuth } from "@/context/authcontext"; // ✅ import useAuth
 
 export default function UpdateProductPage() {
+  const { token } = useAuth(); // ✅ get token
   const {
     activeIndex,
     sections,
@@ -49,9 +50,8 @@ export default function UpdateProductPage() {
     if (isLoadingProduct) {
       return (
         <div className="space-y-4">
-         
           <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-6"></div>
-          <div className=" gap-6">
+          <div className="gap-6">
             <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
             <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
             <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
@@ -82,8 +82,8 @@ export default function UpdateProductPage() {
             formData={formData}
             setFormData={setFormData}
             optionalAttributes={attributeSchema.filter((f) => !f.required)}
-            onAddCategory={addCategory}        // Add this
-            onRemoveCategory={removeCategory}  
+            onAddCategory={addCategory}
+            onRemoveCategory={removeCategory}
           />
         );
       default:
@@ -92,7 +92,7 @@ export default function UpdateProductPage() {
   };
 
   return (
-    <div className=" relative min-h-screen bg-gray-50 p-6 font-[Poppins]">
+    <div className="relative min-h-screen bg-gray-50 p-6 font-[Poppins]">
       <ResultModal
         isOpen={modalState.isOpen}
         type={modalState.type}
@@ -115,7 +115,7 @@ export default function UpdateProductPage() {
         <h1 className="text-3xl font-semibold text-black font-[Poppins]">
           Update Product
         </h1>
-        <p className=" hidden md:block text-magenta-dark mt-2 font-[Poppins]">
+        <p className="hidden md:block text-magenta-dark mt-2 font-[Poppins]">
           Shop: <span className="font-medium text-black">{shopSlug}</span> •
           Type:{" "}
           <span className="font-medium text-black">
@@ -123,8 +123,7 @@ export default function UpdateProductPage() {
           </span>
         </p>
         <p className="text-black mt-2 font-[Poppins]">
-            To update the images you will have to delete this product and create a new one
-        
+          To update the images you will have to delete this product and create a new one
         </p>
       </div>
 
@@ -145,6 +144,7 @@ export default function UpdateProductPage() {
               onCategoryCreated={handleCategoryCreated}
               onCategoryError={handleCategoryError}
               onCancel={() => setShowCategoryForm(false)}
+              token={token} // ✅ pass token
             />
           </div>
         )}

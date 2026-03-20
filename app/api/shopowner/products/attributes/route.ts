@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateToken } from '@/lib/auth-utlis';
 
-// GET /api/shopowner/products/attributes?shopType=pharmacy
 export async function GET(req: NextRequest) {
+  const auth = await validateToken(req);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const shopType = searchParams.get('shopType');
 
@@ -29,37 +34,14 @@ export async function GET(req: NextRequest) {
       fields: [
         { name: 'brand', type: 'text', label: 'Brand', required: true },
         { name: 'material', type: 'text', label: 'Material', required: true },
-        { 
-          name: 'gender', 
-          type: 'select', 
-          label: 'Gender', 
-          options: ['men', 'women', 'unisex'],
-          required: true 
-        },
-        { 
-          name: 'age_group', 
-          type: 'select', 
-          label: 'Age Group', 
-          options: ['adult', 'kids', 'infant'],
-          required: true 
-        },
+        { name: 'gender', type: 'select', label: 'Gender', options: ['men', 'women', 'unisex'], required: true },
+        { name: 'age_group', type: 'select', label: 'Age Group', options: ['adult', 'kids', 'infant'], required: true },
         { name: 'sizes', type: 'text', label: 'Sizes (comma separated)', required: true },
         { name: 'colors', type: 'text', label: 'Colors (comma separated)', required: true },
         { name: 'care_instructions', type: 'textarea', label: 'Care Instructions', required: false },
         { name: 'made_in', type: 'text', label: 'Made In', required: false },
-        { 
-          name: 'is_secondhand', 
-          type: 'boolean', 
-          label: 'Is Secondhand', 
-          required: true 
-        },
-        { 
-          name: 'season', 
-          type: 'select', 
-          label: 'Season', 
-          options: ['all-season', 'hot', 'cold'],
-          required: false 
-        }
+        { name: 'is_secondhand', type: 'boolean', label: 'Is Secondhand', required: true },
+        { name: 'season', type: 'select', label: 'Season', options: ['all-season', 'hot', 'cold'], required: false }
       ]
     },
     bookshop: {
@@ -71,19 +53,8 @@ export async function GET(req: NextRequest) {
         { name: 'pages', type: 'number', label: 'Pages', required: false },
         { name: 'language', type: 'text', label: 'Language', required: false },
         { name: 'genre', type: 'text', label: 'Genre', required: false },
-        { 
-          name: 'cover_type', 
-          type: 'select', 
-          label: 'Cover Type', 
-          options: ['softcover', 'hardcover', 'spiral', 'digital'],
-          required: true 
-        },
-        { 
-          name: 'educational', 
-          type: 'boolean', 
-          label: 'Educational', 
-          required: true 
-        }
+        { name: 'cover_type', type: 'select', label: 'Cover Type', options: ['softcover', 'hardcover', 'spiral', 'digital'], required: true },
+        { name: 'educational', type: 'boolean', label: 'Educational', required: true }
       ]
     },
     retail: {
@@ -93,13 +64,7 @@ export async function GET(req: NextRequest) {
         { name: 'color', type: 'text', label: 'Color', required: false },
         { name: 'dimensions_cm', type: 'text', label: 'Dimensions', required: false },
         { name: 'weight_kg', type: 'number', label: 'Weight ', required: false },
-        { 
-          name: 'condition', 
-          type: 'select', 
-          label: 'Condition', 
-          options: ['new', 'refurbished', 'used'],
-          required: true 
-        },
+        { name: 'condition', type: 'select', label: 'Condition', options: ['new', 'refurbished', 'used'], required: true },
         { name: 'features', type: 'text', label: 'Features (comma separated)', required: false },
         { name: 'warranty_months', type: 'number', label: 'Warranty (months)', required: false },
         { name: 'warranty_provider', type: 'text', label: 'Warranty Provider', required: false }
@@ -108,7 +73,6 @@ export async function GET(req: NextRequest) {
   };
 
   const schema = schemas[shopType as keyof typeof schemas];
-  
   if (!schema) {
     return NextResponse.json({ error: 'Invalid shop type' }, { status: 400 });
   }

@@ -10,8 +10,10 @@ import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
 import Button from "@/app/components/ui/button";
 import SimpleToast from "@/app/components/ui/simpleToast";
+import { useAuth } from "@/context/authcontext"
 
 export default function AddProductPage() {
+  const { token } = useAuth();
   const {
     activeIndex,
     sections,
@@ -43,6 +45,7 @@ export default function AddProductPage() {
     addCategory,      // Add this from the hook
     removeCategory,
   } = useProductForm();
+
 
   const renderComponent = () => {
     switch (activeIndex) {
@@ -134,6 +137,7 @@ export default function AddProductPage() {
               onCategoryCreated={handleCategoryCreated}
               onCategoryError={handleCategoryError}
               onCancel={() => setShowCategoryForm(false)}
+              token={token}  
             />
           </div>
         )}

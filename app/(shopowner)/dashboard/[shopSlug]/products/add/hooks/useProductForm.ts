@@ -1,61 +1,64 @@
 import { useState, useEffect, useRef } from "react";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
 import { Attribute, Category, ProductFormData } from "../types";
+import { useAuth } from "@/context/authcontext";
 
 export function useProductForm() {
+  const { token, isAuthenticated } = useAuth();
   const { shopId, shopType, shopSlug } = useShop();
-  
+
   const warningRef = useRef<HTMLDivElement>(null);
-  
+
   const [activeIndex, setActiveIndex] = useState(0);
   const sections = ["Primary Details", "Optional Details", "Images"];
-  
+
   const [formData, setFormData] = useState<ProductFormData>({
     productName: "",
     productSlug: "",
     description: "",
     price: "",
-    discountPrice: "", 
+    discountPrice: "",
     inStock: true,
     attributes: {},
     images: [],
-    categoryIds: []
+    categoryIds: [],
   });
-  
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
   const [showCategoryForm, setShowCategoryForm] = useState(false);
-  
+
   const [attributeSchema, setAttributeSchema] = useState<Attribute[]>([]);
   const [loadingSchema, setLoadingSchema] = useState(false);
-  
+
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
-    type: 'success' | 'error';
+    type: "success" | "error";
     title: string;
     message: string;
   }>({
     isOpen: false,
-    type: 'success',
-    title: '',
-    message: ''
+    type: "success",
+    title: "",
+    message: "",
   });
 
-  const [tabWarning, setTabWarning] = useState<{text: string; type: 'success' | 'error'} | null>(null);
-  
+  const [tabWarning, setTabWarning] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
+
   const warningTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const showWarning = (message: string, type: 'success' | 'error' = 'error') => {
+  const showWarning = (message: string, type: "success" | "error" = "error") => {
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current);
     }
-    
     setTabWarning({ text: message, type });
     scrollToWarning();
-    
     warningTimerRef.current = setTimeout(() => {
       setTabWarning(null);
     }, 5000);
@@ -72,10 +75,7 @@ export function useProductForm() {
   const scrollToWarning = () => {
     setTimeout(() => {
       if (warningRef.current) {
-        warningRef.current.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
+        warningRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }, 100);
   };
@@ -95,12 +95,15 @@ export function useProductForm() {
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
-      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`);
+      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
-      
       const fields = data.fields || [];
       setAttributeSchema(fields);
-      
+
       const initialAttributes: Record<string, any> = {};
       fields.forEach((field: Attribute) => {
         if (field.type === "boolean") {
@@ -111,12 +114,10 @@ export function useProductForm() {
           initialAttributes[field.name] = "";
         }
       });
-      
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        attributes: initialAttributes
+        attributes: initialAttributes,
       }));
-      
     } catch (error) {
       console.error("Failed to fetch attributes:", error);
     } finally {
@@ -126,26 +127,32 @@ export function useProductForm() {
 
   const fetchCategories = async (id: number) => {
     try {
-      const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
+      const res = await fetch(`/api/shopowner/categories?shopId=${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
-      setCategories(data.map((c: any) => ({ id: c.category_id, name: c.category_name })));
+      setCategories(
+        data.map((c: any) => ({ id: c.category_id, name: c.category_name }))
+      );
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     }
   };
 
   const handleCategoryCreated = (newCategory: Category) => {
-    setCategories(prev => [...prev, newCategory]);
+    setCategories((prev) => [...prev, newCategory]);
     setShowCategoryForm(false);
-    showWarning("Category created successfully!", 'success');
+    showWarning("Category created successfully!", "success");
   };
 
   const handleCategoryError = (errorMessage: string) => {
-    showWarning(errorMessage, 'error');
+    showWarning(errorMessage, "error");
   };
 
   const resetForm = () => {
-    formData.images.forEach(img => {
+    formData.images.forEach((img) => {
       if (img.preview) {
         URL.revokeObjectURL(img.preview);
       }
@@ -167,13 +174,12 @@ export function useProductForm() {
       productSlug: "",
       description: "",
       price: "",
-      discountPrice: "", 
+      discountPrice: "",
       inStock: true,
       attributes: initialAttributes,
       images: [],
-      categoryIds: []
+      categoryIds: [],
     });
-    
     setSelectedCategoryId("");
     setActiveIndex(0);
     setErrors({});
@@ -181,92 +187,93 @@ export function useProductForm() {
 
   const validatePrimaryTab = (): boolean => {
     const primaryErrors: Record<string, string> = {};
-    
     if (!formData.productName.trim()) {
       primaryErrors.productName = "Product name is required";
     }
-    
     if (!formData.productSlug.trim()) {
       primaryErrors.productSlug = "Product slug is required";
     }
-    
     if (!formData.price || Number(formData.price) <= 0) {
       primaryErrors.price = "Valid price is required";
-    } 
+    }
     if (formData.discountPrice && Number(formData.discountPrice) < 0) {
       primaryErrors.discountPrice = "Discount price cannot be negative";
     }
-    if (formData.discountPrice && Number(formData.discountPrice) >= Number(formData.price)) {
+    if (
+      formData.discountPrice &&
+      Number(formData.discountPrice) >= Number(formData.price)
+    ) {
       primaryErrors.discountPrice = "Discount price must be less than regular price";
     }
-    
-    attributeSchema.filter(f => f.required).forEach(field => {
-      const value = formData.attributes[field.name];
-      if (field.type === 'boolean') return;
-      if (!value || value.toString().trim() === '') {
-        primaryErrors[`attr.${field.name}`] = `${field.label} is required`;
-      }
-    });
-    
+    attributeSchema
+      .filter((f) => f.required)
+      .forEach((field) => {
+        const value = formData.attributes[field.name];
+        if (field.type === "boolean") return;
+        if (!value || value.toString().trim() === "") {
+          primaryErrors[`attr.${field.name}`] = `${field.label} is required`;
+        }
+      });
     setErrors(primaryErrors);
     return Object.keys(primaryErrors).length === 0;
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
     if (!formData.productName.trim()) {
       newErrors.productName = "Product name is required";
     }
-    
     if (!formData.productSlug.trim()) {
       newErrors.productSlug = "Product slug is required";
     }
-    
     if (!formData.price || Number(formData.price) <= 0) {
       newErrors.price = "Valid price is required";
     }
-    
-    attributeSchema.filter(f => f.required).forEach(field => {
-      const value = formData.attributes[field.name];
-      if (field.type === 'boolean') return;
-      if (!value || value.toString().trim() === '') {
-        newErrors[`attr.${field.name}`] = `${field.label} is required`;
-      }
-    });
-    
+    attributeSchema
+      .filter((f) => f.required)
+      .forEach((field) => {
+        const value = formData.attributes[field.name];
+        if (field.type === "boolean") return;
+        if (!value || value.toString().trim() === "") {
+          newErrors[`attr.${field.name}`] = `${field.label} is required`;
+        }
+      });
     if (formData.images.length === 0) {
       newErrors.images = "At least one image is required";
     } else {
-      const hasPrimary = formData.images.some(img => img.isPrimary);
+      const hasPrimary = formData.images.some((img) => img.isPrimary);
       if (!hasPrimary) {
         newErrors.images = "A primary image is required";
       }
     }
-    
     setErrors(newErrors);
-    
     if (Object.keys(newErrors).length > 0) {
-      if (newErrors.productName || newErrors.productSlug || newErrors.price || Object.keys(newErrors).some(k => k.startsWith('attr.'))) {
+      if (
+        newErrors.productName ||
+        newErrors.productSlug ||
+        newErrors.price ||
+        Object.keys(newErrors).some((k) => k.startsWith("attr."))
+      ) {
         setActiveIndex(0);
       } else if (newErrors.images) {
         setActiveIndex(2);
       }
       return false;
     }
-    
     return true;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
-    
     try {
-      const productRes = await fetch('/api/shopowner/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      // 1. Create product
+      const productRes = await fetch("/api/shopowner/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           shopId,
           productName: formData.productName,
@@ -275,75 +282,75 @@ export function useProductForm() {
           price: formData.price,
           discountPrice: formData.discountPrice || null,
           inStock: formData.inStock,
-          attributes: formData.attributes
-        })
+          attributes: formData.attributes,
+        }),
       });
-
       const productData = await productRes.json();
-      
       if (!productRes.ok) {
-        throw new Error(productData.error || 'Failed to create product');
+        throw new Error(productData.error || "Failed to create product");
       }
-
       const productId = productData.product_id;
 
-      const imageFiles = formData.images.filter(img => img.file);
-      
+      // 2. Upload images
+      const imageFiles = formData.images.filter((img) => img.file);
       if (imageFiles.length > 0) {
         const uploadPromises = imageFiles.map(async (image) => {
           const imageFormData = new FormData();
-          imageFormData.append('image', image.file!);
-          imageFormData.append('isPrimary', String(image.isPrimary));
-
-          const imageRes = await fetch(`/api/shopowner/products/${productId}/images`, {
-            method: 'POST',
-            body: imageFormData
-          });
-
+          imageFormData.append("image", image.file!);
+          imageFormData.append("isPrimary", String(image.isPrimary));
+          const imageRes = await fetch(
+            `/api/shopowner/products/${productId}/images`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`, // token needed
+              },
+              body: imageFormData,
+            }
+          );
           if (!imageRes.ok) {
             const error = await imageRes.json();
-            return { success: false };
-          } else {
-            return { success: true };
+            throw new Error(error.error || "Image upload failed");
           }
         });
-
         await Promise.all(uploadPromises);
       }
 
+      // 3. Link categories
       if (formData.categoryIds.length > 0) {
         const categoryPromises = formData.categoryIds.map(async (categoryId) => {
-          const catRes = await fetch(`/api/shopowner/products/${productId}/categories`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category_id: categoryId })
-          });
-
+          const catRes = await fetch(
+            `/api/shopowner/products/${productId}/categories`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ category_id: categoryId }),
+            }
+          );
           if (!catRes.ok) {
-            console.error(`❌ Failed to add category ${categoryId}:`, await catRes.json());
+            console.error(`Failed to add category ${categoryId}`);
           }
         });
-
         await Promise.all(categoryPromises);
       }
-      
+
       setModalState({
         isOpen: true,
-        type: 'success',
-        title: 'Success!',
-        message: 'Product has been created successfully.'
+        type: "success",
+        title: "Success!",
+        message: "Product has been created successfully.",
       });
-      
       resetForm();
-      
     } catch (error: any) {
-      console.error("❌ Submit failed:", error);
-      
+      console.error("Submit failed:", error);
       setModalState({
         isOpen: true,
-        type: 'error',
-        title: 'Error',
-        message: error.message || "Failed to create product"
+        type: "error",
+        title: "Error",
+        message: error.message || "Failed to create product",
       });
     } finally {
       setLoading(false);
@@ -352,12 +359,10 @@ export function useProductForm() {
 
   const handleNext = () => {
     if (activeIndex === 0 && !validatePrimaryTab()) {
-      showWarning("Please fill out all Primary fields before proceeding", 'error');
+      showWarning("Please fill out all Primary fields before proceeding", "error");
       return;
     }
-    
     setTabWarning(null);
-    
     if (activeIndex < sections.length - 1) {
       setActiveIndex(activeIndex + 1);
     } else {
@@ -374,18 +379,23 @@ export function useProductForm() {
 
   const handleTabClick = (index: number) => {
     if (index > 0) {
-      const hasPrimaryErrors = 
+      const hasPrimaryErrors =
         !formData.productName.trim() ||
         !formData.productSlug.trim() ||
-        !formData.price || Number(formData.price) <= 0 ||
-        attributeSchema.filter(f => f.required).some(field => {
-          if (field.type === 'boolean') return false;
-          const value = formData.attributes[field.name];
-          return !value || value.toString().trim() === '';
-        });
-      
+        !formData.price ||
+        Number(formData.price) <= 0 ||
+        attributeSchema
+          .filter((f) => f.required)
+          .some((field) => {
+            if (field.type === "boolean") return false;
+            const value = formData.attributes[field.name];
+            return !value || value.toString().trim() === "";
+          });
       if (hasPrimaryErrors) {
-        showWarning("Please complete all required fields in Primary Details first", 'error');
+        showWarning(
+          "Please complete all required fields in Primary Details first",
+          "error"
+        );
         return;
       }
     }
@@ -394,34 +404,29 @@ export function useProductForm() {
   };
 
   const closeModal = () => {
-    setModalState(prev => ({ ...prev, isOpen: false }));
+    setModalState((prev) => ({ ...prev, isOpen: false }));
   };
 
   const removeCategory = (categoryId: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      categoryIds: prev.categoryIds.filter(id => id !== categoryId)
+      categoryIds: prev.categoryIds.filter((id) => id !== categoryId),
     }));
-    showWarning("Category removed", 'success');
+    showWarning("Category removed", "success");
   };
-  
+
   const addCategory = (categoryId: number) => {
-    // Check if category is already added
     if (formData.categoryIds.includes(categoryId)) {
-      showWarning("Category already added", 'error');
+      showWarning("Category already added", "error");
       return;
     }
-    
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      categoryIds: [...prev.categoryIds, categoryId]
+      categoryIds: [...prev.categoryIds, categoryId],
     }));
-    
     setSelectedCategoryId("");
-    showWarning("Category added successfully", 'success');
+    showWarning("Category added successfully", "success");
   };
-
-
 
   return {
     activeIndex,
@@ -445,7 +450,6 @@ export function useProductForm() {
     modalState,
     warningRef,
     showWarning,
-    
     handleCategoryCreated,
     handleCategoryError,
     handleNext,
@@ -454,6 +458,6 @@ export function useProductForm() {
     resetForm,
     closeModal,
     addCategory,
-  removeCategory,
+    removeCategory,
   };
 }

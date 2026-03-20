@@ -17,7 +17,7 @@ interface ShopFilters {
 
 interface UseShopProductsProps {
   initialProducts: Product[];
-  shopId: string;
+  shopSlug: string | null | undefined; // can be null initially
   initialTotalCount?: number;
   initialSearch?: string;
   initialCategories?: string[];
@@ -29,18 +29,16 @@ interface UseShopProductsProps {
 // Simple debounce hook
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
-
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedValue(value), delay);
     return () => clearTimeout(handler);
   }, [value, delay]);
-
   return debouncedValue;
 }
 
 export function useShopProducts({
   initialProducts,
-  shopId,
+  shopSlug,
   initialTotalCount,
   initialSearch = '',
   initialCategories = [],
@@ -99,7 +97,6 @@ export function useShopProducts({
 
   const buildQueryParams = (page: number) => {
     const params = new URLSearchParams({
-      shopId,
       page: page.toString(),
       limit: '20',
     });
@@ -117,12 +114,23 @@ export function useShopProducts({
   };
 
   const fetchProducts = useCallback(async (page: number, append: boolean = false) => {
+    console.log('fetchProducts called, shopSlug:', shopSlug);
+    
+    if (!shopSlug) {
+      console.log('shopSlug is falsy, aborting fetch');
+      return;
+    }
+
     setLoading(true);
     try {
       const params = buildQueryParams(page);
-      const res = await fetch(`/api/shopowner/products?${params}`);
+      const url = `/api/shops/${shopSlug}/products?${params}`;
+      console.log('Fetching URL:', url);
+      const res = await fetch(url);
+      console.log('Response status:', res.status);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
+      console.log('Fetched data:', data);
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       setCurrentPage(data.pagination.currentPage);
       setHasMore(data.pagination.currentPage < data.pagination.totalPages);
@@ -132,12 +140,14 @@ export function useShopProducts({
     } finally {
       setLoading(false);
     }
-  }, [shopId, filters]);
+  }, [shopSlug, filters]);
 
-  // Fetch when filters change
+  // Fetch when filters change, but only if shopSlug is available
   useEffect(() => {
-    fetchProducts(1, false);
-  }, [filters, fetchProducts]);
+    if (shopSlug) {
+      fetchProducts(1, false);
+    }
+  }, [filters, fetchProducts, shopSlug]);
 
   const searchProducts = async (term: string) => {
     setSearchInput(term);

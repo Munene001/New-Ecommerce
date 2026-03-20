@@ -1,4 +1,3 @@
-// lib/hooks/useDashboardProducts.ts
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -22,18 +21,17 @@ interface UseDashboardProductsReturn {
 export function useDashboardProducts(
   shopId: string,
   initialTotalCount?: number,
-  initialTotalPages: number = 1
+  initialTotalPages: number = 1,
+  token: string | null = null,          // 👈 new 4th parameter
 ): UseDashboardProductsReturn {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
   const [totalCount, setTotalCount] = useState<number>(initialTotalCount || 0);
-  
   const [currentSearch, setCurrentSearch] = useState<string>('');
   const [currentCategory, setCurrentCategory] = useState<string>('');
 
- 
   const initialFetchDone = useRef(false);
 
   const fetchProducts = useCallback(async (
@@ -42,8 +40,12 @@ export function useDashboardProducts(
     category?: string,
     append: boolean = false
   ) => {
+    if (!token) {                         // 👈 guard: no token → skip
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    
     try {
       const params = new URLSearchParams({
         shopId,
@@ -53,34 +55,37 @@ export function useDashboardProducts(
         ...(category && { category })
       });
 
-      const res = await fetch(`/api/shopowner/products?${params}`);
-      
+      const res = await fetch(`/api/shopowner/products?${params}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,   // 👈 send token
+        },
+      });
+
       if (!res.ok) {
         throw new Error('Failed to fetch products');
       }
-      
+
       const data = await res.json();
-      
+
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       setCurrentPage(data.pagination.currentPage);
       setTotalPages(data.pagination.totalPages);
       setTotalCount(data.pagination.totalCount);
-      
+
     } catch (error) {
       console.error('Failed to fetch products:', error);
     } finally {
       setLoading(false);
     }
-  }, [shopId]);
+  }, [shopId, token]);
 
-  // Initial fetch - with proper dependencies and mount protection
+  // Initial fetch
   useEffect(() => {
-    // Only fetch once
-    if (!initialFetchDone.current) {
+    if (!initialFetchDone.current && token) {   // 👈 only if token exists
       initialFetchDone.current = true;
       fetchProducts(1, currentSearch, currentCategory, false);
     }
-  }, [fetchProducts, currentSearch, currentCategory]); 
+  }, [fetchProducts, currentSearch, currentCategory, token]);
 
   const hasMore = currentPage < totalPages;
 

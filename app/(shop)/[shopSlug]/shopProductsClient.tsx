@@ -33,6 +33,7 @@ const ProductCardSkeleton = () => (
 );
 
 export default function ShopProductsClient() {
+  
   const { shop } = useShop();
   const router = useRouter();
   const searchParams = useSearchParams();
