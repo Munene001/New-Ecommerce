@@ -1,5 +1,5 @@
 // app/(shopowner)/dashboard/[shopSlug]/products/page.tsx
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 import ProductsClient from './components/productClient';
 
 interface PageProps {
@@ -19,12 +19,9 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
   const currentPage = parseInt(page || '1');
   const limit = 20;
   
-  let connection;
   try {
-    connection = await getConnection();
-    
     // 1. Get shop_id from slug
-    const [shopRows] = await connection.query(
+    const [shopRows] = await pool.query(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
     );
@@ -36,35 +33,35 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
     const shopId = (shopRows as any[])[0].shop_id;
     
     // 2. Get TOTAL PRODUCTS count for stats
-    const [totalProductsResult] = await connection.query(
+    const [totalProductsResult] = await pool.query(
       'SELECT COUNT(*) as total FROM products WHERE shop_id = ?',
       [shopId]
     );
     const totalProducts = (totalProductsResult as any[])[0].total;
     
     // 3. Get CATEGORIES count for stats
-    const [categoriesResult] = await connection.query(
+    const [categoriesResult] = await pool.query(
       'SELECT COUNT(*) as total FROM categories WHERE shop_id = ?',
       [shopId]
     );
     const totalCategories = (categoriesResult as any[])[0].total;
     
     // 4. Get DISCOUNTED count for stats
-    const [discountedResult] = await connection.query(
+    const [discountedResult] = await pool.query(
       'SELECT COUNT(*) as total FROM products WHERE shop_id = ? AND discount_price IS NOT NULL',
       [shopId]
     );
     const totalDiscounted = (discountedResult as any[])[0].total;
     
     // 5. Get INSTOCK count for stats
-    const [instockResult] = await connection.query(
+    const [instockResult] = await pool.query(
       'SELECT COUNT(*) as total FROM products WHERE shop_id = ? AND in_stock = 1',
       [shopId]
     );
     const totalInstock = (instockResult as any[])[0].total;
     
     // 6. Get paginated products with primary image for initial display
-    const [products] = await connection.query(`
+    const [products] = await pool.query(`
       SELECT 
         p.product_id,
         p.product_name,
@@ -93,8 +90,7 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
     
     const totalPages = Math.ceil(totalProducts / limit);
     
-   
-    const [categories] = await connection.query(
+    const [categories] = await pool.query(
       'SELECT category_id, category_name FROM categories WHERE shop_id = ? ORDER BY category_name',
       [shopId]
     );
@@ -106,20 +102,15 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
     // 8. Pass everything to client component
     return (
       <ProductsClient 
-      
         initialProducts={initialProducts}
         shopId={shopId}
         shopSlug={shopSlug}
         initialPage={currentPage}
         totalPages={totalPages}
-        
-     
         totalProducts={totalProducts}
         totalCategories={totalCategories}
         totalDiscounted={totalDiscounted}
         totalInstock={totalInstock}
-        
-       
         categories={initialCategories}
       />
     );
@@ -127,7 +118,5 @@ export default async function AllProducts({ params, searchParams }: PageProps) {
   } catch (error) {
     console.error('Database error:', error);
     return <div>Error loading products</div>;
-  } finally {
-    if (connection) await connection.end();
   }
 }

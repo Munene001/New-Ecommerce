@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateToken } from '@/lib/auth-utlis';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
-// Helper to verify that the product belongs to a shop owned by the user
-async function verifyProductOwnership(productId: number, supabaseUserId: string, connection: any) {
-  const [rows] = await connection.query(
+async function verifyProductOwnership(productId: number, supabaseUserId: string, dbClient: any) {
+  const [rows] = await dbClient.query(
     `SELECT 1
      FROM products p
      JOIN shops s ON p.shop_id = s.shop_id
@@ -17,7 +16,6 @@ async function verifyProductOwnership(productId: number, supabaseUserId: string,
   return (rows as any[]).length > 0;
 }
 
-// GET /api/shopowner/products/123/categories
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
@@ -33,15 +31,13 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
   }
 
-  let connection;
   try {
-    connection = await getConnection();
-    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, connection);
+    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, pool);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const [rows] = await connection.query(
+    const [rows] = await pool.query(
       `SELECT 
         c.category_id,
         c.category_name
@@ -56,12 +52,9 @@ export async function GET(
   } catch (error) {
     console.error('Database error:', error);
     return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }
 
-// POST /api/shopowner/products/123/categories
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
@@ -77,20 +70,18 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
   }
 
-  let connection;
   try {
     const { category_id } = await req.json();
     if (!category_id) {
       return NextResponse.json({ error: 'category_id required' }, { status: 400 });
     }
 
-    connection = await getConnection();
-    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, connection);
+    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, pool);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await connection.query(
+    await pool.query(
       'INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)',
       [productId, category_id]
     );
@@ -105,12 +96,9 @@ export async function POST(
       );
     }
     return NextResponse.json({ error: 'Failed to add category' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }
 
-// DELETE /api/shopowner/products/123/categories?categoryId=5
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
@@ -132,15 +120,13 @@ export async function DELETE(
     return NextResponse.json({ error: 'categoryId required' }, { status: 400 });
   }
 
-  let connection;
   try {
-    connection = await getConnection();
-    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, connection);
+    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, pool);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await connection.query(
+    await pool.query(
       'DELETE FROM product_categories WHERE product_id = ? AND category_id = ?',
       [productId, categoryId]
     );
@@ -149,7 +135,5 @@ export async function DELETE(
   } catch (error) {
     console.error('Remove category error:', error);
     return NextResponse.json({ error: 'Failed to remove category' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }

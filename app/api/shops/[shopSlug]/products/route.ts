@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
-// GET /api/shops/[shopSlug]/products?page=1&search=...&categories=1,2&minPrice=0&maxPrice=100&sortBy=newest&inStock=true
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ shopSlug: string }> }
@@ -20,12 +19,9 @@ export async function GET(
   const sortBy = searchParams.get('sortBy') || 'newest';
   const inStock = searchParams.get('inStock') === 'true';
 
-  let connection;
   try {
-    connection = await getConnection();
-
     // First get shop_id from slug
-    const [shopRows] = await connection.query(
+    const [shopRows] = await pool.query(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
     );
@@ -88,14 +84,14 @@ export async function GET(
     }
 
     // Count total
-    const [countResult] = await connection.query(
+    const [countResult] = await pool.query(
       `SELECT COUNT(*) as total FROM products p ${whereClause}`,
       queryParams
     );
     const totalCount = (countResult as any[])[0].total;
 
     // Fetch products
-    const [products] = await connection.query(
+    const [products] = await pool.query(
       `SELECT 
         p.product_id,
         p.product_name,
@@ -134,7 +130,5 @@ export async function GET(
   } catch (error) {
     console.error('Public products error:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }

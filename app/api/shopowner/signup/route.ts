@@ -1,7 +1,6 @@
-// app/api/shopowner/signup/route.ts
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,43 +30,35 @@ export async function POST(request: NextRequest) {
     if (!data.user) throw new Error('No user created');
     
     if (data.user.email_confirmed_at) {
-      const connection = await getConnection();
-      try {
-        const [userResult] = await connection.execute(
-          `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
-           VALUES (?, ?, ?, ?, 'shop_owner')`,
-          [data.user.id, body.full_name, body.email, body.phone]
-        );
-        
-        const userId = (userResult as any).insertId;
-        const slug = `${body.business_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-        
-        await connection.execute(
-          `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            userId,
-            body.business_name,
-            slug,
-            body.business_town,
-            body.business_address
-          ]
-        );
-        
-        return NextResponse.json({
-          success: true,
-          message: 'Account verified and created!',
-          verified: true,
-          mysql_saved: true,
-          user_id: data.user.id,
-          shop_slug: slug
-        });
-       
-      } catch (dbError: any) {
-        throw dbError;
-      } finally {
-        await connection.end();
-      }
+      const [userResult] = await pool.execute(
+        `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
+         VALUES (?, ?, ?, ?, 'shop_owner')`,
+        [data.user.id, body.full_name, body.email, body.phone]
+      );
+      
+      const userId = (userResult as any).insertId;
+      const slug = `${body.business_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+      
+      await pool.execute(
+        `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          userId,
+          body.business_name,
+          slug,
+          body.business_town,
+          body.business_address
+        ]
+      );
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Account verified and created!',
+        verified: true,
+        mysql_saved: true,
+        user_id: data.user.id,
+        shop_slug: slug
+      });
     }
     
     return NextResponse.json({

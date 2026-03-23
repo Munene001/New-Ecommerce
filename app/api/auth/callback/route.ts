@@ -1,19 +1,17 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getConnection } from '@/lib/db'
+import pool from '@/lib/db'  // changed from getConnection
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-   const redirectParam = requestUrl.searchParams.get('redirect') || ''
+  const redirectParam = requestUrl.searchParams.get('redirect') || ''
   
   if (!code) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
   
-  let connection
-
   try {
     const supabase = await createSupabaseServerClient()
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
@@ -32,10 +30,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/errors/emailverification', request.url))
     }
     
-    connection = await getConnection()
-    
-    // Check if user already exists in MySQL
-    const [existing] = await connection.execute(
+    // Check if user already exists in MySQL (using pool – auto‑releases)
+    const [existing] = await pool.execute(
       'SELECT user_id FROM users WHERE supabase_uid = ?',
       [user.id]
     ) as [any[], any]
@@ -47,12 +43,14 @@ export async function GET(request: NextRequest) {
 
     // Handle based on role
     if (role === 'shop_owner') {
-      // --- Shop owner flow (existing logic) ---
-      await connection.beginTransaction()
-
+      // --- Shop owner flow – use a transaction with a dedicated connection ---
+      let conn;
       try {
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
         // 1. Insert user
-        const [userResult] = await connection.execute(
+        const [userResult] = await conn.execute(
           `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
            VALUES (?, ?, ?, ?, 'shop_owner')`,
           [
@@ -61,14 +59,14 @@ export async function GET(request: NextRequest) {
             user.email,
             user.user_metadata?.phone || ''
           ]
-        ) as any
+        ) as any;
         
-        const userId = userResult.insertId
-        const businessName = user.user_metadata?.business_name || 'My Business'
-        const slug = `${businessName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
+        const userId = userResult.insertId;
+        const businessName = user.user_metadata?.business_name || 'My Business';
+        const slug = `${businessName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
         
         // 2. Insert tenant
-        await connection.execute(
+        await conn.execute(
           `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) 
            VALUES (?, ?, ?, ?, ?)`,
           [
@@ -78,49 +76,50 @@ export async function GET(request: NextRequest) {
             user.user_metadata?.business_town || '',
             user.user_metadata?.business_address || ''
           ]
-        )
+        );
 
         // 3. Get the shop_id that was created (assuming a trigger creates it)
-        const [shopRows] = await connection.execute(
+        const [shopRows] = await conn.execute(
           'SELECT shop_id FROM shops WHERE tenant_id = ?',
           [userId]
-        ) as [any[], any]
+        ) as [any[], any];
         
         if (shopRows.length > 0) {
-          const shopId = shopRows[0].shop_id
+          const shopId = shopRows[0].shop_id;
           
           // 4. Insert default shop settings
-          await connection.execute(
+          await conn.execute(
             `INSERT INTO shop_settings 
              (shop_id, primary_color, secondary_color, product_card_style, cart_icon) 
              VALUES (?, '#3B82F6', '#10B981', 'standard', 'cart')`,
             [shopId]
-          )
+          );
           
           // 5. Insert default banner
-          await connection.execute(
+          await conn.execute(
             `INSERT INTO shop_banners 
              (shop_id, banner_url, banner_type, start_date, end_date, is_active) 
              VALUES (?, '/assets/banners/default-shop-banner.jpg', 'default', NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), TRUE)`,
             [shopId]
-          )
+          );
         }
 
-        await connection.commit()
+        await conn.commit();
         
-        return NextResponse.redirect(new URL('/auth/login?verified=true', request.url))
+        return NextResponse.redirect(new URL('/auth/login?verified=true', request.url));
         
       } catch (dbError) {
-        await connection.rollback()
-        console.error('Database error:', dbError)
-        return NextResponse.redirect(new URL('/errors/emailverification', request.url))
+        if (conn) await conn.rollback();
+        console.error('Database error:', dbError);
+        return NextResponse.redirect(new URL('/errors/emailverification', request.url));
+      } finally {
+        if (conn) conn.release();  // return connection to pool
       }
     } 
     else { // role === 'customer'
-      // --- Customer flow ---
+      // --- Customer flow – simple insert, no transaction needed ---
       try {
-        // Insert user only (no tenant/shop)
-        await connection.execute(
+        await pool.execute(
           `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
            VALUES (?, ?, ?, ?, 'customer')`,
           [
@@ -129,24 +128,22 @@ export async function GET(request: NextRequest) {
             user.email,
             user.user_metadata?.phone || ''
           ]
-        )
+        );
 
-        const loginUrl = new URL('/auth/login', request.url)
-        loginUrl.searchParams.set('verified', 'true')
+        const loginUrl = new URL('/auth/login', request.url);
+        loginUrl.searchParams.set('verified', 'true');
         if (redirectParam) {
-          loginUrl.searchParams.set('redirect', redirectParam)
+          loginUrl.searchParams.set('redirect', redirectParam);
         }
-        return NextResponse.redirect(loginUrl)
+        return NextResponse.redirect(loginUrl);
       } catch (dbError) {
-        console.error('Customer insert error:', dbError)
-        return NextResponse.redirect(new URL('/errors/emailverification', request.url))
+        console.error('Customer insert error:', dbError);
+        return NextResponse.redirect(new URL('/errors/emailverification', request.url));
       }
     }
     
   } catch (error) {
-    console.error('Callback error:', error)
-    return NextResponse.redirect(new URL('/errors/emailverification', request.url))
-  } finally {
-    if (connection) await connection.end()
+    console.error('Callback error:', error);
+    return NextResponse.redirect(new URL('/errors/emailverification', request.url));
   }
 }

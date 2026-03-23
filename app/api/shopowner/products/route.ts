@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateToken } from '@/lib/auth-utlis';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
-// Helper to verify that the user owns the shop
-async function verifyShopOwnership(connection: any, shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await connection.query(
+// Helper to verify that the user owns the shop (works with pool or connection)
+async function verifyShopOwnership(dbClient: any, shopId: number, supabaseUid: string): Promise<boolean> {
+  const [rows] = await dbClient.query(
     `SELECT 1
      FROM shops s
      JOIN tenant t ON s.tenant_id = t.tenant_id
@@ -17,7 +17,6 @@ async function verifyShopOwnership(connection: any, shopId: number, supabaseUid:
 
 // GET /api/shopowner/products?shopId=1&...
 export async function GET(req: NextRequest) {
-  let connection;
   try {
     // Validate token
     const auth = await validateToken(req);
@@ -32,15 +31,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'shopId required' }, { status: 400 });
     }
 
-    connection = await getConnection();
-
     // Verify ownership
-    const isOwner = await verifyShopOwnership(connection, parseInt(shopId), supabaseUid);
+    const isOwner = await verifyShopOwnership(pool, parseInt(shopId), supabaseUid);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // ... rest of the GET logic (same as before, but using connection)
     const search = searchParams.get('search') || '';
     const categories = searchParams.get('categories');
     const singleCategory = searchParams.get('category');
@@ -118,14 +114,14 @@ export async function GET(req: NextRequest) {
     }
 
     // Total count
-    const [countResult] = await connection.query(
+    const [countResult] = await pool.query(
       `SELECT COUNT(*) as total FROM products p ${whereClause}`,
       queryParams
     );
     const totalCount = (countResult as any[])[0].total;
 
     // Products with images
-    const [products] = await connection.query(`
+    const [products] = await pool.query(`
       SELECT 
         p.product_id,
         p.shop_id,
@@ -169,14 +165,11 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('GET products error:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }
 
 // POST /api/shopowner/products - Create product
 export async function POST(req: NextRequest) {
-  let connection;
   try {
     // Validate token
     const auth = await validateToken(req);
@@ -194,16 +187,14 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    connection = await getConnection();
-
     // Verify ownership
-    const isOwner = await verifyShopOwnership(connection, shopId, supabaseUid);
+    const isOwner = await verifyShopOwnership(pool, shopId, supabaseUid);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Get shop type
-    const [shopRows] = await connection.query(
+    const [shopRows] = await pool.query(
       'SELECT shop_type FROM shops WHERE shop_id = ?',
       [shopId]
     );
@@ -213,7 +204,7 @@ export async function POST(req: NextRequest) {
     const shopType = (shopRows as any[])[0].shop_type;
 
     // Insert product
-    const [productResult] = await connection.query(
+    const [productResult] = await pool.query(
       `INSERT INTO products 
        (shop_id, shop_type, product_name, product_slug, description, price, discount_price, in_stock, attributes) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -244,14 +235,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Product name already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }
 
 // DELETE /api/shopowner/products - Bulk delete
 export async function DELETE(req: NextRequest) {
-  let connection;
   try {
     // Validate token
     const auth = await validateToken(req);
@@ -271,16 +259,14 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Product IDs array required' }, { status: 400 });
     }
 
-    connection = await getConnection();
-
     // Verify ownership
-    const isOwner = await verifyShopOwnership(connection, parseInt(shopId), supabaseUid);
+    const isOwner = await verifyShopOwnership(pool, parseInt(shopId), supabaseUid);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // First, verify that all products belong to this shop
-    const [verification] = await connection.query(
+    const [verification] = await pool.query(
       `SELECT COUNT(*) as count FROM products 
        WHERE product_id IN (?) AND shop_id = ?`,
       [productIds, shopId]
@@ -293,17 +279,17 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Delete from product_categories first
-    await connection.query(
+    await pool.query(
       'DELETE FROM product_categories WHERE product_id IN (?)',
       [productIds]
     );
     // Delete product images
-    await connection.query(
+    await pool.query(
       'DELETE FROM product_images WHERE product_id IN (?)',
       [productIds]
     );
     // Finally delete products
-    const [result] = await connection.query(
+    const [result] = await pool.query(
       'DELETE FROM products WHERE product_id IN (?) AND shop_id = ?',
       [productIds, shopId]
     );
@@ -315,7 +301,5 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     console.error('Bulk delete error:', error);
     return NextResponse.json({ error: 'Failed to delete products' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }

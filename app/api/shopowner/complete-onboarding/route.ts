@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateToken } from '@/lib/auth-utlis';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
 export async function POST(request: NextRequest) {
-  let connection;
-
   try {
     // 1. Validate token
     const auth = await validateToken(request);
@@ -14,8 +12,7 @@ export async function POST(request: NextRequest) {
     const supabaseUser = auth.supabaseUser;
 
     // 2. Get internal user_id from MySQL
-    connection = await getConnection();
-    const [userRows] = await connection.query(
+    const [userRows] = await pool.query(
       `SELECT user_id, role FROM users WHERE supabase_uid = ?`,
       [supabaseUser.id]
     ) as any[];
@@ -37,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Get tenant
-    const [tenantRows] = await connection.query(
+    const [tenantRows] = await pool.query(
       `SELECT tenant_id, business_name, business_slug
        FROM tenant
        WHERE user_id = ?`,
@@ -49,7 +46,7 @@ export async function POST(request: NextRequest) {
     const tenant = tenantRows[0];
 
     // 6. Create shop
-    const [shopResult] = await connection.query(
+    const [shopResult] = await pool.query(
       `INSERT INTO shops (tenant_id, shop_name, shop_slug, shop_type)
        VALUES (?, ?, ?, ?)`,
       [tenant.tenant_id, tenant.business_name, tenant.business_slug, shop_type]
@@ -70,7 +67,5 @@ export async function POST(request: NextRequest) {
       { success: false, error: error.message || 'Failed to create shop' },
       { status: 500 }
     );
-  } finally {
-    if (connection) await connection.end();
   }
 }

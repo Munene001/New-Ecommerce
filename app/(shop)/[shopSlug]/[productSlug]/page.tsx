@@ -1,5 +1,6 @@
-import { getConnection } from "@/lib/db";
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { notFound } from "next/navigation";
+import pool from "@/lib/db";
 import ProductGallery from "./components/productGallery";
 import ProductSidebar from "./components/productSideBar";
 import ProductTabs from "./components/productTabs";
@@ -23,7 +24,6 @@ type ProductAttributes = Record<
 
 export default async function ProductPage({ params }: PageProps) {
   const { shopSlug, productSlug } = await params;
-  const connection = await getConnection();
 
   try {
     // 1. Fetch shop data (includes secondaryColor and shopType)
@@ -40,7 +40,7 @@ export default async function ProductPage({ params }: PageProps) {
     const secondaryColor = shopData.secondaryColor || "#000000";
 
     // 2. Fetch product
-    const [productRows] = await connection.query(
+    const [productRows] = await pool.query(
       `SELECT 
           p.product_id,
           p.product_name,
@@ -58,7 +58,7 @@ export default async function ProductPage({ params }: PageProps) {
     const productData = (productRows as any[])[0];
 
     // 3. Fetch images
-    const [imageRows] = await connection.query(
+    const [imageRows] = await pool.query(
       `SELECT 
           image_id,
           image_path,
@@ -70,7 +70,7 @@ export default async function ProductPage({ params }: PageProps) {
     );
 
     // 4. Fetch reviews (main and replies)
-    const [reviewRows] = await connection.query(
+    const [reviewRows] = await pool.query(
       `SELECT 
         r.review_id,
         r.user_id,
@@ -121,6 +121,12 @@ export default async function ProductPage({ params }: PageProps) {
       }
     }
 
+    // Compute average rating and total reviews AFTER building mainReviews
+    const totalReviews = mainReviews.length;
+    const avgRating = totalReviews
+      ? mainReviews.reduce((sum: number, rev: any) => sum + rev.rating, 0) / totalReviews
+      : 0;
+
     // 5. Parse attributes
     let parsedAttributes: ProductAttributes = {};
     if (productData.attributes) {
@@ -129,7 +135,7 @@ export default async function ProductPage({ params }: PageProps) {
     }
 
     // 6. Fetch related products 
-    const [categoryRows] = await connection.query(
+    const [categoryRows] = await pool.query(
       `SELECT category_id FROM product_categories WHERE product_id = ?`,
       [productData.product_id]
     );
@@ -139,7 +145,7 @@ export default async function ProductPage({ params }: PageProps) {
 
     if (categoryIds.length > 0) {
       const placeholders = categoryIds.map(() => '?').join(',');
-      const [relatedRows] = await connection.query(
+      const [relatedRows] = await pool.query(
         `SELECT DISTINCT p.product_id, p.product_name, p.product_slug, p.price, p.discount_price
          FROM products p
          JOIN product_categories pc ON p.product_id = pc.product_id
@@ -157,7 +163,7 @@ export default async function ProductPage({ params }: PageProps) {
       const needed = 6 - relatedProducts.length;
       const excludeIds = [productData.product_id, ...relatedProducts.map(p => p.product_id)];
       const excludePlaceholders = excludeIds.map(() => '?').join(',');
-      const [randomRows] = await connection.query(
+      const [randomRows] = await pool.query(
         `SELECT product_id, product_name, product_slug, price, discount_price
          FROM products
          WHERE shop_id = ? 
@@ -186,6 +192,31 @@ export default async function ProductPage({ params }: PageProps) {
       is_primary: row.is_primary,
     }));
 
+    // ===== GET USER SESSION & WISHLIST STATUS =====
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let initialWishlistStatus = false;
+    let isShopOwner = false;
+
+    if (user) {
+      const [userRows] = await pool.query(
+        'SELECT user_id, role FROM users WHERE supabase_uid = ?',
+        [user.id]
+      );
+      if (userRows && (userRows as any[]).length) {
+        const userId = (userRows as any[])[0].user_id;
+        const role = (userRows as any[])[0].role;
+        isShopOwner = role === 'shop_owner';
+
+        const [wishlistRows] = await pool.query(
+          'SELECT 1 FROM wishlist WHERE user_id = ? AND product_id = ?',
+          [userId, product.product_id]
+        );
+        initialWishlistStatus = (wishlistRows as any[]).length > 0;
+      }
+    }
+
     return (
       <>
         <PageBar breadcrumb="Product" itemName={product.product_name} />
@@ -203,6 +234,8 @@ export default async function ProductPage({ params }: PageProps) {
                 product={product}
                 secondaryColor={secondaryColor}
                 shopSlug={shopSlug}
+                initialWishlistStatus={initialWishlistStatus}
+                isShopOwner={isShopOwner}
               />
             </div>
             <div className="hidden lg:block lg:w-[12%] lg:overflow-y-auto">
@@ -217,6 +250,8 @@ export default async function ProductPage({ params }: PageProps) {
             <ProductTabs
               attributes={product.attributes}
               reviews={mainReviews}
+              avgRating={avgRating}
+              totalReviews={totalReviews}
               secondaryColor={secondaryColor}
               productId={product.product_id}
               shopSlug={shopSlug}
@@ -252,7 +287,5 @@ export default async function ProductPage({ params }: PageProps) {
         An error occurred while loading the product.
       </div>
     );
-  } finally {
-    await connection.end();
   }
 }

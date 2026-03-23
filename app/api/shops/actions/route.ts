@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateToken } from '@/lib/auth-utlis';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 export async function POST(request: NextRequest) {
@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function getInternalUserId(supabaseUserId: string, connection: any) {
-  const [rows] = await connection.query(
+async function getInternalUserId(supabaseUserId: string) {
+  const [rows] = await pool.query(
     'SELECT user_id FROM users WHERE supabase_uid = ?',
     [supabaseUserId]
   );
@@ -53,14 +53,13 @@ async function handleAddReview(body: any, supabaseUser: any) {
     return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 });
   }
 
-  const connection = await getConnection();
   try {
-    const userId = await getInternalUserId(supabaseUser.id, connection);
+    const userId = await getInternalUserId(supabaseUser.id);
     if (!userId) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
-    const [existing] = await connection.query(
+    const [existing] = await pool.query(
       `SELECT 1 FROM reviews WHERE product_id = ? AND user_id = ? AND parent_review_id IS NULL`,
       [productIdNum, userId]
     );
@@ -72,7 +71,7 @@ async function handleAddReview(body: any, supabaseUser: any) {
       );
     }
 
-    await connection.query(
+    await pool.query(
       `INSERT INTO reviews (product_id, user_id, rating, comment, is_owner_reply)
        VALUES (?, ?, ?, ?, false)`,
       [productIdNum, userId, ratingNum, comment]
@@ -89,8 +88,6 @@ async function handleAddReview(body: any, supabaseUser: any) {
       );
     }
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
-  } finally {
-    await connection.end();
   }
 }
 
@@ -104,14 +101,14 @@ async function handleReplyToReview(body: any, supabaseUser: any) {
   const productIdNum = parseInt(productId, 10);
   const parentIdNum = parseInt(parentReviewId, 10);
 
-  const connection = await getConnection();
   try {
-    const userId = await getInternalUserId(supabaseUser.id, connection);
+    const userId = await getInternalUserId(supabaseUser.id);
     if (!userId) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
-    const [ownerCheck] = await connection.query(
+    // Verify shop owner permission
+    const [ownerCheck] = await pool.query(
       `SELECT 1
        FROM products p
        JOIN shops s ON p.shop_id = s.shop_id
@@ -127,7 +124,20 @@ async function handleReplyToReview(body: any, supabaseUser: any) {
       );
     }
 
-    await connection.query(
+    // Prevent duplicate reply
+    const [existingReply] = await pool.query(
+      `SELECT 1 FROM reviews 
+       WHERE product_id = ? AND user_id = ? AND parent_review_id = ?`,
+      [productIdNum, userId, parentIdNum]
+    );
+    if ((existingReply as any[]).length > 0) {
+      return NextResponse.json(
+        { error: 'You have already replied to this review' },
+        { status: 400 }
+      );
+    }
+
+    await pool.query(
       `INSERT INTO reviews (product_id, user_id, parent_review_id, rating, comment, is_owner_reply)
        VALUES (?, ?, ?, NULL, ?, ?)`,
       [productIdNum, userId, parentIdNum, comment, true]
@@ -135,11 +145,16 @@ async function handleReplyToReview(body: any, supabaseUser: any) {
 
     revalidatePath(`/${shopSlug}/${productSlug}`);
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Reply to review error:', error);
+    // Fallback for unexpected duplicate constraint violations
+    if (error.code === 'ER_DUP_ENTRY') {
+      return NextResponse.json(
+        { error: 'You have already replied to this review' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
-  } finally {
-    await connection.end();
   }
 }
 
@@ -152,14 +167,13 @@ async function handleToggleWishlist(body: any, supabaseUser: any) {
 
   const productIdNum = parseInt(productId, 10);
 
-  const connection = await getConnection();
   try {
-    const userId = await getInternalUserId(supabaseUser.id, connection);
+    const userId = await getInternalUserId(supabaseUser.id);
     if (!userId) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
-    const [existing] = await connection.query(
+    const [existing] = await pool.query(
       `SELECT 1 FROM wishlist WHERE user_id = ? AND product_id = ?`,
       [userId, productIdNum]
     );
@@ -167,12 +181,12 @@ async function handleToggleWishlist(body: any, supabaseUser: any) {
     const exists = existingRows.length > 0;
 
     if (exists) {
-      await connection.query(
+      await pool.query(
         `DELETE FROM wishlist WHERE user_id = ? AND product_id = ?`,
         [userId, productIdNum]
       );
     } else {
-      await connection.query(
+      await pool.query(
         `INSERT INTO wishlist (user_id, product_id) VALUES (?, ?)`,
         [userId, productIdNum]
       );
@@ -183,7 +197,5 @@ async function handleToggleWishlist(body: any, supabaseUser: any) {
   } catch (error) {
     console.error('Toggle wishlist error:', error);
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
-  } finally {
-    await connection.end();
   }
 }

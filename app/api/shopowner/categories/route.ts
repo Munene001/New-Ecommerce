@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateToken } from '@/lib/auth-utlis';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
-// Helper to verify that the user owns the shop
+// Helper to verify that the user owns the shop (now uses pool directly)
 async function verifyShopOwnership(shopId: number, supabaseUserId: string, connection: any) {
   const [rows] = await connection.query(
     `SELECT 1
@@ -30,15 +30,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'shopId required' }, { status: 400 });
   }
 
-  let connection;
   try {
-    connection = await getConnection();
-    const isOwner = await verifyShopOwnership(Number(shopId), auth.supabaseUser.id, connection);
+    const isOwner = await verifyShopOwnership(Number(shopId), auth.supabaseUser.id, pool);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const [rows] = await connection.query(
+    const [rows] = await pool.query(
       'SELECT * FROM categories WHERE shop_id = ? ORDER BY category_name',
       [shopId]
     );
@@ -47,8 +45,6 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Database error:', error);
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }
 
@@ -59,7 +55,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let connection;
   try {
     const { shopId, categoryName } = await req.json();
 
@@ -67,13 +62,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'shopId and categoryName required' }, { status: 400 });
     }
 
-    connection = await getConnection();
-    const isOwner = await verifyShopOwnership(Number(shopId), auth.supabaseUser.id, connection);
+    const isOwner = await verifyShopOwnership(Number(shopId), auth.supabaseUser.id, pool);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const [result] = await connection.query(
+    const [result] = await pool.query(
       'INSERT INTO categories (shop_id, category_name) VALUES (?, ?)',
       [shopId, categoryName]
     );
@@ -91,8 +85,6 @@ export async function POST(req: NextRequest) {
     }
     console.error('Database error:', error);
     return NextResponse.json({ error: 'Failed to create category' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }
 
@@ -110,12 +102,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'categoryId required' }, { status: 400 });
   }
 
-  let connection;
   try {
-    connection = await getConnection();
-
     // First, get the shop_id of this category to verify ownership
-    const [catRows] = await connection.query(
+    const [catRows] = await pool.query(
       'SELECT shop_id FROM categories WHERE category_id = ?',
       [categoryId]
     );
@@ -124,18 +113,16 @@ export async function DELETE(req: NextRequest) {
     }
     const shopId = (catRows as any[])[0].shop_id;
 
-    const isOwner = await verifyShopOwnership(shopId, auth.supabaseUser.id, connection);
+    const isOwner = await verifyShopOwnership(shopId, auth.supabaseUser.id, pool);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await connection.query('DELETE FROM categories WHERE category_id = ?', [categoryId]);
+    await pool.query('DELETE FROM categories WHERE category_id = ?', [categoryId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Database error:', error);
     return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }
