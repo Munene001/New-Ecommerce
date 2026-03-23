@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
 export async function GET(
   req: NextRequest,
@@ -10,7 +10,6 @@ export async function GET(
 ) {
   const { productId } = await params;
 
-  let connection;
   try {
     if (!/^\d+$/.test(productId)) {
       return new NextResponse('Invalid product ID', { status: 400 });
@@ -20,14 +19,12 @@ export async function GET(
     const width = parseInt(searchParams.get('w') || '600');
     const quality = parseInt(searchParams.get('q') || '80');
     const mode = searchParams.get('mode'); // 'primary' or 'all' (optional)
-    const imageId = searchParams.get('imageId'); // new: fetch a specific image
+    const imageId = searchParams.get('imageId'); // fetch a specific image
 
     const allowedWidths = [200, 300, 800, 1200];
     if (!allowedWidths.includes(width)) {
       return new NextResponse('Invalid width. Use 200, 300, 800, or 1200', { status: 400 });
     }
-
-    connection = await getConnection();
 
     // ----- Case 1: Specific image requested by imageId -----
     if (imageId) {
@@ -35,7 +32,7 @@ export async function GET(
         return new NextResponse('Invalid image ID', { status: 400 });
       }
 
-      const [imageRows] = await connection.query(
+      const [imageRows] = await pool.query(
         'SELECT image_path FROM product_images WHERE image_id = ? AND product_id = ?',
         [imageId, productId]
       );
@@ -84,7 +81,7 @@ export async function GET(
 
     // ----- Case 2: Return metadata for all images (mode=all) -----
     if (mode === 'all') {
-      const [imageRows] = await connection.query(
+      const [imageRows] = await pool.query(
         `SELECT 
           image_id,
           image_path,
@@ -100,7 +97,7 @@ export async function GET(
     }
 
     // ----- Case 3: Default – return primary image -----
-    const [imageRows] = await connection.query(
+    const [imageRows] = await pool.query(
       'SELECT image_path FROM product_images WHERE product_id = ? AND is_primary = 1 LIMIT 1',
       [productId]
     );
@@ -147,7 +144,5 @@ export async function GET(
   } catch (error) {
     console.error('Serve error:', error);
     return new NextResponse('Error processing image', { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }

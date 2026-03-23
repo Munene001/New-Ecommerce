@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +10,6 @@ export async function POST(request: NextRequest) {
     const redirectUrl = `${origin}/api/auth/callback${
         body.redirect ? `?redirect=${encodeURIComponent(body.redirect)}` : ''
       }`;
-      
 
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signUp({
@@ -21,7 +20,7 @@ export async function POST(request: NextRequest) {
         data: {
           full_name: body.full_name,
           phone: body.phone,
-          role: 'customer' // important
+          role: 'customer'
         }
       }
     });
@@ -31,31 +30,21 @@ export async function POST(request: NextRequest) {
 
     // If email is already confirmed (e.g., test user, or auto-confirm)
     if (data.user.email_confirmed_at) {
-      const connection = await getConnection();
-      try {
-        // Insert into users table only (no tenant/shop)
-        await connection.execute(
-          `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
-           VALUES (?, ?, ?, ?, 'customer')`,
-          [data.user.id, body.full_name, body.email, body.phone]
-        );
+      await pool.execute(
+        `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
+         VALUES (?, ?, ?, ?, 'customer')`,
+        [data.user.id, body.full_name, body.email, body.phone]
+      );
 
-        return NextResponse.json({
-          success: true,
-          message: 'Account verified and created!',
-          verified: true,
-          mysql_saved: true,
-          user_id: data.user.id
-        });
-      } catch (dbError: any) {
-        console.error('DB insert error:', dbError);
-        throw dbError;
-      } finally {
-        await connection.end();
-      }
+      return NextResponse.json({
+        success: true,
+        message: 'Account verified and created!',
+        verified: true,
+        mysql_saved: true,
+        user_id: data.user.id
+      });
     }
 
-    
     return NextResponse.json({
       success: true,
       message: 'Check your email to verify your account.',

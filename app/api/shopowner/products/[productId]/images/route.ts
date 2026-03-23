@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
-import { getConnection } from '@/lib/db';
+import pool from '@/lib/db';
 import { randomUUID } from 'crypto';
 import { validateToken } from '@/lib/auth-utlis';
 
@@ -21,12 +21,9 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
   }
 
-  let connection;
   try {
-    connection = await getConnection();
-
-    // Verify that the product belongs to a shop owned by the user
-    const [productRows] = await connection.query(
+    // Verify product ownership
+    const [productRows] = await pool.query(
       `SELECT p.product_id
        FROM products p
        JOIN shops s ON p.shop_id = s.shop_id
@@ -40,7 +37,7 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Now proceed with image upload logic (the existing code)
+    // Process upload
     const formData = await req.formData();
     const file = formData.get('image') as File;
     const isPrimary = formData.get('isPrimary') === 'true';
@@ -55,7 +52,7 @@ export async function POST(
       return NextResponse.json({ error: 'Image too large. Max 5MB.' }, { status: 400 });
     }
 
-    const [countRows] = await connection.query(
+    const [countRows] = await pool.query(
       'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
       [productId]
     );
@@ -97,13 +94,13 @@ export async function POST(
     await writeFile(fullPath, compressed);
 
     if (isPrimary) {
-      await connection.query(
+      await pool.query(
         'UPDATE product_images SET is_primary = FALSE WHERE product_id = ?',
         [productId]
       );
     }
 
-    const [result] = await connection.query(
+    const [result] = await pool.query(
       `INSERT INTO product_images (product_id, image_path, is_primary) 
        VALUES (?, ?, ?)`,
       [productId, relativePath, isPrimary]
@@ -123,7 +120,5 @@ export async function POST(
   } catch (error) {
     console.error('Upload error:', error);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }

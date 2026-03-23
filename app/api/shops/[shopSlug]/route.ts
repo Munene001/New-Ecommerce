@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConnection } from "@/lib/db";
+import pool from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
@@ -11,10 +11,7 @@ export async function GET(
     return NextResponse.json({ error: "Invalid shop slug" }, { status: 400 });
   }
 
-  let connection;
   try {
-    connection = await getConnection();
-
     // Query shops with left joins to settings and banners
     const query = `
     SELECT 
@@ -38,7 +35,7 @@ export async function GET(
   -- Max price from products
   (SELECT MAX(price) FROM products WHERE shop_id = s.shop_id) as max_price,
   
-  -- Categories belonging to this shop (NEW)
+  -- Categories belonging to this shop
   (
     SELECT JSON_ARRAYAGG(
       JSON_OBJECT('id', c.category_id, 'name', c.category_name)
@@ -77,7 +74,7 @@ LEFT JOIN shop_settings ss ON s.shop_id = ss.shop_id
 WHERE s.shop_slug = ?
     `;
 
-    const [rows] = await connection.query(query, [shopSlug]);
+    const [rows] = await pool.query(query, [shopSlug]);
 
     if (!rows || (rows as any[]).length === 0) {
       return NextResponse.json({ error: "Shop not found" }, { status: 404 });
@@ -124,7 +121,5 @@ WHERE s.shop_slug = ?
       { error: "Failed to fetch shop" },
       { status: 500 }
     );
-  } finally {
-    if (connection) await connection.end();
   }
 }
