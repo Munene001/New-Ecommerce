@@ -5,7 +5,7 @@ import RequestStep from "./components/requestStep";
 import EmailSentStep from "./components/emailSentStep";
 import NewPasswordStep from "./components/newPasswordStep";
 import SuccessStep from "./components/successStep";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 export type ResetPasswordStep = "request" | "email-sent" | "new-password" | "success";
 
@@ -15,6 +15,9 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Create the browser client once per component (re‑creation is cheap)
+  const supabase = createSupabaseBrowserClient();
 
   // Check for recovery token in URL
   useEffect(() => {
@@ -53,7 +56,7 @@ export default function ResetPasswordPage() {
     };
 
     checkRecoverySession();
-  }, []);
+  }, [supabase]); // Include supabase in dependencies
 
   const handleSendEmail = async (email: string) => {
     setIsLoading(true);
@@ -67,7 +70,7 @@ export default function ResetPasswordPage() {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
         {
-          redirectTo: `${window.location.origin}/auth/resetpassword`, // ← REDIRECT URL
+          redirectTo: `${window.location.origin}/auth/resetpassword`,
         }
       );
 
@@ -126,8 +129,7 @@ export default function ResetPasswordPage() {
       case "request":
         return <RequestStep onSubmit={handleSendEmail} isLoading={isLoading} error={error} setError={setError} />;
       case "email-sent":
-        return <EmailSentStep email={email} onChangeEmail={() => setStep("request")} isLoading={isLoading} success={success}  setStep={setStep}        // ← Add this
-        setError={setError}  />;
+        return <EmailSentStep email={email} onChangeEmail={() => setStep("request")} isLoading={isLoading} success={success} setStep={setStep} setError={setError} />;
       case "new-password":
         return <NewPasswordStep email={email} onSubmit={handleResetPassword} isLoading={isLoading} error={error} setError={setError} />;
       case "success":
@@ -137,7 +139,7 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center font-[Plus_Jakarta_Sans] justify-center bg-transparent p-4">
-      <div className="w-full max-w-md p-8 border border-gray-100/30  rounded-xl md:bg-black/60 bg-black/20  shadow-md">
+      <div className="w-full max-w-md p-8 border border-gray-100/30 rounded-xl md:bg-black/60 bg-black/20 shadow-md">
         {renderStep()}
       </div>
     </div>

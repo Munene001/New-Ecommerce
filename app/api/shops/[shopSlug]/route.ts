@@ -22,6 +22,8 @@ export async function GET(
   s.shop_type,
   s.contact_email,
   s.contact_phone,
+  s.business_town,
+s.business_address,
   
   -- Settings info
   ss.primary_color,
@@ -102,6 +104,8 @@ WHERE s.shop_slug = ?
       shopType: shop.shop_type,
       contactEmail: shop.contact_email,
       contactPhone: shop.contact_phone,
+      businessTown: shop.business_town,
+      businessAddress: shop.business_address,
 
       // Settings with defaults
       primaryColor: shop.primary_color || "#3B82F6",

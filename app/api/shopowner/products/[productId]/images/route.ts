@@ -4,14 +4,17 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import pool from '@/lib/db';
 import { randomUUID } from 'crypto';
-import { validateToken } from '@/lib/auth-utlis';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  const auth = await validateToken(req);
-  if (!auth) {
+  // Get authenticated user from session cookie
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -22,7 +25,7 @@ export async function POST(
   }
 
   try {
-    // Verify product ownership
+    // Verify product ownership using user.id from Supabase
     const [productRows] = await pool.query(
       `SELECT p.product_id
        FROM products p
@@ -31,8 +34,9 @@ export async function POST(
        WHERE p.product_id = ? AND t.user_id = (
          SELECT user_id FROM users WHERE supabase_uid = ?
        )`,
-      [productId, auth.supabaseUser.id]
+      [productId, user.id]
     );
+    
     if ((productRows as any[]).length === 0) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

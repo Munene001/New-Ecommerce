@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateToken } from '@/lib/auth-utlis';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 
-async function verifyProductOwnership(productId: number, supabaseUserId: string, dbClient: any) {
-  const [rows] = await dbClient.query(
+async function verifyProductOwnership(productId: number, supabaseUserId: string) {
+  const [rows] = await pool.query(
     `SELECT 1
      FROM products p
      JOIN shops s ON p.shop_id = s.shop_id
@@ -20,8 +20,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  const auth = await validateToken(req);
-  if (!auth) {
+  // Get authenticated user from session cookie
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -32,7 +35,7 @@ export async function GET(
   }
 
   try {
-    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, pool);
+    const isOwner = await verifyProductOwnership(productIdNum, user.id);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -59,8 +62,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  const auth = await validateToken(req);
-  if (!auth) {
+  // Get authenticated user from session cookie
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -76,7 +82,7 @@ export async function POST(
       return NextResponse.json({ error: 'category_id required' }, { status: 400 });
     }
 
-    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, pool);
+    const isOwner = await verifyProductOwnership(productIdNum, user.id);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -103,8 +109,11 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  const auth = await validateToken(req);
-  if (!auth) {
+  // Get authenticated user from session cookie
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -121,7 +130,7 @@ export async function DELETE(
   }
 
   try {
-    const isOwner = await verifyProductOwnership(productIdNum, auth.supabaseUser.id, pool);
+    const isOwner = await verifyProductOwnership(productIdNum, user.id);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

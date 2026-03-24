@@ -22,42 +22,80 @@ export function ShopProvider({
 }) {
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [loading, setLoading] = useState(true);
-  const { user, isAuthenticated } = useAuth();
+  const [initialized, setInitialized] = useState(false);
+  const { user, profile, isAuthenticated } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     // Wait for auth to load
     if (isAuthenticated === undefined) return;
+    
+    // Mark as initialized after first auth check
+    if (!initialized) {
+      setInitialized(true);
+    }
 
-    // Not logged in – redirect to login with return URL
+    // If already on dashboard, don't redirect
+    const currentPath = window.location.pathname;
+    if (currentPath.includes('/dashboard')) {
+      // Still need to fetch shop data if not loaded
+      if (!shopData && shopSlug && isAuthenticated && profile?.role === 'shop_owner') {
+        const fetchShopData = async () => {
+          try {
+            const res = await fetch(`/api/shops/${shopSlug}`);
+            if (!res.ok) throw new Error('Shop not found');
+            const data = await res.json();
+            setShopData({
+              shopId: data.shopId,
+              shopType: data.shopType,
+              shopSlug: shopSlug
+            });
+          } catch (error) {
+            console.error("Failed to fetch shop:", error);
+            setShopData(null);
+          } finally {
+            setLoading(false);
+          }
+        };
+        fetchShopData();
+      } else {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Not logged in – redirect to login
     if (!isAuthenticated) {
       router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
       return;
     }
 
-    // Logged in but not a shop owner – redirect to shop front page
-    if (user?.role !== 'shop_owner') {
-      router.push(`/${shopSlug}`); // Go to shop home instead of global home
+    // If profile is not loaded yet, wait
+    if (!profile) {
       return;
     }
 
-    // If no shopSlug (should not happen), show error
+    // Check if user is shop owner
+    if (profile.role !== 'shop_owner') {
+      router.push(`/${shopSlug}`);
+      return;
+    }
+
+    // If no shopSlug, show error
     if (!shopSlug) {
       setLoading(false);
       return;
     }
 
+    // Fetch shop data
     const fetchShopData = async () => {
       try {
         const res = await fetch(`/api/shops/${shopSlug}`);
-        if (res.status === 401 || res.status === 403) {
-          // Unauthorized or forbidden – redirect to login
-          router.push('/auth/login');
-          return;
-        }
+        
         if (!res.ok) {
           throw new Error('Shop not found');
         }
+        
         const data = await res.json();
         setShopData({
           shopId: data.shopId,
@@ -73,16 +111,28 @@ export function ShopProvider({
     };
 
     fetchShopData();
-  }, [shopSlug, isAuthenticated, user, router]);
+  }, [shopSlug, isAuthenticated, user, profile, router, initialized, shopData]);
 
   // Show loading while checking auth or fetching shop
-  if (loading || isAuthenticated === undefined) {
+  if ((!initialized && isAuthenticated === undefined) || loading || !profile) {
+    return <DashboardSkeleton />;
+  }
+
+  // If not authenticated or not shop owner, don't render
+  if (!isAuthenticated || profile?.role !== 'shop_owner') {
     return <DashboardSkeleton />;
   }
 
   // If no shopSlug or shop not found, show error
   if (!shopSlug || !shopData) {
-    return <div>Shop not found</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-red-600">Shop not found</h2>
+          <p className="text-gray-600 mt-2">The shop you're looking for doesn't exist.</p>
+        </div>
+      </div>
+    );
   }
 
   return (

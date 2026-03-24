@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateToken } from '@/lib/auth-utlis';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 export async function POST(request: NextRequest) {
-  const auth = await validateToken(request);
-  if (!auth) {
+  // Get authenticated user from session cookie
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const supabaseUser = auth.supabaseUser;
 
   let body;
   try {
@@ -21,11 +23,11 @@ export async function POST(request: NextRequest) {
 
   switch (action) {
     case 'addReview':
-      return handleAddReview(body, supabaseUser);
+      return handleAddReview(body, user);
     case 'replyToReview':
-      return handleReplyToReview(body, supabaseUser);
+      return handleReplyToReview(body, user);
     case 'toggleWishlist':
-      return handleToggleWishlist(body, supabaseUser);
+      return handleToggleWishlist(body, user);
     default:
       return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   }

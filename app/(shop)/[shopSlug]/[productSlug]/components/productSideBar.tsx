@@ -37,7 +37,7 @@ export default function ProductSidebar({
 }: Props) {
   const { shop } = useShop(); // get shop data
   const { items, addToCart, updateQuantity } = useCart();
-  const { token, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
   const [isInWishlist, setIsInWishlist] = useState(initialWishlistStatus);
@@ -102,7 +102,7 @@ export default function ProductSidebar({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+        
         },
         body: JSON.stringify({
           action: 'toggleWishlist',

@@ -18,7 +18,7 @@ export default function ShopTypeSelection() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [error, setError] = useState<string>('');
   const router = useRouter();
-  const { token, isAuthenticated, logout } = useAuth(); 
+  const {  isAuthenticated, logout } = useAuth(); 
 
   
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function ShopTypeSelection() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // ✅ send token
+          
         },
         body: JSON.stringify({ shop_type: selectedType }),
       });

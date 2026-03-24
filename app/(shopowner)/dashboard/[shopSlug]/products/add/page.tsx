@@ -10,10 +10,9 @@ import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
 import Button from "@/app/components/ui/button";
 import SimpleToast from "@/app/components/ui/simpleToast";
-import { useAuth } from "@/context/authcontext"
+
 
 export default function AddProductPage() {
-  const { token } = useAuth();
   const {
     activeIndex,
     sections,
@@ -42,10 +41,9 @@ export default function AddProductPage() {
     handlePrevious,
     handleTabClick,
     closeModal,
-    addCategory,      // Add this from the hook
+    addCategory,
     removeCategory,
   } = useProductForm();
-
 
   const renderComponent = () => {
     switch (activeIndex) {
@@ -60,8 +58,6 @@ export default function AddProductPage() {
           />
         );
       case 1:
-       
-
         return (
           <OptionalForm
             categories={categories}
@@ -70,8 +66,8 @@ export default function AddProductPage() {
             formData={formData}
             setFormData={setFormData}
             optionalAttributes={attributeSchema.filter((f) => !f.required)}
-            onAddCategory={addCategory}        // Add this
-            onRemoveCategory={removeCategory} 
+            onAddCategory={addCategory}
+            onRemoveCategory={removeCategory}
           />
         );
       case 2:
@@ -137,7 +133,7 @@ export default function AddProductPage() {
               onCategoryCreated={handleCategoryCreated}
               onCategoryError={handleCategoryError}
               onCancel={() => setShowCategoryForm(false)}
-              token={token}  
+              // ❌ Remove token prop - CategoryComponent already updated
             />
           </div>
         )}
@@ -170,7 +166,7 @@ export default function AddProductPage() {
 
             <div className="relative w-full h-[10px] bg-gray-400">
               <div
-                className="absolute h-[10px]  bg-magenta-dark rounded-full transition-all duration-300"
+                className="absolute h-[10px] bg-magenta-dark rounded-full transition-all duration-300"
                 style={{
                   width: `${100 / sections.length}%`,
                   left: `${(100 / sections.length) * activeIndex}%`,

@@ -22,7 +22,7 @@ export function useDashboardProducts(
   shopId: string,
   initialTotalCount?: number,
   initialTotalPages: number = 1,
-  token: string | null = null,          // 👈 new 4th parameter
+  // Remove token parameter - no longer needed
 ): UseDashboardProductsReturn {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -40,11 +40,6 @@ export function useDashboardProducts(
     category?: string,
     append: boolean = false
   ) => {
-    if (!token) {                         // 👈 guard: no token → skip
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -55,11 +50,8 @@ export function useDashboardProducts(
         ...(category && { category })
       });
 
-      const res = await fetch(`/api/shopowner/products?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,   // 👈 send token
-        },
-      });
+      // Remove Authorization header - cookies are sent automatically
+      const res = await fetch(`/api/shopowner/products?${params}`);
 
       if (!res.ok) {
         throw new Error('Failed to fetch products');
@@ -77,15 +69,15 @@ export function useDashboardProducts(
     } finally {
       setLoading(false);
     }
-  }, [shopId, token]);
+  }, [shopId]);
 
-  // Initial fetch
+  // Initial fetch - no token check needed
   useEffect(() => {
-    if (!initialFetchDone.current && token) {   // 👈 only if token exists
+    if (!initialFetchDone.current) {
       initialFetchDone.current = true;
       fetchProducts(1, currentSearch, currentCategory, false);
     }
-  }, [fetchProducts, currentSearch, currentCategory, token]);
+  }, [fetchProducts, currentSearch, currentCategory]);
 
   const hasMore = currentPage < totalPages;
 

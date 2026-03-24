@@ -135,6 +135,79 @@ const RatingDistribution = ({
   );
 };
 
+// ReviewModal moved outside ProductTabs
+const ReviewModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  rating,
+  setRating,
+  comment,
+  setComment,
+  submitting,
+  secondaryColor,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  rating: number;
+  setRating: (rating: number) => void;
+  comment: string;
+  setComment: (comment: string) => void;
+  submitting: boolean;
+  secondaryColor: string;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 relative shadow-xl">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+        >
+          <X size={20} />
+        </button>
+        <h3 className="text-xl font-semibold mb-4">Write a Review</h3>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Rating
+            </label>
+            <StarRating
+              rating={rating}
+              size={28}
+              color={secondaryColor}
+              interactive
+              onRatingChange={setRating}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Your Review
+            </label>
+            <textarea
+              rows={4}
+              className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-opacity-50 transition"
+              placeholder="What did you think about this product?"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Review"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export default function ProductTabs({
   attributes,
   reviews,
@@ -145,7 +218,7 @@ export default function ProductTabs({
   shopSlug,
   productSlug,
 }: Props) {
-  const { token, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"additional" | "reviews">(
@@ -181,7 +254,6 @@ export default function ProductTabs({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           action: "addReview",
@@ -220,7 +292,6 @@ export default function ProductTabs({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           action: "replyToReview",
@@ -246,58 +317,6 @@ export default function ProductTabs({
     }
   };
 
-  const ReviewModal = () => (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 relative shadow-xl">
-        <button
-          onClick={() => setShowReviewModal(false)}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
-        >
-          <X size={20} />
-        </button>
-        <h3 className="text-xl font-semibold mb-4">Write a Review</h3>
-        <form onSubmit={handleSubmitReview} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rating
-            </label>
-            <StarRating
-              rating={newReviewRating}
-              size={28}
-              color={secondaryColor}
-              interactive
-              onRatingChange={setNewReviewRating}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Your Review
-            </label>
-            <textarea
-              rows={4}
-              className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-opacity-50 transition"
-              placeholder="What did you think about this product?"
-              value={newReviewComment}
-              onChange={(e) => setNewReviewComment(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setShowReviewModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Submitting..." : "Submit Review"}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-
   return (
     <div className="mt-10">
       {/* Tabs */}
@@ -315,14 +334,16 @@ export default function ProductTabs({
               activeTab === tab ? { borderBottomColor: secondaryColor } : {}
             }
           >
-            {tab === "reviews" ? `Reviews (${totalReviews})` : "Additional Information"}
+            {tab === "reviews"
+              ? `Reviews (${totalReviews})`
+              : "Additional Information"}
           </button>
         ))}
       </div>
 
       {/* REVIEWS SECTION */}
       {activeTab === "reviews" && (
-        <div className="bg-white  rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {/* Summary Header */}
           <div className="p-6 border-b bg-gray-50/30">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -345,7 +366,7 @@ export default function ProductTabs({
                 </div>
 
                 {/* Rating Distribution Bars */}
-                <div className="flex-1  md:min-w-[20vw] space-y-1">
+                <div className="flex-1 md:min-w-[20vw] space-y-1">
                   {[5, 4, 3, 2, 1].map((stars) => {
                     const count = reviews.filter(
                       (r) => r.rating === stars
@@ -359,7 +380,7 @@ export default function ProductTabs({
                         className="flex items-center gap-2 text-xs"
                       >
                         <span className="w-5 text-black">{stars}</span>
-                        <div className="flex-1   h-1.5 md:h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 md:h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -368,7 +389,6 @@ export default function ProductTabs({
                             }}
                           />
                         </div>
-                        
                       </div>
                     );
                   })}
@@ -552,8 +572,18 @@ export default function ProductTabs({
         </div>
       )}
 
-      {/* Review Modal (unchanged) */}
-      {showReviewModal && <ReviewModal />}
+      {/* Review Modal - using the moved component */}
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSubmit={handleSubmitReview}
+        rating={newReviewRating}
+        setRating={setNewReviewRating}
+        comment={newReviewComment}
+        setComment={setNewReviewComment}
+        submitting={submitting}
+        secondaryColor={secondaryColor}
+      />
     </div>
   );
 }

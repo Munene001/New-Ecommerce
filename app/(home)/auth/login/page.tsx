@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,27 +19,73 @@ export default function LoginPage() {
   });
   const [verifiedMessage, setVerifiedMessage] = useState("");
 
-  const { login } = useAuth();
+  const { setUserProfile, isAuthenticated, profile, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // Read query params on mount
   useEffect(() => {
     const redirect = searchParams.get("redirect");
-    const context = searchParams.get("context");
     const verified = searchParams.get("verified");
 
     if (verified === "true") {
       setVerifiedMessage("Email verified! Please log in.");
     }
 
-    // Store redirect in sessionStorage if present
     if (redirect) {
       sessionStorage.setItem("loginRedirect", redirect);
     }
-
-    // Optionally store context for signup link logic (we'll use it directly in render)
   }, [searchParams]);
+
+  useEffect(() => {
+    // Don't redirect while loading
+    if (loading) return;
+    
+    // Only redirect if we're actually on the login page
+    const currentPath = window.location.pathname;
+    if (!currentPath.includes('/auth/login')) return;
+    
+    if (isAuthenticated && profile) {
+      // First check for stored redirect (from previous page)
+      const storedRedirect = sessionStorage.getItem("loginRedirect");
+      if (storedRedirect) {
+        sessionStorage.removeItem("loginRedirect");
+        router.replace(storedRedirect);
+        return;
+      }
+      
+      // Then check for redirect in URL params
+      const redirectParam = searchParams.get("redirect");
+      if (redirectParam) {
+        router.replace(redirectParam);
+        return;
+      }
+  
+      // Only use role-based fallback if no redirect was stored
+      if (profile.role === "shop_owner") {
+        if (profile.onboardingComplete && profile.shopSlug) {
+          router.replace(`/dashboard/${profile.shopSlug}`);
+        } else {
+          router.replace("/shopType");
+        }
+      } else if (profile.role === "customer") {
+        
+        const currentShopSlug = sessionStorage.getItem("currentShopSlug");
+        if (currentShopSlug) {
+          router.replace(`/${currentShopSlug}`);
+        } else {
+          router.replace("/");
+        }
+      } else {
+        router.replace("/");
+      }
+    }
+  }, [isAuthenticated, profile, router, loading, searchParams]);
+
+  // If already authenticated and profile loaded, don't render the form
+  if (!loading && isAuthenticated && profile) {
+    return null;
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -58,23 +104,19 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      if (!supabase) throw new Error("Supabase not configured");
+      const supabase = createSupabaseBrowserClient();
 
-      // 1. Supabase login
-      const { data, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (signInError) throw new Error(signInError.message);
-      if (!data.user || !data.session) throw new Error("Login failed");
+      if (!data.user) throw new Error("Login failed");
 
-      // 2. Get user role and onboarding status from MySQL
       const userInfoResponse = await fetch("/api/auth/user-info", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ supabase_uid: data.user.id }),
+        headers: { "Content-Type": "application/json" }
       });
 
       const userInfo = await userInfoResponse.json();
@@ -83,41 +125,15 @@ export default function LoginPage() {
         throw new Error(userInfo.error || "Failed to get user information");
       }
 
-      // 3. Update auth context with user info
-      login(
-        {
-          id: data.user.id,
-          name: userInfo.fullName || data.user.email?.split("@")[0] || "User",
-          email: data.user.email!,
-          role: userInfo.role,
-          onboardingComplete: userInfo.onboardingComplete,
-        },
-        data.session.access_token
-      );
+      const profileData = {
+        fullName: userInfo.fullName || data.user.email?.split("@")[0] || "User",
+        role: userInfo.role,
+        onboardingComplete: userInfo.onboardingComplete,
+        shopSlug: userInfo.shopSlug,
+      };
 
-  // 4. Check for stored redirect – only for customers
-const storedRedirect = sessionStorage.getItem("loginRedirect");
-if (storedRedirect && userInfo.role === "customer") {
-  sessionStorage.removeItem("loginRedirect");
-  router.push(storedRedirect);
-  return;
-}
+      setUserProfile(profileData);
 
-      // 5. Fallback to role‑based redirect
-      if (userInfo.role === "shop_owner") {
-        if (userInfo.onboardingComplete && userInfo.shopSlug) {
-          router.push(`/dashboard/${userInfo.shopSlug}`);
-        } else {
-          router.push("/shopType");
-        }
-      } else if (userInfo.role === "customer") {
-        // Default customer landing page (can be changed)
-        router.push("/");
-      } else {
-        // Unknown role – logout and show error
-        await supabase.auth.signOut();
-        throw new Error("Invalid user role");
-      }
     } catch (err: any) {
       setError(err.message || "Invalid email or password");
       setFieldErrors({ email: true, password: true });
@@ -126,7 +142,6 @@ if (storedRedirect && userInfo.role === "customer") {
     }
   };
 
-  // Determine signup link based on context
   const context = searchParams.get("context");
   const signupHref =
     context === "customer"

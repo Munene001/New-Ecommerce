@@ -17,6 +17,9 @@ interface ShopData {
   headerMessage?: string;
   productCardStyle: 'standard' | 'minimal' | 'compact';
   cartIcon: 'cart' | 'bag' | 'basket';
+  description?: string;        
+  businessTown?: string;       
+  businessAddress?: string;
   
   // Add missing properties for filtering
   maxPrice: number;

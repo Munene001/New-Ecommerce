@@ -3,6 +3,7 @@ import BaseLeftMenu from "@/app/components/layout/leftNav";
 import DashHeader from "@/app/components/layout/dashHeader";
 import { useParams } from "next/navigation";
 import { ShopProvider } from "../../shopownerContext";
+import { ToastProvider } from "@/context/toastContext"; // Add this import
 import * as React from 'react'
 import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'
@@ -59,57 +60,60 @@ const pageTitle = getPageTitle(pathname);
 
   return (
     <ShopProvider shopSlug={shopSlug}>
-      <div className="min-h-screen">
-        <header className="fixed top-0 left-0 right-0 h-[85px] bg-white z-50 shadow-sm">
-          <DashHeader 
-            shopSlug={shopSlug || ""} 
-            isMobile={isMobile}
-            isMobileMenuOpen={isMobileMenuOpen}
-            onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            title={pageTitle}
-          />
-        </header>
-        
-        <div className="pt-[85px] flex min-h-screen relative">
-          {/* Mobile menu overlay */}
-          {isMobile && isMobileMenuOpen && (
-            <div 
-              className="fixed inset-0   bg-opacity-50 z-40"
-              onClick={() => setIsMobileMenuOpen(false)}
+      {/* Wrap everything with ToastProvider */}
+      <ToastProvider>
+        <div className="min-h-screen">
+          <header className="fixed top-0 left-0 right-0 h-[85px] bg-white z-50 shadow-sm">
+            <DashHeader 
+              shopSlug={shopSlug || ""} 
+              isMobile={isMobile}
+              isMobileMenuOpen={isMobileMenuOpen}
+              onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              title={pageTitle}
             />
-          )}
+          </header>
           
-          {/* Sidebar - conditionally visible on mobile */}
-          <aside 
-            className={`
-              ${isMobile 
-                ? `fixed left-0 top-[85px] bottom-0 w-[85%] z-50 transform transition-transform duration-300 ease-in-out ${
-                    isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-                  }`
-                : 'sticky top-16 w-64'
-              } 
-              h-[calc(100vh-85px)] md:h-[100vh] 
-              bg-[url('/assets/mazehex4.svg')] 
-              bg-black 
-              text-white 
-              overflow-y-auto
-             md:sticky
-            `}
-          >
-            <BaseLeftMenu 
-              onMenuClicked={handleMenuClick}  
-              shopSlug={shopSlug || ""}
-            />
-          </aside>
-          
-          <main className={`
-            flex-1 md:p-6 px-1 bg-gray-50 overflow-y-auto
-            ${isMobile ? 'w-full' : ''}
-          `}>
-            {children}
-          </main>
+          <div className="pt-[85px] flex min-h-screen relative">
+            {/* Mobile menu overlay */}
+            {isMobile && isMobileMenuOpen && (
+              <div 
+                className="fixed inset-0 bg-opacity-50 z-40"
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
+            )}
+            
+            {/* Sidebar - conditionally visible on mobile */}
+            <aside 
+              className={`
+                ${isMobile 
+                  ? `fixed left-0 top-[85px] bottom-0 w-[85%] z-50 transform transition-transform duration-300 ease-in-out ${
+                      isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+                    }`
+                  : 'sticky top-16 w-64'
+                } 
+                h-[calc(100vh-85px)] md:h-[100vh] 
+                bg-[url('/assets/mazehex4.svg')] 
+                bg-black 
+                text-white 
+                overflow-y-auto
+                md:sticky
+              `}
+            >
+              <BaseLeftMenu 
+                onMenuClicked={handleMenuClick}  
+                shopSlug={shopSlug || ""}
+              />
+            </aside>
+            
+            <main className={`
+              flex-1 md:p-6 px-1 bg-gray-50 overflow-y-auto
+              ${isMobile ? 'w-full' : ''}
+            `}>
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </ToastProvider>
     </ShopProvider>
   );
 }
