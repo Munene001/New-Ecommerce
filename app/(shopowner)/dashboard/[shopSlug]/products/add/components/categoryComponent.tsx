@@ -10,7 +10,7 @@ interface CategoryComponentProps {
   onCategoryCreated: (category: Category) => void;
   onCategoryError?: (errorMessage: string) => void;
   onCancel: () => void;
-  token: string | null; 
+  // ❌ Remove token prop - no longer needed
 }
 
 export default function CategoryComponent({
@@ -18,7 +18,7 @@ export default function CategoryComponent({
   onCategoryCreated,
   onCategoryError,
   onCancel,
-  token, // 👈 now token is available
+  // ❌ Remove token from props
 }: CategoryComponentProps) {
   const [categoryName, setCategoryName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,7 @@ export default function CategoryComponent({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // 👈 token used
+          // ❌ Remove Authorization header - cookies are sent automatically
         },
         body: JSON.stringify({
           shopId,
@@ -81,6 +81,11 @@ export default function CategoryComponent({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          {error}
+        </div>
+      )}
       <div className="flex gap-2 items-start">
         <div className="md:flex-1">
           <Input

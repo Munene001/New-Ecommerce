@@ -38,7 +38,7 @@ export default function ShopHeader() {
   const filterContext = useContext(ShopFilterContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { totalItems } = useCart();
-  const { user } = useAuth();
+  const { user, profile } = useAuth(); // ✅ Add profile
 
   // Determine if we are inside a shop page with filter context
   const hasContext = !!filterContext;
@@ -147,24 +147,24 @@ export default function ShopHeader() {
 
             <div className="w-1/3 flex justify-end items-center gap-6">
               {user ? (
-                // Logged in: show user icon + first name
+                // ✅ Use profile.role and profile.fullName instead of user.role/user.name
                 <Link
                   href={
-                    user.role === "shop_owner"
+                    profile?.role === "shop_owner"
                       ? `/dashboard/${shop?.shopSlug}`
                       : `/${shop?.shopSlug}/profile`
                   }
-                  className="flex flex-col items-center  hover:opacity-70 transition"
+                  className="flex flex-col items-center hover:opacity-70 transition"
                 >
                   <User
                     className="w-7 h-7"
                     style={{ color: shop?.primaryColor }}
                   />
                   <span
-                    className="text-xs  hidden sm:inline"
+                    className="text-xs hidden sm:inline"
                     style={{ color: shop?.primaryColor }}
                   >
-                    {user.name?.split(" ")[0] || "Account"}
+                    {profile?.fullName?.split(" ")[0] || "Account"}
                   </span>
                 </Link>
               ) : (
@@ -301,7 +301,7 @@ export default function ShopHeader() {
                   <NavIcon
                     href={
                       user
-                        ? user.role === "shop_owner"
+                        ? profile?.role === "shop_owner"
                           ? `/dashboard/${shop?.shopSlug}`
                           : `/${shop?.shopSlug}/profile`
                         : `/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import pool from '@/lib/db'  // changed from getConnection
+import pool from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -30,15 +30,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/errors/emailverification', request.url))
     }
     
-    // Check if user already exists in MySQL (using pool – auto‑releases)
+    // Check if user already exists in MySQL
     const [existing] = await pool.execute(
       'SELECT user_id FROM users WHERE supabase_uid = ?',
       [user.id]
     ) as [any[], any]
     
     if (existing.length > 0) {
-      // User already registered – redirect to login
-      return NextResponse.redirect(new URL('/auth/login', request.url))
+      // ✅ User already registered – redirect to login with verified flag
+      const loginUrl = new URL('/auth/login', request.url);
+      loginUrl.searchParams.set('verified', 'true');
+      if (redirectParam) {
+        loginUrl.searchParams.set('redirect', redirectParam);
+      }
+      return NextResponse.redirect(loginUrl);
     }
 
     // Handle based on role
@@ -113,7 +118,7 @@ export async function GET(request: NextRequest) {
         console.error('Database error:', dbError);
         return NextResponse.redirect(new URL('/errors/emailverification', request.url));
       } finally {
-        if (conn) conn.release();  // return connection to pool
+        if (conn) conn.release();
       }
     } 
     else { // role === 'customer'

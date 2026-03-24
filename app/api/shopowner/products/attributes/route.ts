@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateToken } from '@/lib/auth-utlis';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
-  const auth = await validateToken(req);
-  if (!auth) {
+  // Get authenticated user from session cookie
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

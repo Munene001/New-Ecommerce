@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import pool from '@/lib/db'
 
 export async function POST(request: Request) {
   try {
-    const { supabase_uid } = await request.json();
+    // Get authenticated user from session cookie
+    const supabase = await createSupabaseServerClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (!supabase_uid) {
+    if (authError || !user) {
       return NextResponse.json(
-        { success: false, error: 'User ID required' },
-        { status: 400 }
-      );
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
+
+    // Use the authenticated user's ID instead of trusting client input
+    const supabase_uid = user.id
 
     // pool.execute() automatically acquires and releases a connection
     const [userResult] = await pool.execute(
@@ -64,5 +70,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
- 
 }

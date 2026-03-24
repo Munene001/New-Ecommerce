@@ -10,7 +10,7 @@ export function useProductUpdate() {
   const { shopId, shopType, shopSlug } = useShop();
   const params = useParams();
   const productId = params.productId as string;
-  const { token, isAuthenticated } = useAuth();  // 👈 get token
+  const { isAuthenticated } = useAuth(); // 👈 Only need isAuthenticated now
   const router = useRouter();
 
   const warningRef = useRef<HTMLDivElement>(null);
@@ -57,12 +57,12 @@ export function useProductUpdate() {
   
   const warningTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Redirect if not authenticated (optional)
+  // Redirect if not authenticated
   useEffect(() => {
-    if (!isAuthenticated && token === null) {
+    if (!isAuthenticated) {
       router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
     }
-  }, [isAuthenticated, token, router]);
+  }, [isAuthenticated, router]);
 
   const showWarning = (message: string, type: 'success' | 'error' = 'error') => {
     if (warningTimerRef.current) {
@@ -93,41 +93,34 @@ export function useProductUpdate() {
 
   // Fetch product data
   useEffect(() => {
-    if (productId && shopId && token) {
+    if (productId && shopId && isAuthenticated) {
       fetchProduct();
     }
-  }, [productId, shopId, token]);
+  }, [productId, shopId, isAuthenticated]);
 
   // Fetch attribute schema
   useEffect(() => {
-    if (shopType && token) {
+    if (shopType && isAuthenticated) {
       fetchAttributeSchema(shopType);
     }
-  }, [shopType, token]);
+  }, [shopType, isAuthenticated]);
 
   // Fetch categories
   useEffect(() => {
-    if (shopId && token) {
+    if (shopId && isAuthenticated) {
       fetchCategories(shopId);
     }
-  }, [shopId, token]);
+  }, [shopId, isAuthenticated]);
 
   const fetchProduct = async () => {
     setIsLoadingProduct(true);
     try {
-      const productRes = await fetch(`/api/shopowner/products/${productId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,  // 👈 add token
-        },
-      });
+      // No Authorization header needed - cookies are sent automatically
+      const productRes = await fetch(`/api/shopowner/products/${productId}`);
       if (!productRes.ok) throw new Error('Failed to fetch product');
       const productData = await productRes.json();
 
-      const categoriesRes = await fetch(`/api/shopowner/products/${productId}/categories`, {
-        headers: {
-          Authorization: `Bearer ${token}`,  // 👈 add token
-        },
-      });
+      const categoriesRes = await fetch(`/api/shopowner/products/${productId}/categories`);
       if (!categoriesRes.ok) throw new Error('Failed to fetch product categories');
       const categoryData = await categoriesRes.json();
 
@@ -163,11 +156,8 @@ export function useProductUpdate() {
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
-      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,  // 👈 add token
-        },
-      });
+      // No Authorization header needed - cookies are sent automatically
+      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`);
       const data = await res.json();
       const fields = data.fields || [];
       setAttributeSchema(fields);
@@ -180,11 +170,8 @@ export function useProductUpdate() {
 
   const fetchCategories = async (id: number) => {
     try {
-      const res = await fetch(`/api/shopowner/categories?shopId=${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,  // 👈 add token
-        },
-      });
+      // No Authorization header needed - cookies are sent automatically
+      const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
       const data = await res.json();
       setCategories(data.map((c: any) => ({ id: c.category_id, name: c.category_name })));
     } catch (error) {
@@ -256,9 +243,7 @@ export function useProductUpdate() {
     try {
       const res = await fetch(`/api/shopowner/products/${productId}/categories?categoryId=${categoryId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,  // 👈 add token
-        },
+        // No Authorization header needed - cookies are sent automatically
       });
 
       if (!res.ok) {
@@ -283,7 +268,7 @@ export function useProductUpdate() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,  // 👈 add token
+          // No Authorization header needed - cookies are sent automatically
         },
         body: JSON.stringify({ category_id: categoryId })
       });
@@ -317,7 +302,7 @@ export function useProductUpdate() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,  // 👈 add token
+          // No Authorization header needed - cookies are sent automatically
         },
         body: JSON.stringify({
           productName: formData.productName,

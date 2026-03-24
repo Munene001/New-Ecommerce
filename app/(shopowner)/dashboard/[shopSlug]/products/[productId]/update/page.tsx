@@ -9,10 +9,9 @@ import CategoryComponent from "../../add/components/categoryComponent";
 import Button from "@/app/components/ui/button";
 import { useProductUpdate } from "./hooks/useProductUpdate";
 import SimpleToast from "@/app/components/ui/simpleToast";
-import { useAuth } from "@/context/authcontext"; // ✅ import useAuth
 
 export default function UpdateProductPage() {
-  const { token } = useAuth(); // ✅ get token
+  // ❌ Remove token - no longer needed
   const {
     activeIndex,
     sections,
@@ -144,7 +143,7 @@ export default function UpdateProductPage() {
               onCategoryCreated={handleCategoryCreated}
               onCategoryError={handleCategoryError}
               onCancel={() => setShowCategoryForm(false)}
-              token={token} // ✅ pass token
+              
             />
           </div>
         )}

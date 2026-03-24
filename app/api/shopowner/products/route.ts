@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateToken } from '@/lib/auth-utlis';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 
-// Helper to verify that the user owns the shop (works with pool or connection)
-async function verifyShopOwnership(dbClient: any, shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await dbClient.query(
+// Helper to verify that the user owns the shop
+async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
+  const [rows] = await pool.query(
     `SELECT 1
      FROM shops s
      JOIN tenant t ON s.tenant_id = t.tenant_id
@@ -18,12 +18,14 @@ async function verifyShopOwnership(dbClient: any, shopId: number, supabaseUid: s
 // GET /api/shopowner/products?shopId=1&...
 export async function GET(req: NextRequest) {
   try {
-    // Validate token
-    const auth = await validateToken(req);
-    if (!auth) {
+    // Get authenticated user from session cookie
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const supabaseUid = auth.supabaseUser.id;
+    const supabaseUid = user.id;
 
     const { searchParams } = new URL(req.url);
     const shopId = searchParams.get('shopId');
@@ -32,7 +34,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify ownership
-    const isOwner = await verifyShopOwnership(pool, parseInt(shopId), supabaseUid);
+    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -171,12 +173,14 @@ export async function GET(req: NextRequest) {
 // POST /api/shopowner/products - Create product
 export async function POST(req: NextRequest) {
   try {
-    // Validate token
-    const auth = await validateToken(req);
-    if (!auth) {
+    // Get authenticated user from session cookie
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const supabaseUid = auth.supabaseUser.id;
+    const supabaseUid = user.id;
 
     const body = await req.json();
     const { shopId, productName, productSlug, description, price, discountPrice, inStock, attributes } = body;
@@ -188,7 +192,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify ownership
-    const isOwner = await verifyShopOwnership(pool, shopId, supabaseUid);
+    const isOwner = await verifyShopOwnership(shopId, supabaseUid);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -241,12 +245,14 @@ export async function POST(req: NextRequest) {
 // DELETE /api/shopowner/products - Bulk delete
 export async function DELETE(req: NextRequest) {
   try {
-    // Validate token
-    const auth = await validateToken(req);
-    if (!auth) {
+    // Get authenticated user from session cookie
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const supabaseUid = auth.supabaseUser.id;
+    const supabaseUid = user.id;
 
     const { searchParams } = new URL(req.url);
     const shopId = searchParams.get('shopId');
@@ -260,7 +266,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Verify ownership
-    const isOwner = await verifyShopOwnership(pool, parseInt(shopId), supabaseUid);
+    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

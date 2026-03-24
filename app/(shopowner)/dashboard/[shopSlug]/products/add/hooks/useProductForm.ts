@@ -4,7 +4,7 @@ import { Attribute, Category, ProductFormData } from "../types";
 import { useAuth } from "@/context/authcontext";
 
 export function useProductForm() {
-  const { token, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth(); // Only need isAuthenticated
   const { shopId, shopType, shopSlug } = useShop();
 
   const warningRef = useRef<HTMLDivElement>(null);
@@ -81,25 +81,22 @@ export function useProductForm() {
   };
 
   useEffect(() => {
-    if (shopType) {
+    if (shopType && isAuthenticated) {
       fetchAttributeSchema(shopType);
     }
-  }, [shopType]);
+  }, [shopType, isAuthenticated]);
 
   useEffect(() => {
-    if (shopId) {
+    if (shopId && isAuthenticated) {
       fetchCategories(shopId);
     }
-  }, [shopId]);
+  }, [shopId, isAuthenticated]);
 
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
-      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // No Authorization header needed - cookies are sent automatically
+      const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`);
       const data = await res.json();
       const fields = data.fields || [];
       setAttributeSchema(fields);
@@ -127,11 +124,8 @@ export function useProductForm() {
 
   const fetchCategories = async (id: number) => {
     try {
-      const res = await fetch(`/api/shopowner/categories?shopId=${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // No Authorization header needed - cookies are sent automatically
+      const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
       const data = await res.json();
       setCategories(
         data.map((c: any) => ({ id: c.category_id, name: c.category_name }))
@@ -267,12 +261,11 @@ export function useProductForm() {
     if (!validateForm()) return;
     setLoading(true);
     try {
-      // 1. Create product
+      // 1. Create product - No Authorization header needed
       const productRes = await fetch("/api/shopowner/products", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           shopId,
@@ -291,7 +284,7 @@ export function useProductForm() {
       }
       const productId = productData.product_id;
 
-      // 2. Upload images
+      // 2. Upload images - No Authorization header needed (cookies are sent)
       const imageFiles = formData.images.filter((img) => img.file);
       if (imageFiles.length > 0) {
         const uploadPromises = imageFiles.map(async (image) => {
@@ -302,9 +295,7 @@ export function useProductForm() {
             `/api/shopowner/products/${productId}/images`,
             {
               method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`, // token needed
-              },
+              // No headers - FormData sets its own Content-Type
               body: imageFormData,
             }
           );
@@ -316,7 +307,7 @@ export function useProductForm() {
         await Promise.all(uploadPromises);
       }
 
-      // 3. Link categories
+      // 3. Link categories - No Authorization header needed
       if (formData.categoryIds.length > 0) {
         const categoryPromises = formData.categoryIds.map(async (categoryId) => {
           const catRes = await fetch(
@@ -325,7 +316,6 @@ export function useProductForm() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({ category_id: categoryId }),
             }
