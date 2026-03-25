@@ -4,9 +4,10 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from 'react';
 import { Product } from "@/lib/types/product";
-import { Eye, ShoppingCart } from "lucide-react";
+import { Eye, ShoppingCart,ShoppingBag, ShoppingBasket } from "lucide-react";
 import ButtonCart from "@/app/components/ui/buttonCart";
-import { useCart } from '@/context/shopCartContext'; // import cart hook
+import { useCart } from '@/context/shopCartContext';
+import { useShop } from "@/app/(shop)/ShopContext";
 
 interface Props {
   product: Product;
@@ -16,7 +17,19 @@ interface Props {
 export default function ProductCardStandard({ product, shopSlug }: Props) {
   const [imageUrl, setImageUrl] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
-  const { addToCart } = useCart(); // get addToCart function
+  const { addToCart } = useCart(); 
+  const { shop } = useShop();
+
+const CartIcon = () => {
+  switch (shop?.cartIcon) {
+    case 'bag':
+      return <ShoppingBag className="w-4 h-4" />;
+    case 'basket':
+      return <ShoppingBasket className="w-4 h-4" />;
+    default:
+      return <ShoppingCart className="w-4 h-4" />;
+  }
+};
 
   // Format price with commas and no decimals
   const formatPrice = (price: number) => {
@@ -128,7 +141,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
             disabled={!product.in_stock} // optionally disable if out of stock
           >
             <span className="w-4 h-4 flex justify-center items-center animate-bounce" style={{ animationDuration: '2s' }}>
-              <ShoppingCart />
+              <CartIcon />
             </span>
             <span>Cart</span>
           </ButtonCart>

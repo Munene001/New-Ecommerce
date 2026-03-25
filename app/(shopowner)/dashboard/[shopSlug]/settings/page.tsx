@@ -10,6 +10,7 @@ import { useAuth } from "@/context/authcontext";
 import { useToast } from "@/context/toastContext";
 import InstructionsList from "@/app/components/ui/instructionList";
 import SimpleToast from "@/app/components/ui/simpleToast";
+import LoadingFix from "@/app/components/layout/loadingFix";
 
 export default function Settings() {
   const params = useParams();
@@ -298,9 +299,7 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
-      </div>
+    <LoadingFix/>
     );
   }
 

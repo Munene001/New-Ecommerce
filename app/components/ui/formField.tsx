@@ -8,7 +8,7 @@ export interface FormFieldProps {
   label?: string;
   value: any;
   onChange: (e: React.ChangeEvent<any> | string | number) => void;
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'email' | 'password' | 'tel' | 'url';
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'email' | 'password' | 'tel' | 'url' | 'color';
   placeholder?: string;
   error?: string;
   required?: boolean;
@@ -166,6 +166,29 @@ export default function FormField({
           </div>
         );
 
+      case 'color':
+        return (
+          <div className="flex items-center gap-4">
+            <input
+              type="color"
+              name={name}
+              value={value || '#f54a00'}
+              onChange={onChange as React.ChangeEventHandler}
+              disabled={disabled}
+              className="w-16 h-16 rounded-lg border border-gray-300 cursor-pointer bg-white"
+            />
+            <input
+              type="text"
+              value={value || '#f54a00'}
+              onChange={onChange as React.ChangeEventHandler}
+              placeholder="#f54a00"
+              disabled={disabled}
+              className={`${baseInputClass} flex-1 min-h-[52px] md:min-h-[44px]`}
+              name={name}
+            />
+          </div>
+        );
+
       default: 
         return (
           <input
@@ -190,7 +213,7 @@ export default function FormField({
         </label>
       )}
       {renderInput()}
-      {error && type !== 'select' && (
+      {error && type !== 'select' && type !== 'color' && (
         <p className="mt-2 text-sm text-red-500">{error}</p>
       )}
     </div>

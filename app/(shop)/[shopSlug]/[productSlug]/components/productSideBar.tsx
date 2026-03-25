@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, ShoppingCart, Minus, Plus } from "lucide-react";
+import { Heart, ShoppingCart,ShoppingBag, ShoppingBasket,  Minus, Plus } from "lucide-react";
 import Button from "@/app/components/ui/button";
 import { useCart } from "@/context/shopCartContext";
 import ShareButton from "@/app/components/ui/shareButton";
@@ -45,6 +45,17 @@ export default function ProductSidebar({
 
   const cartItem = items.find((i) => i.product_id === product.product_id);
   const displayQuantity = cartItem ? cartItem.quantity : 1;
+
+  const CartIcon = () => {
+    switch (shop?.cartIcon) {
+      case 'bag':
+        return <ShoppingBag className="w-6 h-6 mr-2" />;
+      case 'basket':
+        return <ShoppingBasket className="w-6 h-6 mr-2" />;
+      default:
+        return <ShoppingCart className="w-6 h-6 mr-2" />;
+    }
+  };
 
   const discountPercentage = product.discount_price
     ? Math.round(
@@ -253,7 +264,7 @@ export default function ProductSidebar({
             className="flex-1 flex flex-row gap-3 justify-center items-center text-white"
             style={{ backgroundColor: secondaryColor }}
           >
-            <ShoppingCart className="w-6 h-6 mr-2" />
+            <CartIcon/>
             {cartItem ? "Update Cart" : "Add to Cart"}
           </Button>
         </div>

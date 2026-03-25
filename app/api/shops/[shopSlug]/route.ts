@@ -12,68 +12,62 @@ export async function GET(
   }
 
   try {
-    // Query shops with left joins to settings and banners
     const query = `
     SELECT 
-  -- Shop info
-  s.shop_id, 
-  s.shop_name,
-  s.shop_slug, 
-  s.shop_type,
-  s.contact_email,
-  s.contact_phone,
-  s.business_town,
-s.business_address,
-  
-  -- Settings info
-  ss.primary_color,
-  ss.secondary_color,
-  ss.logo_url,
-  ss.whatsapp_number,
-  ss.header_message,
-  ss.product_card_style,
-  ss.cart_icon,
-  
-  -- Max price from products
-  (SELECT MAX(price) FROM products WHERE shop_id = s.shop_id) as max_price,
-  
-  -- Categories belonging to this shop
-  (
-    SELECT JSON_ARRAYAGG(
-      JSON_OBJECT('id', c.category_id, 'name', c.category_name)
-    )
-    FROM categories c
-    WHERE c.category_id IN (
-      SELECT DISTINCT pc.category_id
-      FROM product_categories pc
-      JOIN products p ON pc.product_id = p.product_id
-      WHERE p.shop_id = s.shop_id
-    )
-  ) as categories,
-  
-  -- Banner info (aggregated as JSON array)
-  (
-    SELECT JSON_ARRAYAGG(
-      JSON_OBJECT(
-        'banner_id', sb.banner_id,
-        'banner_url', sb.banner_url,
-        'banner_type', sb.banner_type,
-        'category_id', sb.category_id,
-        'start_date', sb.start_date,
-        'end_date', sb.end_date,
-        'is_active', sb.is_active
-      )
-    )
-    FROM shop_banners sb
-    WHERE sb.shop_id = s.shop_id
-      AND sb.is_active = TRUE
-      AND sb.start_date <= NOW()
-      AND sb.end_date >= NOW()
-  ) as active_banners
-  
-FROM shops s
-LEFT JOIN shop_settings ss ON s.shop_id = ss.shop_id
-WHERE s.shop_slug = ?
+      -- Shop info
+      s.shop_id, 
+      s.shop_name,
+      s.shop_slug, 
+      s.shop_type,
+      s.contact_email,
+      s.contact_phone,
+      s.business_town,
+      s.business_address,
+      
+      -- Settings info
+      ss.primary_color,
+      ss.secondary_color,
+      ss.logo_url,
+      ss.whatsapp_number,
+      ss.header_message,
+      ss.product_card_style,
+      ss.cart_icon,
+      
+      -- Max price from products
+      (SELECT MAX(price) FROM products WHERE shop_id = s.shop_id) as max_price,
+      
+      -- Categories belonging to this shop
+      (
+        SELECT JSON_ARRAYAGG(
+          JSON_OBJECT('id', c.category_id, 'name', c.category_name)
+        )
+        FROM categories c
+        WHERE c.category_id IN (
+          SELECT DISTINCT pc.category_id
+          FROM product_categories pc
+          JOIN products p ON pc.product_id = p.product_id
+          WHERE p.shop_id = s.shop_id
+        )
+      ) as categories,
+      
+      -- Active banner (single banner) - no date checks
+      (
+        SELECT JSON_OBJECT(
+          'banner_id', sb.banner_id,
+          'banner_url', sb.banner_url,
+          'link_url', sb.link_url,
+          'category_id', sb.category_id,
+          'is_active', sb.is_active
+        )
+        FROM shop_banners sb
+        WHERE sb.shop_id = s.shop_id
+          AND sb.is_active = 1
+        LIMIT 1
+      ) as active_banner
+      
+    FROM shops s
+    LEFT JOIN shop_settings ss ON s.shop_id = ss.shop_id
+    WHERE s.shop_slug = ?
     `;
 
     const [rows] = await pool.query(query, [shopSlug]);
@@ -84,12 +78,13 @@ WHERE s.shop_slug = ?
 
     const shop = (rows as any[])[0];
 
-    // Parse the JSON string for banners (MySQL returns as string)
-    const banners = shop.active_banners
-      ? typeof shop.active_banners === "string"
-        ? JSON.parse(shop.active_banners)
-        : shop.active_banners
-      : [];
+    // Parse JSON strings
+    const banner = shop.active_banner
+      ? typeof shop.active_banner === "string"
+        ? JSON.parse(shop.active_banner)
+        : shop.active_banner
+      : null;
+      
     const categories = shop.categories
       ? typeof shop.categories === "string"
         ? JSON.parse(shop.categories)
@@ -117,7 +112,7 @@ WHERE s.shop_slug = ?
       cartIcon: shop.cart_icon || "cart",
       maxPrice: shop.max_price || 150000,
       categories,
-      banners: banners,
+      banner, 
     });
   } catch (error) {
     console.error("Database error:", error);
