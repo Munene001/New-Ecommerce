@@ -20,21 +20,17 @@ interface ShopData {
   description?: string;        
   businessTown?: string;       
   businessAddress?: string;
-  
-  // Add missing properties for filtering
   maxPrice: number;
   categories: { id: string; name: string }[];
   
-  // Banners (array since shop can have multiple)
-  banners: {
-    bannerId: number;
-    bannerUrl: string;
-    bannerType: 'default' | 'category';
-    categoryId?: number;
-    startDate: string;
-    endDate: string;
-    isActive: boolean;
-  }[];
+  // Single active banner (no date fields)
+  banner: {
+    banner_id: number;
+    banner_url: string;
+    link_url?: string;
+    category_id?: number;
+    is_active: boolean;
+  } | null;
 }
 
 interface ShopContextType {
@@ -97,13 +93,13 @@ export function useShopColors() {
   };
 }
 
-export function useActiveBanners() {
+// Helper hook to get the active banner (no date checks)
+export function useActiveBanner() {
   const { shop } = useShop();
-  const now = new Date().toISOString();
+  const banner = shop?.banner;
   
-  return shop?.banners.filter(banner => 
-    banner.isActive && 
-    banner.startDate <= now && 
-    banner.endDate >= now
-  ) || [];
+  if (!banner) return null;
+  
+  // Only check if banner is active (no date conditions)
+  return banner.is_active ? banner : null;
 }

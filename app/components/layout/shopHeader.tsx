@@ -5,6 +5,8 @@ import {
   User,
   Heart,
   ShoppingCart,
+  ShoppingBag,
+  ShoppingBasket,
   Menu,
   Newspaper,
   PhoneForwarded,
@@ -38,7 +40,18 @@ export default function ShopHeader() {
   const filterContext = useContext(ShopFilterContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { totalItems } = useCart();
-  const { user, profile } = useAuth(); // ✅ Add profile
+  const { user, profile } = useAuth();
+
+  const CartIcon = () => {
+    switch (shop?.cartIcon) {
+      case "bag":
+        return <ShoppingBag className="w-7 h-7" />;
+      case "basket":
+        return <ShoppingBasket className="w-7 h-7" />;
+      default:
+        return <ShoppingCart className="w-7 h-7" />;
+    }
+  };
 
   // Determine if we are inside a shop page with filter context
   const hasContext = !!filterContext;
@@ -189,7 +202,7 @@ export default function ShopHeader() {
               </button>
               <button className="relative hover:opacity-70 transition">
                 <span style={{ color: shop?.primaryColor }}>
-                  <ShoppingCart className="w-7 h-7" />
+                  <CartIcon />
                 </span>
                 <span
                   className="absolute animate-bounce -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
@@ -242,7 +255,7 @@ export default function ShopHeader() {
 
             <button className="relative hover:opacity-70 transition">
               <span style={{ color: shop?.primaryColor }}>
-                <ShoppingCart className="w-7 h-7" />
+                <CartIcon />
               </span>
               <span
                 className="absolute -top-2 animate-bounce -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
