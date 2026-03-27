@@ -304,11 +304,13 @@ export default function ProductSidebar({
             <h2 className="text-lg font-medium mb-3">Product Details</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
               {attributeEntries.map((attr) => (
-                <div key={attr.key} className="flex flex-col">
-                  <span className="font-bold capitalize text-gray-700">
+                <div key={attr.key} className="flex flex-col ">
+                  <span className="font-normal capitalize text-gray-700">
                     {attr.label}
                   </span>
+                  <span className="font-bold">
                   {renderAttributeValue(attr.value)}
+                  </span>
                 </div>
               ))}
             </div>

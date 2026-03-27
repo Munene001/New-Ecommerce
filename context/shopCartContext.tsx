@@ -39,6 +39,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   const [items, setItems] = useState<CartItem[]>([]);
 
+  // Helper to safely show toast after render
+  const safeShowToast = (message: string, type: 'success' | 'error') => {
+    queueMicrotask(() => {
+      showToast(message, type);
+    });
+  };
+
   useEffect(() => {
     if (!storageKey) return;
     const stored = localStorage.getItem(storageKey);
@@ -70,10 +77,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       if (existing >= 0) {
         const updated = [...prev];
         updated[existing].quantity += quantity;
-        showToast(`${item.product_name} quantity updated`, 'success');
+        safeShowToast(`${item.product_name} quantity updated`, 'success');
         return updated;
       } else {
-        showToast(`${item.product_name} added to cart`, 'success');
+        safeShowToast(`${item.product_name} added to cart`, 'success');
         return [...prev, { ...item, quantity }];
       }
     });
@@ -83,26 +90,24 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     const item = items.find(i => i.product_id === productId);
     setItems(prev => prev.filter(i => i.product_id !== productId));
     if (item) {
-      showToast(`${item.product_name} removed from cart`, 'success');
+      safeShowToast(`${item.product_name} removed from cart`, 'success');
     }
   };
 
   const updateQuantity = (productId: number, newQuantity: number) => {
     setItems(prev => {
       const index = prev.findIndex(i => i.product_id === productId);
-      if (index === -1) return prev; // should not happen if called correctly
+      if (index === -1) return prev;
 
       const item = prev[index];
       if (newQuantity <= 0) {
-        // remove item
         const filtered = prev.filter(i => i.product_id !== productId);
-        showToast(`${item.product_name} removed from cart`, 'success');
+        safeShowToast(`${item.product_name} removed from cart`, 'success');
         return filtered;
       } else {
-        // update quantity
         const updated = [...prev];
         updated[index] = { ...item, quantity: newQuantity };
-        showToast(`${item.product_name} quantity updated`, 'success');
+        safeShowToast(`${item.product_name} quantity updated`, 'success');
         return updated;
       }
     });
@@ -110,7 +115,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   const clearCart = () => {
     setItems([]);
-    showToast("Cart cleared", 'success');
+    safeShowToast("Cart cleared", 'success');
   };
 
   return (

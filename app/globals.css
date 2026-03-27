@@ -21,6 +21,19 @@
   }
 }
 
+@keyframes slowBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: slowBounce 2s ease-in-out infinite;
+}
+
 @keyframes slide-right {
   from {
     transform: translateX(-100%);
