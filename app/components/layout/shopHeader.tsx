@@ -22,6 +22,7 @@ import SearchBar from "../ui/searchBar";
 import { useCart } from "@/context/shopCartContext";
 import { useAuth } from "@/context/authcontext";
 import Button from "../ui/button";
+import PreCheckoutModal from "./precheckout";
 
 // Simple debounce hook (only needed for fallback)
 function useDebounce<T>(value: T, delay: number): T {
@@ -39,6 +40,7 @@ export default function ShopHeader() {
   const searchParams = useSearchParams();
   const filterContext = useContext(ShopFilterContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPreCheckoutOpen, setIsPreCheckoutOpen] = useState(false); // Add modal state
   const { totalItems } = useCart();
   const { user, profile } = useAuth();
 
@@ -51,6 +53,15 @@ export default function ShopHeader() {
       default:
         return <ShoppingCart className="w-7 h-7" />;
     }
+  };
+
+  // Function to scroll to footer
+  const scrollToFooter = () => {
+    const footer = document.querySelector('footer');
+    if (footer) {
+      footer.scrollIntoView({ behavior: 'smooth' });
+    }
+    setIsMobileMenuOpen(false);
   };
 
   // Determine if we are inside a shop page with filter context
@@ -122,214 +133,237 @@ export default function ShopHeader() {
     // The debounced effect will handle the search
   };
 
-  return (
-    <header className="bg-white">
-      <HeaderMessage
-        message={shop?.headerMessage || ""}
-        secondaryColor={shop?.secondaryColor || "#000"}
-      />
+  // Handle cart click - open pre-checkout modal
+  const handleCartClick = () => {
+    setIsPreCheckoutOpen(true);
+  };
 
-      {/* Main Header - Desktop & Mobile Base */}
-      <div className="mx-auto md:pt-5 md:px-4 pl-2 pr-3 py-4">
-        {/* Desktop Layout */}
-        <div className="hidden md:block">
-          <div className="flex items-center justify-between w-full">
-            {/* Search Bar - Left section */}
-            <div className="w-1/3">
-              <SearchBar
-                value={searchInput}
-                onChange={handleInputChange}
-                onSubmit={handleSearchSubmit}
-                onClear={handleClearSearch}
-                loading={loading}
-                secondaryColor={shop?.secondaryColor || "#000"}
-                shopSlug={shop?.shopSlug || ""}
-                variant="desktop"
-              />
+  return (
+    <>
+      <header className="bg-white">
+        <HeaderMessage
+          message={shop?.headerMessage || ""}
+          secondaryColor={shop?.secondaryColor || "#000"}
+        />
+
+        {/* Main Header - Desktop & Mobile Base */}
+        <div className="mx-auto md:pt-5 md:px-4 pl-2 pr-3 py-4">
+          {/* Desktop Layout */}
+          <div className="hidden md:block">
+            <div className="flex items-center justify-between w-full">
+              {/* Search Bar - Left section */}
+              <div className="w-1/3">
+                <SearchBar
+                  value={searchInput}
+                  onChange={handleInputChange}
+                  onSubmit={handleSearchSubmit}
+                  onClear={handleClearSearch}
+                  loading={loading}
+                  secondaryColor={shop?.secondaryColor || "#000"}
+                  shopSlug={shop?.shopSlug || ""}
+                  variant="desktop"
+                />
+              </div>
+
+              {/* Shop Name/Title - Center section */}
+              <div className="w-1/3 flex text-center justify-center">
+                <span
+                  className="text-[40px] leading-[65px] font-medium"
+                  style={{ color: shop?.primaryColor }}
+                >
+                  {shop?.shopName}
+                </span>
+              </div>
+
+              <div className="w-1/3 flex justify-end items-center gap-6">
+                {user ? (
+                  // ✅ Use profile.role and profile.fullName instead of user.role/user.name
+                  <Link
+                    href={
+                      profile?.role === "shop_owner"
+                        ? `/dashboard/${shop?.shopSlug}`
+                        : `/${shop?.shopSlug}/profile`
+                    }
+                    className="flex flex-col items-center hover:opacity-70 transition"
+                  >
+                    <User
+                      className="w-7 h-7"
+                      style={{ color: shop?.primaryColor }}
+                    />
+                    <span
+                      className="text-xs hidden sm:inline"
+                      style={{ color: shop?.primaryColor }}
+                    >
+                      {profile?.fullName?.split(" ")[0] || "Account"}
+                    </span>
+                  </Link>
+                ) : (
+                  // Not logged in: show sign up button only
+                  <Link
+                    href={`/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`}
+                  >
+                    <Button
+                      variant="primary"
+                      className="bg-black text-white hover:bg-gray-800"
+                    >
+                      Sign In
+                    </Button>
+                  </Link>
+                )}
+                {/* Heart and Cart remain unchanged */}
+                <button className="hover:opacity-70 transition">
+                  <Heart
+                    className="w-7 h-7"
+                    style={{ color: shop?.primaryColor }}
+                  />
+                </button>
+                <button 
+                  className="relative hover:opacity-70 transition"
+                  onClick={handleCartClick} // Add click handler
+                >
+                  <span style={{ color: shop?.primaryColor }}>
+                    <CartIcon />
+                  </span>
+                  <span
+                    className="absolute -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
+                    style={{ backgroundColor: shop?.secondaryColor || "var(--secondary)" }}
+                  >
+                    {totalItems}
+                  </span>
+                </button>
+              </div>
             </div>
 
-            {/* Shop Name/Title - Center section */}
-            <div className="w-1/3 flex text-center justify-center">
+            {/* Navigation Links - Desktop */}
+            <div className="flex justify-end mt-3">
+              <nav
+                className="flex gap-12 text-lg font-[Inter]"
+                style={{ color: shop?.secondaryColor || "var(--secondary)" }}
+              >
+                <NavIcon href={`/`} icon={<ShoppingCart />} label="Shop" />
+                <NavIcon
+                  href={`/${shop?.shopSlug}/blog`}
+                  icon={<Newspaper />}
+                  label="Blog"
+                />
+                <div onClick={scrollToFooter}>
+                  <NavIcon
+                    href="#"
+                    icon={<PhoneForwarded />}
+                    label="Contact"
+                  />
+                </div>
+              </nav>
+            </div>
+          </div>
+
+          {/* Mobile Layout - NO SEARCH BAR HERE */}
+          <div className="flex md:hidden flex-col gap-4 py-2">
+            {/* Top row: menu, shop name, cart */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 -ml-2"
+              >
+                <Menu className="w-7 h-7" style={{ color: shop?.primaryColor }} />
+              </button>
+
               <span
-                className="text-[40px] leading-[65px] font-medium"
+                className="text-3xl font-bold flex text-center"
                 style={{ color: shop?.primaryColor }}
               >
                 {shop?.shopName}
               </span>
-            </div>
 
-            <div className="w-1/3 flex justify-end items-center gap-6">
-              {user ? (
-                // ✅ Use profile.role and profile.fullName instead of user.role/user.name
-                <Link
-                  href={
-                    profile?.role === "shop_owner"
-                      ? `/dashboard/${shop?.shopSlug}`
-                      : `/${shop?.shopSlug}/profile`
-                  }
-                  className="flex flex-col items-center hover:opacity-70 transition"
-                >
-                  <User
-                    className="w-7 h-7"
-                    style={{ color: shop?.primaryColor }}
-                  />
-                  <span
-                    className="text-xs hidden sm:inline"
-                    style={{ color: shop?.primaryColor }}
-                  >
-                    {profile?.fullName?.split(" ")[0] || "Account"}
-                  </span>
-                </Link>
-              ) : (
-                // Not logged in: show sign up button only
-                <Link
-                  href={`/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`}
-                >
-                  <Button
-                    variant="primary"
-                    className="bg-black text-white hover:bg-gray-800"
-                  >
-                    Sign In
-                  </Button>
-                </Link>
-              )}
-              {/* Heart and Cart remain unchanged */}
-              <button className="hover:opacity-70 transition">
-                <Heart
-                  className="w-7 h-7"
-                  style={{ color: shop?.primaryColor }}
-                />
-              </button>
-              <button className="relative hover:opacity-70 transition">
+              <button 
+                className="relative hover:opacity-70 transition"
+                onClick={handleCartClick} // Add click handler for mobile
+              >
                 <span style={{ color: shop?.primaryColor }}>
                   <CartIcon />
                 </span>
                 <span
-                  className="absolute animate-bounce -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
-                  style={{ backgroundColor: "var(--secondary)" }}
+                  className="absolute -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
+                  style={{ backgroundColor: shop?.secondaryColor || "var(--secondary)" }}
                 >
                   {totalItems}
                 </span>
               </button>
             </div>
           </div>
-
-          {/* Navigation Links - Desktop */}
-          <div className="flex justify-end mt-3">
-            <nav
-              className="flex gap-12 text-lg font-[Inter]"
-              style={{ color: "var(--secondary)" }}
-            >
-              <NavIcon href={`/`} icon={<ShoppingCart />} label="Shop" />
-              <NavIcon
-                href={`/${shop?.shopSlug}/blog`}
-                icon={<Newspaper />}
-                label="Blog"
-              />
-              <NavIcon
-                href={`/shop/${shop?.shopSlug}/contact`}
-                icon={<PhoneForwarded />}
-                label="Contact"
-              />
-            </nav>
-          </div>
         </div>
 
-        {/* Mobile Layout - NO SEARCH BAR HERE */}
-        <div className="flex md:hidden flex-col gap-4 py-2">
-          {/* Top row: menu, shop name, cart */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 -ml-2"
-            >
-              <Menu className="w-7 h-7" style={{ color: shop?.primaryColor }} />
-            </button>
-
-            <span
-              className="text-3xl font-bold flex text-center"
-              style={{ color: shop?.primaryColor }}
-            >
-              {shop?.shopName}
-            </span>
-
-            <button className="relative hover:opacity-70 transition">
-              <span style={{ color: shop?.primaryColor }}>
-                <CartIcon />
-              </span>
-              <span
-                className="absolute -top-2 animate-bounce -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
-                style={{ backgroundColor: "var(--secondary)" }}
-              >
-                {totalItems}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Menu - unchanged */}
-      {isMobileMenuOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-          <div className="fixed inset-y-0 left-0 w-[85%] bg-white z-50 md:hidden shadow-2xl animate-slide-right">
-            <div className="flex flex-col h-full">
-              <div className="flex justify-end p-6">
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="hover:opacity-70 transition"
-                >
-                  <X
-                    className="w-6 h-6"
-                    style={{ color: shop?.primaryColor }}
-                  />
-                </button>
-              </div>
-              <nav className="flex-1 px-6">
-                <div className="space-y-6">
-                  <NavIcon
-                    href={`/${shop?.shopSlug}`}
-                    icon={<ShoppingCart className="w-6 h-6" />}
-                    label="Shop"
+        {/* Mobile Menu - unchanged */}
+        {isMobileMenuOpen && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-40 md:hidden"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <div className="fixed inset-y-0 left-0 w-[85%] bg-white z-50 md:hidden shadow-2xl animate-slide-right">
+              <div className="flex flex-col h-full">
+                <div className="flex justify-end p-6">
+                  <button
                     onClick={() => setIsMobileMenuOpen(false)}
-                    isMobile={true}
-                  />
-                  <NavIcon
-                    href={`/${shop?.shopSlug}/blog`}
-                    icon={<Newspaper className="w-6 h-6" />}
-                    label="Blog"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    isMobile={true}
-                  />
-                  <NavIcon
-                    href={`/${shop?.shopSlug}/contact`}
-                    icon={<PhoneForwarded className="w-6 h-6" />}
-                    label="Contact"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    isMobile={true}
-                  />
-                  <NavIcon
-                    href={
-                      user
-                        ? profile?.role === "shop_owner"
-                          ? `/dashboard/${shop?.shopSlug}`
-                          : `/${shop?.shopSlug}/profile`
-                        : `/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`
-                    }
-                    icon={<User className="w-6 h-6" />}
-                    label={user ? "Profile" : "Login"}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    isMobile={true}
-                  />
+                    className="hover:opacity-70 transition"
+                  >
+                    <X
+                      className="w-6 h-6"
+                      style={{ color: shop?.primaryColor }}
+                    />
+                  </button>
                 </div>
-              </nav>
+                <nav className="flex-1 px-6">
+                  <div className="space-y-6">
+                    <NavIcon
+                      href={`/${shop?.shopSlug}`}
+                      icon={<ShoppingCart className="w-6 h-6" />}
+                      label="Shop"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      isMobile={true}
+                    />
+                    <NavIcon
+                      href={`/${shop?.shopSlug}/blog`}
+                      icon={<Newspaper className="w-6 h-6" />}
+                      label="Blog"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      isMobile={true}
+                    />
+                    <div onClick={scrollToFooter}>
+                      <NavIcon
+                        href="#"
+                        icon={<PhoneForwarded className="w-6 h-6" />}
+                        label="Contact"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        isMobile={true}
+                      />
+                    </div>
+                    <NavIcon
+                      href={
+                        user
+                          ? profile?.role === "shop_owner"
+                            ? `/dashboard/${shop?.shopSlug}`
+                            : `/${shop?.shopSlug}/profile`
+                          : `/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`
+                      }
+                      icon={<User className="w-6 h-6" />}
+                      label={user ? "Profile" : "Login"}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      isMobile={true}
+                    />
+                  </div>
+                </nav>
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </header>
+          </>
+        )}
+      </header>
+
+      {/* Pre-Checkout Modal */}
+      <PreCheckoutModal 
+        isOpen={isPreCheckoutOpen}
+        onClose={() => setIsPreCheckoutOpen(false)}
+      />
+    </>
   );
 }

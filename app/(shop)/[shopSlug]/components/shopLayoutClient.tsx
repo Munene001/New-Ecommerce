@@ -12,6 +12,7 @@ import { Product } from "@/lib/types/product";
 import { ToastProvider } from "@/context/toastContext";
 import { CartProvider } from "@/context/shopCartContext";
 import { RecentlyViewedProvider } from "@/context/recentlyViewed";
+import FloatingWhatsApp from "@/app/components/layout/floatingWhatsapp";
 
 type SortOption = "newest" | "oldest" | "price_low" | "price_high";
 interface PriceRange {
@@ -215,6 +216,7 @@ export default function ShopLayoutClient({
               {/* No inline banner - removed */}
 
               <main>{children}</main>
+              <FloatingWhatsApp/>
 
               <ShopFooter />
               <MobileBottomNav />

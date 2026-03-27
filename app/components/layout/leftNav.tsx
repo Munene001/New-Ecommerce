@@ -46,7 +46,7 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuPr
       icon: Settings
     },
     {
-      href: `/shop/${shopSlug}`,
+      href: `/${shopSlug}`,
       title: "View Shop",
       icon: Store
     },
