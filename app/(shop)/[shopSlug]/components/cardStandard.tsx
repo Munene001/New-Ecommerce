@@ -77,11 +77,11 @@ const CartIcon = () => {
   };
 
   return (
-    <div className="w-full font-[Poppins]  bg-gray-100 md:p-2 p-1 rounded-sm">
+    <div className="w-full font-[Poppins] bg-gray-50 p-2 rounded-sm flex flex-col h-full">
       {/* Image – clickable to product */}
       <Link
         href={`/${shopSlug}/${product.product_slug}`}
-        className="block no-underline text-inherit group"
+        className="block no-underline text-inherit group flex-shrink-0"
       >
         <div 
           ref={containerRef}
@@ -89,7 +89,7 @@ const CartIcon = () => {
         >
           {/* Discount Badge */}
           {product.discount_price && discountPercentage > 0 && (
-            <div className="absolute top-2 left-2 z-10 text-white text-xs font-bold font-[Poppins] px-2 py-1 bg-green-700">
+            <div className="absolute top-2 left-2 z-10 text-white text-xs font-bold font-[Poppins] px-2 py-1 bg-red-600">
               -{discountPercentage}% 
             </div>
           )}
@@ -104,46 +104,49 @@ const CartIcon = () => {
         </div>
       </Link>
 
-      {/* Product details – name clickable, price not */}
-      <div className="mt-4 pb-2 space-y-1 px-1">
-        <Link
-          href={`/${shopSlug}/${product.product_slug}`}
-          className="no-underline text-inherit"
-        >
-          <h3 className="text-[16px] font-medium line-clamp-2 font-[Poppins] hover:underline">
-            {product.product_name}
-          </h3>
-        </Link>
+      {/* Product details container - grows to fill space */}
+      <div className="mt-4 flex flex-col flex-grow">
+        {/* Top section with product details that can expand */}
+        <div className="space-y-1 px-1 flex-grow">
+          <Link
+            href={`/${shopSlug}/${product.product_slug}`}
+            className="no-underline text-inherit"
+          >
+            <h3 className="text-[15px] line-clamp-2 font-[Poppins] hover:underline">
+              {product.product_name}
+            </h3>
+          </Link>
 
-        <div className="flex flex-row items-center gap-2 font-[Poppins]">
-          {product.discount_price ? (
-            <>
-              <span className="text-gray-900 text-base">
-                <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.discount_price)}
+          <div className="flex flex-row mt-2 text-[16px] items-center gap-2 font-[Poppins] font-medium text-[#0F1F0F]">
+            {product.discount_price ? (
+              <>
+                <span className="text-base">
+                  <span className="">ksh</span> {formatPrice(product.discount_price)}
+                </span>
+                <span className="italic line-through  font-medium text-sm">
+                   {formatPrice(product.price)}
+                </span>
+              </>
+            ) : (
+              <span className="text-base">
+                <span className="">ksh</span> {formatPrice(product.price)}
               </span>
-              <span className="text-gray-400 italic line-through text-sm">
-                <span className="text-gray-400 text-xs">ksh</span> {formatPrice(product.price)}
-              </span>
-            </>
-          ) : (
-            <span className="text-gray-900 text-base">
-              <span className="text-gray-900 text-xs">ksh</span> {formatPrice(product.price)}
-            </span>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Cart button – separate, triggers add to cart */}
-        <div className="flex justify-end md:mt-5 mt-[10px]">
+        {/* Cart button - fixed at bottom */}
+        <div className="flex justify-center mt-8 mb-1  px-1">
           <ButtonCart
             onClick={handleAddToCart}
             className="flex flex-row gap-[6px] justify-between text-white items-center justify-center py-1 text-[14px]"
             style={{ backgroundColor: "var(--secondary)" }}
-            disabled={!product.in_stock} // optionally disable if out of stock
+            disabled={!product.in_stock}
           >
             <span className="w-4 h-4 flex justify-center items-center animate-bounce" style={{ animationDuration: '2s' }}>
               <CartIcon />
             </span>
-            <span>Cart</span>
+            <span>Add To Cart</span>
           </ButtonCart>
         </div>
       </div>
