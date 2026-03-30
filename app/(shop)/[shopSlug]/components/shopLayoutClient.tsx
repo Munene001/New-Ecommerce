@@ -215,7 +215,7 @@ export default function ShopLayoutClient({
 
               {/* No inline banner - removed */}
 
-              <main>{children}</main>
+              <main className="flex-1">{children}</main>
               <FloatingWhatsApp/>
 
               <ShopFooter />

@@ -16,7 +16,7 @@ export default function ButtonCart({
   ...props
 }: ButtonProps) {
   const baseClasses =
-    "font-medium h-[35px] w-fit transition-colors duration-300 focus:outline-none px-3 rounded-sm disabled:cursor-not-allowed ";
+    "font-medium h-[40px] w-fit transition-colors duration-300 focus:outline-none px-3 rounded-lg disabled:cursor-not-allowed ";
   
  
  
