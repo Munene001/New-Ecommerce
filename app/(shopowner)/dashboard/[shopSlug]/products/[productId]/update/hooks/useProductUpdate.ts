@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
 import { useAuth } from "@/context/authcontext";
@@ -10,7 +10,7 @@ export function useProductUpdate() {
   const { shopId, shopType, shopSlug } = useShop();
   const params = useParams();
   const productId = params.productId as string;
-  const { isAuthenticated } = useAuth(); // 👈 Only need isAuthenticated now
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
 
   const warningRef = useRef<HTMLDivElement>(null);
@@ -91,31 +91,9 @@ export function useProductUpdate() {
     }, 100);
   };
 
-  // Fetch product data
-  useEffect(() => {
-    if (productId && shopId && isAuthenticated) {
-      fetchProduct();
-    }
-  }, [productId, shopId, isAuthenticated]);
-
-  // Fetch attribute schema
-  useEffect(() => {
-    if (shopType && isAuthenticated) {
-      fetchAttributeSchema(shopType);
-    }
-  }, [shopType, isAuthenticated]);
-
-  // Fetch categories
-  useEffect(() => {
-    if (shopId && isAuthenticated) {
-      fetchCategories(shopId);
-    }
-  }, [shopId, isAuthenticated]);
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     setIsLoadingProduct(true);
     try {
-      // No Authorization header needed - cookies are sent automatically
       const productRes = await fetch(`/api/shopowner/products/${productId}`);
       if (!productRes.ok) throw new Error('Failed to fetch product');
       const productData = await productRes.json();
@@ -137,7 +115,7 @@ export function useProductUpdate() {
         inStock: productData.in_stock === 1 || productData.in_stock === true,
         attributes: attributes,
         images: [],
-        categoryIds: categoryData.map((c: any) => c.category_id)
+        categoryIds: categoryData.map((c: { category_id: number }) => c.category_id)
       });
 
     } catch (error) {
@@ -151,12 +129,18 @@ export function useProductUpdate() {
     } finally {
       setIsLoadingProduct(false);
     }
-  };
+  }, [productId]);
+
+  // Fetch product data
+  useEffect(() => {
+    if (productId && shopId && isAuthenticated) {
+      fetchProduct();
+    }
+  }, [productId, shopId, isAuthenticated, fetchProduct]);
 
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
-      // No Authorization header needed - cookies are sent automatically
       const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`);
       const data = await res.json();
       const fields = data.fields || [];
@@ -168,16 +152,32 @@ export function useProductUpdate() {
     }
   };
 
+  // Fetch attribute schema
+  useEffect(() => {
+    if (shopType && isAuthenticated) {
+      fetchAttributeSchema(shopType);
+    }
+  }, [shopType, isAuthenticated]);
+
   const fetchCategories = async (id: number) => {
     try {
-      // No Authorization header needed - cookies are sent automatically
       const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
       const data = await res.json();
-      setCategories(data.map((c: any) => ({ id: c.category_id, name: c.category_name })));
+      setCategories(data.map((c: { category_id: number; category_name: string }) => ({ 
+        id: c.category_id, 
+        name: c.category_name 
+      })));
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     }
   };
+
+  // Fetch categories
+  useEffect(() => {
+    if (shopId && isAuthenticated) {
+      fetchCategories(shopId);
+    }
+  }, [shopId, isAuthenticated]);
 
   const handleCategoryCreated = (newCategory: Category) => {
     setCategories(prev => [...prev, newCategory]);
@@ -243,7 +243,6 @@ export function useProductUpdate() {
     try {
       const res = await fetch(`/api/shopowner/products/${productId}/categories?categoryId=${categoryId}`, {
         method: 'DELETE',
-        // No Authorization header needed - cookies are sent automatically
       });
 
       if (!res.ok) {
@@ -257,8 +256,9 @@ export function useProductUpdate() {
       }));
 
       showWarning("Category removed successfully", 'success');
-    } catch (error: any) {
-      showWarning(error.message || 'Failed to remove category', 'error');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove category';
+      showWarning(errorMessage, 'error');
     }
   };
 
@@ -268,7 +268,6 @@ export function useProductUpdate() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // No Authorization header needed - cookies are sent automatically
         },
         body: JSON.stringify({ category_id: categoryId })
       });
@@ -285,8 +284,9 @@ export function useProductUpdate() {
 
       setSelectedCategoryId("");
       showWarning("Category added successfully", 'success');
-    } catch (error: any) {
-      showWarning(error.message || 'Failed to add category', 'error');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add category';
+      showWarning(errorMessage, 'error');
     }
   };
 
@@ -302,7 +302,6 @@ export function useProductUpdate() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          // No Authorization header needed - cookies are sent automatically
         },
         body: JSON.stringify({
           productName: formData.productName,
@@ -326,13 +325,14 @@ export function useProductUpdate() {
         title: 'Success!',
         message: 'Product has been updated successfully.'
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Update failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update product";
       setModalState({
         isOpen: true,
         type: 'error',
         title: 'Error',
-        message: error.message || "Failed to update product"
+        message: errorMessage
       });
     } finally {
       setLoading(false);

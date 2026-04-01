@@ -2,6 +2,19 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import pool from '@/lib/db'
+import { RowDataPacket, ResultSetHeader } from 'mysql2'
+
+interface ExistingUserRow extends RowDataPacket {
+  user_id: number;
+}
+
+interface UserInsertResult extends ResultSetHeader {
+  insertId: number;
+}
+
+interface ShopRow extends RowDataPacket {
+  shop_id: number;
+}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -31,10 +44,10 @@ export async function GET(request: NextRequest) {
     }
     
     // Check if user already exists in MySQL
-    const [existing] = await pool.execute(
+    const [existing] = await pool.execute<ExistingUserRow[]>(
       'SELECT user_id FROM users WHERE supabase_uid = ?',
       [user.id]
-    ) as [any[], any]
+    )
     
     if (existing.length > 0) {
       // ✅ User already registered – redirect to login with verified flag
@@ -55,7 +68,7 @@ export async function GET(request: NextRequest) {
         await conn.beginTransaction();
 
         // 1. Insert user
-        const [userResult] = await conn.execute(
+        const [userResult] = await conn.execute<UserInsertResult>(
           `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
            VALUES (?, ?, ?, ?, 'shop_owner')`,
           [
@@ -64,7 +77,7 @@ export async function GET(request: NextRequest) {
             user.email,
             user.user_metadata?.phone || ''
           ]
-        ) as any;
+        );
         
         const userId = userResult.insertId;
         const businessName = user.user_metadata?.business_name || 'My Business';
@@ -84,10 +97,10 @@ export async function GET(request: NextRequest) {
         );
 
         // 3. Get the shop_id that was created (assuming a trigger creates it)
-        const [shopRows] = await conn.execute(
+        const [shopRows] = await conn.execute<ShopRow[]>(
           'SELECT shop_id FROM shops WHERE tenant_id = ?',
           [userId]
-        ) as [any[], any];
+        );
         
         if (shopRows.length > 0) {
           const shopId = shopRows[0].shop_id;

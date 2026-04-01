@@ -1,7 +1,7 @@
-// context/recentlyViewedContext.tsx
+// context/recentlyViewed.tsx
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useShop } from "@/app/(shop)/ShopContext";
 
 export interface RecentlyViewedItem {
@@ -31,23 +31,32 @@ export const RecentlyViewedProvider = ({ children }: { children: React.ReactNode
   const storageKey = shopId ? `recentlyViewed-${shopId}` : null;
 
   const [items, setItems] = useState<RecentlyViewedItem[]>([]);
+  const hasLoadedRef = useRef(false);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount - only once
   useEffect(() => {
-    if (!storageKey) return;
+    if (!storageKey || hasLoadedRef.current) return;
+    
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
-        setItems(JSON.parse(stored));
+        const parsedItems = JSON.parse(stored);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setItems(parsedItems);
+        hasLoadedRef.current = true;
       } catch (e) {
         console.error("Failed to parse recently viewed", e);
       }
+    } else {
+      
+      setItems([]);
+      hasLoadedRef.current = true;
     }
   }, [storageKey]);
 
   // Save to localStorage whenever items change
   useEffect(() => {
-    if (!storageKey) return;
+    if (!storageKey || !hasLoadedRef.current) return;
     localStorage.setItem(storageKey, JSON.stringify(items));
   }, [items, storageKey]);
 

@@ -1,5 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
+import { RowDataPacket } from "mysql2";
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface Banner {
+  banner_id: number;
+  banner_url: string;
+  link_url: string | null;
+  category_id: number | null;
+  is_active: number;
+}
+
+interface ShopRow extends RowDataPacket {
+  shop_id: number;
+  shop_name: string;
+  shop_slug: string;
+  shop_type: string;
+  contact_email: string;
+  contact_phone: string;
+  business_town: string;
+  business_address: string;
+  primary_color: string | null;
+  secondary_color: string | null;
+  logo_url: string | null;
+  whatsapp_number: string | null;
+  header_message: string | null;
+  product_card_style: string | null;
+  cart_icon: string | null;
+  max_price: number | null;
+  categories: string | Category[] | null;
+  active_banner: string | Banner | null;
+}
 
 export async function GET(
   req: NextRequest,
@@ -70,13 +105,13 @@ export async function GET(
     WHERE s.shop_slug = ?
     `;
 
-    const [rows] = await pool.query(query, [shopSlug]);
+    const [rows] = await pool.query<ShopRow[]>(query, [shopSlug]);
 
-    if (!rows || (rows as any[]).length === 0) {
+    if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "Shop not found" }, { status: 404 });
     }
 
-    const shop = (rows as any[])[0];
+    const shop = rows[0];
 
     // Parse JSON strings
     const banner = shop.active_banner

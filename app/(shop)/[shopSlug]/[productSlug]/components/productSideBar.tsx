@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, ShoppingCart,ShoppingBag, ShoppingBasket,  Minus, Plus } from "lucide-react";
+import { Heart, ShoppingCart, ShoppingBag, ShoppingBasket, Minus, Plus } from "lucide-react";
 import Button from "@/app/components/ui/button";
 import { useCart } from "@/context/shopCartContext";
 import ShareButton from "@/app/components/ui/shareButton";
@@ -16,7 +16,7 @@ interface Product {
   price: number;
   discount_price: number | null;
   in_stock: boolean;
-  attributes: Record<string, any>;
+  attributes: Record<string, string | number | boolean | string[] | null>;
   product_slug: string;
 }
 
@@ -28,6 +28,25 @@ interface Props {
   isShopOwner?: boolean;
 }
 
+interface CartIconProps {
+  cartIcon?: string;
+}
+
+// Move CartIcon component outside
+const CartIcon = ({ cartIcon }: CartIconProps) => {
+  switch (cartIcon) {
+    case 'bag':
+      return <ShoppingBag className="w-6 h-6 mr-2" />;
+    case 'basket':
+      return <ShoppingBasket className="w-6 h-6 mr-2" />;
+    default:
+      return <ShoppingCart className="w-6 h-6 mr-2" />;
+  }
+};
+
+// Define attribute value type
+type AttributeValue = string | number | boolean | string[] | null;
+
 export default function ProductSidebar({
   product,
   secondaryColor,
@@ -35,7 +54,7 @@ export default function ProductSidebar({
   initialWishlistStatus = false,
   isShopOwner = false,
 }: Props) {
-  const { shop } = useShop(); // get shop data
+  const { shop } = useShop();
   const { items, addToCart, updateQuantity } = useCart();
   const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
@@ -45,17 +64,6 @@ export default function ProductSidebar({
 
   const cartItem = items.find((i) => i.product_id === product.product_id);
   const displayQuantity = cartItem ? cartItem.quantity : 1;
-
-  const CartIcon = () => {
-    switch (shop?.cartIcon) {
-      case 'bag':
-        return <ShoppingBag className="w-6 h-6 mr-2" />;
-      case 'basket':
-        return <ShoppingBasket className="w-6 h-6 mr-2" />;
-      default:
-        return <ShoppingCart className="w-6 h-6 mr-2" />;
-    }
-  };
 
   const discountPercentage = product.discount_price
     ? Math.round(
@@ -103,7 +111,7 @@ export default function ProductSidebar({
     }
 
     if (isShopOwner) {
-      showToast("Shop owners cannot add products to wishlist",);
+      showToast("Shop owners cannot add products to wishlist");
       return;
     }
 
@@ -113,7 +121,6 @@ export default function ProductSidebar({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        
         },
         body: JSON.stringify({
           action: 'toggleWishlist',
@@ -128,15 +135,16 @@ export default function ProductSidebar({
 
       setIsInWishlist(!isInWishlist);
       showToast(isInWishlist ? 'Removed from wishlist' : 'Added to wishlist', 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Failed to update wishlist', 'error');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update wishlist';
+      showToast(errorMessage, 'error');
     } finally {
       setIsTogglingWishlist(false);
     }
   };
 
-  // Complete renderAttributeValue function
-  const renderAttributeValue = (value: any): React.ReactNode => {
+  // Fixed renderAttributeValue with proper typing
+  const renderAttributeValue = (value: AttributeValue): React.ReactNode => {
     if (value === null || value === undefined) return "—";
     if (typeof value === "boolean") return value ? "Yes" : "No";
     if (Array.isArray(value)) {
@@ -166,8 +174,8 @@ export default function ProductSidebar({
       }
       return <span className="text-gray-900">{value}</span>;
     }
-    if (typeof value === "object") {
-      return <span className="text-gray-900">{JSON.stringify(value)}</span>;
+    if (typeof value === "number") {
+      return <span className="text-gray-900">{value}</span>;
     }
     return <span className="text-gray-900">{String(value)}</span>;
   };
@@ -177,7 +185,7 @@ export default function ProductSidebar({
     .map(([key, value]) => ({
       key,
       label: key.replace(/_/g, " "),
-      value,
+      value: value as AttributeValue,
     }));
 
   // Construct share URL (client-side only)
@@ -247,7 +255,7 @@ export default function ProductSidebar({
               className="px-3 py-2 hover:bg-gray-100"
               disabled={!cartItem}
             >
-              <Minus className="w-4 h-4 text-bold"  />
+              <Minus className="w-4 h-4 text-bold" />
             </button>
             <span className="px-4 py-2 text-center text-bold w-12">
               {displayQuantity}
@@ -264,7 +272,7 @@ export default function ProductSidebar({
             className="flex-1 flex flex-row gap-3 justify-center items-center text-white"
             style={{ backgroundColor: secondaryColor }}
           >
-            <CartIcon/>
+            <CartIcon cartIcon={shop?.cartIcon} />
             {cartItem ? "Update Cart" : "Add to Cart"}
           </Button>
         </div>
@@ -304,12 +312,12 @@ export default function ProductSidebar({
             <h2 className="text-lg font-medium mb-3">Product Details</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
               {attributeEntries.map((attr) => (
-                <div key={attr.key} className="flex flex-col ">
-                  <span className="font-normal capitalize text-gray-700">
+                <div key={attr.key} className="flex flex-col">
+                  <span className="font-normal capitalize text-gray-800">
                     {attr.label}
                   </span>
                   <span className="font-bold">
-                  {renderAttributeValue(attr.value)}
+                    {renderAttributeValue(attr.value)}
                   </span>
                 </div>
               ))}
@@ -365,7 +373,7 @@ export default function ProductSidebar({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-5 text-sm text-gray-600">
+        <div className="flex items-center gap-5 text-sm text-gray-800">
           <button
             onClick={handleToggleWishlist}
             disabled={isTogglingWishlist || isShopOwner}
@@ -392,7 +400,7 @@ export default function ProductSidebar({
         </div>
 
         {/* Description */}
-        <p className="text-gray-600 text-sm leading-relaxed">
+        <p className="text-black text-sm leading-relaxed">
           {product.description}
         </p>
 
@@ -406,10 +414,10 @@ export default function ProductSidebar({
             <div className="grid grid-cols-2 gap-y-3 text-sm">
               {attributeEntries.map((attr) => (
                 <div key={attr.key} className="flex flex-col">
-                  <span className="text-gray-600 text-xs uppercase tracking-wide">
+                  <span className="text-gray-800 text-xs uppercase tracking-wide">
                     {attr.label}
                   </span>
-                  <span className="text-black">
+                  <span className="text-black font-semibold">
                     {renderAttributeValue(attr.value)}
                   </span>
                 </div>

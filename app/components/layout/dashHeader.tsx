@@ -3,7 +3,6 @@
 import { useAuth } from "@/context/authcontext";
 import { useRouter } from "next/navigation";
 import Button from "../ui/button";
-import Link from "next/link";
 import { Menu, X } from "lucide-react";
 
 interface DashHeaderProps {
@@ -15,13 +14,12 @@ interface DashHeaderProps {
 }
 
 export default function DashHeader({ 
-    shopSlug, 
     title, // Add this
     isMobile = false, 
     isMobileMenuOpen = false, 
     onMobileMenuToggle 
 }: DashHeaderProps) {
-  const { user, isAuthenticated, logout } = useAuth();
+  const {  isAuthenticated, logout } = useAuth();
   const router = useRouter();
 
   const handleLogin = () => {
@@ -63,7 +61,7 @@ export default function DashHeader({
       <div className="flex items-center gap-4">
         {isAuthenticated ? (
           <>
-            <span className="text-white mr-4 hidden sm:inline">Welcome, {user?.name}</span>
+            
             <Button
               onClick={handleLogout}
               variant="secondary"

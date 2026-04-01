@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { Product } from "@/lib/types/product";
+import Image from "next/image";
 
 interface Props {
   product: Product;
@@ -18,7 +19,7 @@ export default function ProductCardMinimal({ product, shopSlug }: Props) {
       className="block group"
     >
       <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden mb-2">
-        <img 
+        <Image
           src={primaryImage?.image_path || '/placeholder.jpg'} 
           alt={product.product_name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

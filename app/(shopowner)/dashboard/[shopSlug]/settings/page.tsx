@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
-import Button from "@/app/components/ui/button";
+
 import Input from "@/app/components/ui/input";
-import { useAuth } from "@/context/authcontext";
+
 import { useToast } from "@/context/toastContext";
 import InstructionsList from "@/app/components/ui/instructionList";
 import SimpleToast from "@/app/components/ui/simpleToast";
@@ -20,9 +20,12 @@ export default function Settings() {
   const [submitting, setSubmitting] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const sections = ["Shop Information", "Location"];
-  const [tabWarning, setTabWarning] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [tabWarning, setTabWarning] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const [formData, setFormData] = useState({
     shop_name: "",
     description: "",
@@ -37,12 +40,12 @@ export default function Settings() {
   useEffect(() => {
     const fetchShopData = async () => {
       if (!shopSlug) return;
-      
+
       try {
         const response = await fetch(`/api/shops/${shopSlug}`);
         if (!response.ok) throw new Error("Failed to fetch shop");
         const shop = await response.json();
-        
+
         setFormData({
           shop_name: shop.shopName || "",
           description: shop.description || "",
@@ -63,49 +66,63 @@ export default function Settings() {
     fetchShopData();
   }, [shopSlug, showToast]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validatePrimaryTab = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.shop_name.trim()) {
       newErrors.shop_name = "Shop name is required";
     }
-    
-    if (formData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
+
+    if (
+      formData.contact_email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)
+    ) {
       newErrors.contact_email = "Invalid email format";
     }
-    
-    if (formData.contact_phone && !/^[0-9]{10,15}$/.test(formData.contact_phone.replace(/\D/g, ""))) {
+
+    if (
+      formData.contact_phone &&
+      !/^[0-9]{10,15}$/.test(formData.contact_phone.replace(/\D/g, ""))
+    ) {
       newErrors.contact_phone = "Invalid phone number";
     }
-    
-    if (formData.whatsapp_number && !/^[0-9]{10,15}$/.test(formData.whatsapp_number.replace(/\D/g, ""))) {
+
+    if (
+      formData.whatsapp_number &&
+      !/^[0-9]{10,15}$/.test(formData.whatsapp_number.replace(/\D/g, ""))
+    ) {
       newErrors.whatsapp_number = "Invalid WhatsApp number";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.shop_name.trim()) {
       newErrors.shop_name = "Shop name is required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const showWarning = (message: string, type: 'success' | 'error' = 'error') => {
+  const showWarning = (
+    message: string,
+    type: "success" | "error" = "error",
+  ) => {
     setTabWarning({ text: message, type });
     setTimeout(() => setTabWarning(null), 5000);
   };
@@ -141,8 +158,9 @@ export default function Settings() {
       }
 
       showToast("Settings updated successfully!", "success");
-    } catch (error: any) {
-      showToast(error.message || "Failed to update settings", "error");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update settings";
+      showToast(errorMessage, "error");
     } finally {
       setSubmitting(false);
     }
@@ -186,14 +204,22 @@ export default function Settings() {
         return (
           <div className="space-y-8 md:space-y-5">
             <div>
-              <div className="text-xl font-semibold text-black">Shop Information</div>
+              <div className="text-xl font-semibold text-black">
+                Shop Information
+              </div>
             </div>
-            
+
             <InstructionsList
               items={[
-                { text: "Your shop name appears in the header and search results" },
-                { text: "Contact details are displayed to customers on your shop page" },
-                { text: "WhatsApp number enables customers to message you directly" },
+                {
+                  text: "Your shop name appears in the header and search results",
+                },
+                {
+                  text: "Contact details are displayed to customers on your shop page",
+                },
+                {
+                  text: "WhatsApp number enables customers to message you directly",
+                },
               ]}
               variant="green"
             />
@@ -259,11 +285,13 @@ export default function Settings() {
             <div>
               <div className="text-xl font-semibold text-black">Location</div>
             </div>
-            
+
             <InstructionsList
               items={[
                 { text: "Your shop location helps customers find you" },
-                { text: "Town/City and address are displayed on your shop page" },
+                {
+                  text: "Town/City and address are displayed on your shop page",
+                },
               ]}
               variant="green"
             />
@@ -298,9 +326,7 @@ export default function Settings() {
   };
 
   if (loading) {
-    return (
-    <LoadingFix/>
-    );
+    return <LoadingFix />;
   }
 
   return (

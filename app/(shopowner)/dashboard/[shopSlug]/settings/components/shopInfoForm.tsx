@@ -3,18 +3,26 @@
 import FormField from "@/app/components/ui/formField";
 import InstructionsList from "@/app/components/ui/instructionList";
 
+interface ShopInfoFormData {
+  shop_name: string;
+  contact_email: string;
+  contact_phone: string;
+  whatsapp_number: string;
+  description: string;
+}
+
 interface ShopInfoFormProps {
-  formData: any;
-  setFormData: (data: any) => void;
+  formData: ShopInfoFormData;
+  setFormData: (data: ShopInfoFormData | ((prev: ShopInfoFormData) => ShopInfoFormData)) => void;
   errors: Record<string, string>;
 }
 
 export default function ShopInfoForm({ formData, setFormData, errors }: ShopInfoFormProps) {
-  const handleChange = (e: React.ChangeEvent<any> | string | number) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
     if (typeof e === "string" || typeof e === "number") return;
     if (e && typeof e === "object" && "target" in e) {
       const { name, value } = e.target;
-      setFormData((prev: any) => ({ ...prev, [name]: value }));
+      setFormData((prev: ShopInfoFormData) => ({ ...prev, [name]: value }));
     }
   };
 

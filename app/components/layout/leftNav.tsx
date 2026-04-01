@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
 import NavLink from "../ui/navLink";
 import { LayoutDashboard, ShoppingCart, HandCoins, ChartNoAxesCombined, SunMoon, Settings, Store, LogOut } from "lucide-react";
 import Link from "next/link";
@@ -12,7 +10,7 @@ interface BaseLeftMenuProps {
 }
 
 export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuProps) {
-  const pathname = usePathname();
+  
 
   const navItems = [
     {

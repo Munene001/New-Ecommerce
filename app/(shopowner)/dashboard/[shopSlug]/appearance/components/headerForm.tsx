@@ -45,18 +45,18 @@ export default function HeaderForm({
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<any> | string | number) => {
-    if (typeof e === "string" || typeof e === "number") return;
-    if (e && typeof e === "object" && "target" in e) {
-      const { name, value } = e.target;
-      if (name === "header_message") {
-        setLocalHeaderMessage(value);
-      } else if (name === "cart_icon") {
-        setLocalCartIcon(value);
-      }
-      setHasChanges(true);
+ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
+  if (typeof e === "string" || typeof e === "number") return;
+  if (e && typeof e === "object" && "target" in e) {
+    const { name, value } = e.target;
+    if (name === "header_message") {
+      setLocalHeaderMessage(value);
+    } else if (name === "cart_icon") {
+      setLocalCartIcon(value);
     }
-  };
+    setHasChanges(true);
+  }
+};
 
   const IconComponent = cartIconOptions.find(opt => opt.id === localCartIcon)?.icon || ShoppingCart;
 

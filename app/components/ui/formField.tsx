@@ -6,8 +6,8 @@ import { useState, useRef, useEffect } from "react";
 export interface FormFieldProps {
   name: string;
   label?: string;
-  value: any;
-  onChange: (e: React.ChangeEvent<any> | string | number) => void;
+  value: string | number | boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => void;
   type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'email' | 'password' | 'tel' | 'url' | 'color';
   placeholder?: string;
   error?: string;
@@ -60,7 +60,7 @@ export default function FormField({
         value: selectedValue,
         type: 'select-one',
       },
-    } as React.ChangeEvent<any>;
+    } as React.ChangeEvent<HTMLSelectElement>;
     onChange(syntheticEvent);
     setIsOpen(false);
   };
@@ -75,8 +75,8 @@ export default function FormField({
         return (
           <textarea
             name={name}
-            value={value || ''}
-            onChange={onChange as React.ChangeEventHandler}
+            value={value as string || ''}
+            onChange={onChange as React.ChangeEventHandler<HTMLTextAreaElement>}
             placeholder={placeholder}
             rows={rows}
             disabled={disabled}
@@ -90,8 +90,8 @@ export default function FormField({
             <input
               type="checkbox"
               name={name}
-              checked={value || false}
-              onChange={onChange as React.ChangeEventHandler}
+              checked={value as boolean || false}
+              onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
               disabled={disabled}
               className="w-5 h-5 text-black border-gray-300 rounded focus:ring-black disabled:cursor-not-allowed"
             />
@@ -107,8 +107,8 @@ export default function FormField({
             {/* Hidden select for form submission */}
             <select
               name={name}
-              value={value}
-              onChange={onChange as React.ChangeEventHandler}
+              value={value as string | number || ''}
+              onChange={onChange as React.ChangeEventHandler<HTMLSelectElement>}
               className="hidden"
             >
               <option value=""></option>
@@ -172,15 +172,15 @@ export default function FormField({
             <input
               type="color"
               name={name}
-              value={value || '#f54a00'}
-              onChange={onChange as React.ChangeEventHandler}
+              value={value as string || '#f54a00'}
+              onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
               disabled={disabled}
               className="w-16 h-16 rounded-lg border border-gray-300 cursor-pointer bg-white"
             />
             <input
               type="text"
-              value={value || '#f54a00'}
-              onChange={onChange as React.ChangeEventHandler}
+              value={value as string || '#f54a00'}
+              onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
               placeholder="#f54a00"
               disabled={disabled}
               className={`${baseInputClass} flex-1 min-h-[52px] md:min-h-[44px]`}
@@ -194,8 +194,8 @@ export default function FormField({
           <input
             type={type}
             name={name}
-            value={value || ''}
-            onChange={onChange as React.ChangeEventHandler}
+            value={value as string || ''}
+            onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
             placeholder={placeholder}
             disabled={disabled}
             className={`${baseInputClass} min-h-[52px] md:min-h-[44px]`}

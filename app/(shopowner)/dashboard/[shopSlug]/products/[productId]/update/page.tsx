@@ -31,8 +31,6 @@ export default function UpdateProductPage() {
     shopType,
     tabWarning,
     modalState,
-    warningRef,
-    showWarning,
     isLoadingProduct,
 
     handleCategoryCreated,

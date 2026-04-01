@@ -7,13 +7,23 @@ import {
   StarHalf,
   User,
   ShieldCheck,
-  MessageSquare,
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/authcontext";
 import { useToast } from "@/context/toastContext";
 import Button from "@/app/components/ui/button";
 
+// Define Reply interface first
+interface Reply {
+  review_id: number;
+  user_id: number;
+  user_name: string;
+  comment: string;
+  created_at: string;
+  is_owner_reply: boolean;
+}
+
+// Then define Review using Reply
 interface Review {
   review_id: number;
   user_id: number;
@@ -22,11 +32,11 @@ interface Review {
   comment: string;
   created_at: string;
   is_owner_reply: boolean;
-  replies: Omit<Review, "replies">[];
+  replies: Reply[];  // Use Reply[] instead of Omit<Review, "replies">[]
 }
 
 interface Props {
-  attributes: Record<string, any>;
+  attributes: Record<string, string | number | boolean | string[] | null>;
   reviews: Review[];
   avgRating: number;
   totalReviews: number;
@@ -35,6 +45,8 @@ interface Props {
   shopSlug: string;
   productSlug: string;
 }
+
+type TabType = "additional" | "reviews";
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -93,44 +105,6 @@ const StarRating = ({
           />
         </button>
       ))}
-    </div>
-  );
-};
-
-const RatingDistribution = ({
-  reviews,
-  secondaryColor,
-}: {
-  reviews: Review[];
-  secondaryColor: string;
-}) => {
-  const counts = [0, 0, 0, 0, 0];
-  reviews.forEach((rev) => {
-    if (rev.rating >= 1 && rev.rating <= 5) counts[rev.rating - 1]++;
-  });
-  const total = reviews.length;
-
-  return (
-    <div className="space-y-2 mt-4">
-      {[5, 4, 3, 2, 1].map((stars) => {
-        const count = counts[stars - 1];
-        const percent = total ? (count / total) * 100 : 0;
-        return (
-          <div key={stars} className="flex items-center gap-2 text-sm">
-            <div className="w-8 text-gray-600">{stars} ★</div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${percent}%`,
-                  backgroundColor: secondaryColor,
-                }}
-              />
-            </div>
-            <div className="w-8 text-gray-500 text-right">{count}</div>
-          </div>
-        );
-      })}
     </div>
   );
 };
@@ -221,9 +195,7 @@ export default function ProductTabs({
   const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"additional" | "reviews">(
-    "reviews"
-  );
+  const [activeTab, setActiveTab] = useState<TabType>("reviews");
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [newReviewRating, setNewReviewRating] = useState(0);
   const [newReviewComment, setNewReviewComment] = useState("");
@@ -270,8 +242,9 @@ export default function ProductTabs({
 
       showToast("Review submitted!", "success");
       window.location.reload();
-    } catch (err: any) {
-      showToast(err.message || "Error submitting review", "error");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error submitting review";
+      showToast(errorMessage, "error");
     } finally {
       setSubmitting(false);
       setNewReviewRating(0);
@@ -308,8 +281,9 @@ export default function ProductTabs({
 
       showToast("Reply posted", "success");
       window.location.reload();
-    } catch (err: any) {
-      showToast(err.message || "Error replying", "error");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error replying";
+      showToast(errorMessage, "error");
     } finally {
       setReplying(false);
       setReplyingTo(null);
@@ -324,7 +298,7 @@ export default function ProductTabs({
         {["reviews", "additional"].map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab as any)}
+            onClick={() => setActiveTab(tab as TabType)}
             className={`pb-3 text-sm font-medium capitalize transition ${
               activeTab === tab
                 ? "border-b-2 text-gray-900"

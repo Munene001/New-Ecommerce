@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { X } from "lucide-react";
 import Button from "@/app/components/ui/button";
 import Link from "next/link";
@@ -11,10 +11,10 @@ export default function EmailVerificationErrorPage() {
   const [isVisible, setIsVisible] = useState(true);
 
   // Close modal and redirect to signup
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsVisible(false);
     router.push("/signup");
-  };
+  }, [router]);
 
   // Close on escape key
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function EmailVerificationErrorPage() {
     
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, []);
+  }, [handleClose]);
 
   // Don't render anything if modal is closed (page will redirect)
   if (!isVisible) return null;
@@ -48,7 +48,6 @@ export default function EmailVerificationErrorPage() {
         </p>
         
         <div className="flex justify-end gap-3">
-         
           <Button variant="secondary">
             <Link href="/signup">Sign up Again</Link>
           </Button>

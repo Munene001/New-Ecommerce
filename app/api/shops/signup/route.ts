@@ -53,11 +53,12 @@ export async function POST(request: NextRequest) {
       user_id: data.user.id
     });
 
-  } catch (error: any) {
-    console.error('Customer signup error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 400 }
-    );
-  }
+  } catch (error) {
+  console.error('Customer signup error:', error);
+  const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup';
+  return NextResponse.json(
+    { success: false, error: errorMessage },
+    { status: 400 }
+  );
+}
 }

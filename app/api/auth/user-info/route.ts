@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import pool from '@/lib/db'
+import { RowDataPacket } from 'mysql2'
 
-export async function POST(request: Request) {
+interface UserDataRow extends RowDataPacket {
+  user_id: number;
+  role: string;
+  full_name: string;
+  tenant_id: number | null;
+  business_info_complete: number | null;
+  shop_slug: string | null;
+  shop_id: number | null;
+  shop_count: number;
+}
+
+export async function POST() {
   try {
     // Get authenticated user from session cookie
     const supabase = await createSupabaseServerClient()
@@ -19,7 +31,7 @@ export async function POST(request: Request) {
     const supabase_uid = user.id
 
     // pool.execute() automatically acquires and releases a connection
-    const [userResult] = await pool.execute(
+    const [userResult] = await pool.execute<UserDataRow[]>(
       `SELECT 
         u.user_id,
         u.role,
@@ -38,7 +50,7 @@ export async function POST(request: Request) {
        WHERE u.supabase_uid = ?
        GROUP BY u.user_id, t.tenant_id, s.shop_slug, s.shop_id`,
       [supabase_uid]
-    ) as [any[], any];
+    );
 
     if (userResult.length === 0) {
       return NextResponse.json(

@@ -39,10 +39,8 @@ export default function ShareButton({
       try {
         await navigator.share(shareData);
         onSuccess?.(); // notify parent
-      } catch (err) {
-        if (err instanceof Error && err.name !== 'AbortError') {
-          onError?.();
-        }
+      } catch {
+        onError?.();
       }
     } else {
       // Fallback: copy to clipboard
@@ -53,7 +51,7 @@ export default function ShareButton({
           setTimeout(() => setShowTooltip(false), 2000);
         }
         onSuccess?.();
-      } catch (err) {
+      } catch {
         onError?.();
       }
     }
@@ -83,7 +81,7 @@ export default function ShareButton({
   return (
     <button
       onClick={handleShare}
-      className={`flex items-center gap-1 text-gray-600 transition-colors ${className}`}
+      className={`flex items-center gap-1 text-gray-800 transition-colors ${className}`}
       style={color ? { color: 'inherit' } : undefined}
       onMouseEnter={(e) => color && (e.currentTarget.style.color = color)}
       onMouseLeave={(e) => color && (e.currentTarget.style.color = '')}

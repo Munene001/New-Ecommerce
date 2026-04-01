@@ -129,7 +129,7 @@ export function ShopProvider({
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-red-600">Shop not found</h2>
-          <p className="text-gray-600 mt-2">The shop you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mt-2">The shop you&apos;re looking for doesn&apos;t exist.</p>
         </div>
       </div>
     );

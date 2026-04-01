@@ -3,10 +3,38 @@ import { unlink, rmdir } from 'fs/promises';
 import path from 'path';
 import pool from '@/lib/db';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
+interface OwnerCheckRow extends RowDataPacket {
+  1: number;
+}
+
+interface ProductRow extends RowDataPacket {
+  product_id: number;
+  shop_id: number;
+  shop_type: string;
+  product_name: string;
+  product_slug: string;
+  description: string;
+  price: number;
+  discount_price: number | null;
+  in_stock: number;
+  attributes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ImageRow extends RowDataPacket {
+  image_path: string;
+}
+
+interface ProductNameRow extends RowDataPacket {
+  product_name: string;
+}
 
 // Helper function to verify product ownership
-async function verifyProductOwnership(productId: number, supabaseUserId: string) {
-  const [rows] = await pool.query(
+async function verifyProductOwnership(productId: number, supabaseUserId: string): Promise<boolean> {
+  const [rows] = await pool.query<OwnerCheckRow[]>(
     `SELECT 1
      FROM products p
      JOIN shops s ON p.shop_id = s.shop_id
@@ -16,7 +44,7 @@ async function verifyProductOwnership(productId: number, supabaseUserId: string)
      )`,
     [productId, supabaseUserId]
   );
-  return (rows as any[]).length > 0;
+  return rows.length > 0;
 }
 
 // GET /api/shopowner/products/123
@@ -44,7 +72,7 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const [productRows] = await pool.query(`
+    const [productRows] = await pool.query<ProductRow[]>(`
       SELECT 
         product_id,
         shop_id,
@@ -62,11 +90,11 @@ export async function GET(
       WHERE product_id = ?
     `, [productId]);
 
-    if (!productRows || (productRows as any[]).length === 0) {
+    if (!productRows || productRows.length === 0) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    const product = (productRows as any[])[0];
+    const product = productRows[0];
     return NextResponse.json(product);
   } catch (error) {
     console.error('Database error:', error);
@@ -115,7 +143,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       `UPDATE products 
        SET product_name = ?, 
            product_slug = ?, 
@@ -138,9 +166,10 @@ export async function PUT(
     );
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Product update error:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
+    const mysqlError = error as { code?: string };
+    if (mysqlError.code === 'ER_DUP_ENTRY') {
       return NextResponse.json({ error: 'Product slug already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
@@ -173,23 +202,23 @@ export async function DELETE(
     }
 
     // 1. Get all image paths before deleting product
-    const [imageRows] = await pool.query(
+    const [imageRows] = await pool.query<ImageRow[]>(
       'SELECT image_path FROM product_images WHERE product_id = ?',
       [productId]
     );
 
     // 2. Get product name for response
-    const [productRows] = await pool.query(
+    const [productRows] = await pool.query<ProductNameRow[]>(
       'SELECT product_name FROM products WHERE product_id = ?',
       [productId]
     );
-    const productName = (productRows as any[])[0]?.product_name || 'Product';
+    const productName = productRows[0]?.product_name || 'Product';
 
     // 3. Delete product (cascade deletes product_images records)
-    await pool.query('DELETE FROM products WHERE product_id = ?', [productId]);
+    await pool.query<ResultSetHeader>('DELETE FROM products WHERE product_id = ?', [productId]);
 
     // 4. Delete physical files from disk
-    const images = imageRows as any[];
+    const images = imageRows;
     let deletedCount = 0;
 
     for (const image of images) {
@@ -198,7 +227,7 @@ export async function DELETE(
         await unlink(fullPath);
         deletedCount++;
         console.log(`✅ Deleted file: ${image.image_path}`);
-      } catch (err) {
+      } catch {
         console.log(`⚠️ File already deleted or not found: ${image.image_path}`);
       }
     }
@@ -208,7 +237,7 @@ export async function DELETE(
       const productFolder = path.join('/home/munene/storage/originals', productId);
       await rmdir(productFolder);
       console.log(`✅ Deleted empty folder: ${productFolder}`);
-    } catch (err) {
+    } catch {
       // Folder not empty or doesn't exist - ignore
     }
 

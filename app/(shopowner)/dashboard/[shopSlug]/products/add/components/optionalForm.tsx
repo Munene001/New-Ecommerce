@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import FormField from "@/app/components/ui/formField";
-import { Category, Attribute } from "../types";
+import { Category, Attribute, ProductFormData } from "../types";
 import InstructionsList from "@/app/components/ui/instructionList";
 
 interface OptionalFormProps {
   categories: Category[];
   selectedCategoryId: number | "";
   setSelectedCategoryId: (id: number | "") => void;
-  formData: any;
-  setFormData: (data: any) => void;
+  formData: ProductFormData;
+  setFormData: (data: ProductFormData | ((prev: ProductFormData) => ProductFormData)) => void;
   optionalAttributes: Attribute[];
   // Updated interface to support both sync and async
   onAddCategory?: ((categoryId: number) => void) | ((categoryId: number) => Promise<void>);
@@ -31,7 +31,7 @@ export default function OptionalForm({
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
-  const handleChange = (e: React.ChangeEvent<any> | string | number) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
     if (typeof e === "string" || typeof e === "number") {
       return;
     }
@@ -41,13 +41,13 @@ export default function OptionalForm({
 
       if (name.startsWith("attr.")) {
         const attrName = name.replace("attr.", "");
-        setFormData({
-          ...formData,
+        setFormData((prev) => ({
+          ...prev,
           attributes: {
-            ...formData.attributes,
-            [attrName]: type === "checkbox" ? e.target.checked : value,
+            ...prev.attributes,
+            [attrName]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
           },
-        });
+        }));
       }
     }
   };
@@ -55,20 +55,20 @@ export default function OptionalForm({
   const handleDropdownChange = (name: string) => (value: string | number) => {
     if (name.startsWith("attr.")) {
       const attrName = name.replace("attr.", "");
-      setFormData({
-        ...formData,
+      setFormData((prev) => ({
+        ...prev,
         attributes: {
-          ...formData.attributes,
+          ...prev.attributes,
           [attrName]: value,
         },
-      });
+      }));
     }
   };
 
   const createDropdownHandler = (name: string) => {
     const dropdownHandler = handleDropdownChange(name);
 
-    return (e: React.ChangeEvent<any> | string | number) => {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
       if (typeof e === "string" || typeof e === "number") {
         dropdownHandler(e);
       } else if (e && typeof e === "object" && "target" in e) {
@@ -79,7 +79,7 @@ export default function OptionalForm({
 
   // Updated to be async and use await
   const handleCategoryChange = async (
-    e: React.ChangeEvent<any> | string | number
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number
   ) => {
     let catId: number | "" = "";
 
@@ -121,6 +121,15 @@ export default function OptionalForm({
     (cat) => !formData.categoryIds.includes(cat.id)
   );
 
+  // Helper to convert attribute type to FormField type
+  const getFormFieldType = (type: string): "text" | "number" | "textarea" | "select" | "checkbox" | "email" | "password" | "tel" | "url" | "color" => {
+    if (type === "textarea") return "textarea";
+    if (type === "select") return "select";
+    if (type === "boolean") return "checkbox";
+    if (type === "number") return "number";
+    return "text";
+  };
+
   return (
     <div className="space-y-8 md:space-y-5">
       <div>
@@ -133,7 +142,7 @@ export default function OptionalForm({
             text: (
               <>
                 Create a category with the button{" "}
-                <span className="font-semibold">"Add New Category"</span> at the
+                <span className="font-semibold">&quot;Add New Category&quot;</span> at the
                 top, before selecting a category below to group your products.
               </>
             ),
@@ -173,7 +182,7 @@ export default function OptionalForm({
             type="select"
             value={selectedCategoryId}
             onChange={handleCategoryChange}
-            options={availableCategories}
+            options={availableCategories.map(cat => ({ id: cat.id, name: cat.name }))}
             placeholder="Select a category to add"
           />
         )}
@@ -220,8 +229,8 @@ export default function OptionalForm({
                 <FormField
                   name={`attr.${field.name}`}
                   label={field.label}
-                  type={field.type as any}
-                  value={formData.attributes[field.name]}
+                  type={getFormFieldType(field.type)}
+                  value={formData.attributes[field.name] ?? ""}
                   onChange={
                     field.type === "select"
                       ? createDropdownHandler(`attr.${field.name}`)

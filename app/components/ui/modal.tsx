@@ -17,7 +17,6 @@ export default function Modal({
   onClose, 
   title, 
   message, 
-  type = "info" 
 }: ModalProps) {
   if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, Suspense } from "react";
 import { useAuth } from "@/context/authcontext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Input from "@/app/components/ui/input";
@@ -8,7 +8,8 @@ import Button from "@/app/components/ui/button";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-export default function LoginPage() {
+// Component that uses useSearchParams
+function LoginFormContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -134,8 +135,9 @@ export default function LoginPage() {
 
       setUserProfile(profileData);
 
-    } catch (err: any) {
-      setError(err.message || "Invalid email or password");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Invalid email or password";
+      setError(errorMessage);
       setFieldErrors({ email: true, password: true });
     } finally {
       setIsLoading(false);
@@ -235,5 +237,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex md:min-h-screen font-[Plus_Jakarta_Sans] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
+        <div className="w-full max-w-md p-8 border border-gray-100/30 rounded-xl md:bg-black/60 bg-black/20 shadow-md md:mt-0 mt-[80px]">
+          <div className="text-center text-white">Loading...</div>
+        </div>
+      </div>
+    }>
+      <LoginFormContent />
+    </Suspense>
   );
 }

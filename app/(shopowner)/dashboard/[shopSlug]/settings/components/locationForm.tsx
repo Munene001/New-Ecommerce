@@ -3,18 +3,23 @@
 import FormField from "@/app/components/ui/formField";
 import InstructionsList from "@/app/components/ui/instructionList";
 
+interface LocationFormData {
+  business_town: string;
+  business_address: string;
+}
+
 interface LocationFormProps {
-  formData: any;
-  setFormData: (data: any) => void;
+  formData: LocationFormData;
+  setFormData: (data: LocationFormData | ((prev: LocationFormData) => LocationFormData)) => void;
   errors: Record<string, string>;
 }
 
 export default function LocationForm({ formData, setFormData, errors }: LocationFormProps) {
-  const handleChange = (e: React.ChangeEvent<any> | string | number) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
     if (typeof e === "string" || typeof e === "number") return;
     if (e && typeof e === "object" && "target" in e) {
       const { name, value } = e.target;
-      setFormData((prev: any) => ({ ...prev, [name]: value }));
+      setFormData((prev: LocationFormData) => ({ ...prev, [name]: value }));
     }
   };
 

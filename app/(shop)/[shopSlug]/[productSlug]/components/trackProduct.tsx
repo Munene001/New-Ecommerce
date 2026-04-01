@@ -25,7 +25,14 @@ export default function TrackProductView({ product }: Props) {
       price: product.price,
       discount_price: product.discount_price,
     });
-  }, [product.product_id, addViewedProduct]); // runs once per product
+  }, [
+    product.product_id,
+    product.product_name,
+    product.product_slug,
+    product.price,
+    product.discount_price,
+    addViewedProduct
+  ]); // includes all product properties used in the effect
 
   return null; // This component renders nothing
 }

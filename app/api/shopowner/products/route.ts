@@ -1,10 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
+interface OwnerCheckRow extends RowDataPacket {
+  1: number;
+}
+
+interface ShopRow extends RowDataPacket {
+  shop_type: string;
+}
+
+interface CountResult extends RowDataPacket {
+  total: number;
+}
+
+interface ProductImage {
+  image_id: number;
+  image_path: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
+interface ProductRow extends RowDataPacket {
+  product_id: number;
+  shop_id: number;
+  shop_type: string;
+  product_name: string;
+  product_slug: string;
+  description: string;
+  price: number;
+  discount_price: number | null;
+  in_stock: number;
+  attributes: string;
+  created_at: string;
+  updated_at: string;
+  images: string | ProductImage[] | null;
+}
+
+interface VerificationResult extends RowDataPacket {
+  count: number;
+}
+
+interface ProductInsertResult extends ResultSetHeader {
+  insertId: number;
+}
 
 // Helper to verify that the user owns the shop
 async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query(
+  const [rows] = await pool.query<OwnerCheckRow[]>(
     `SELECT 1
      FROM shops s
      JOIN tenant t ON s.tenant_id = t.tenant_id
@@ -12,7 +56,7 @@ async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise
      WHERE s.shop_id = ? AND u.supabase_uid = ?`,
     [shopId, supabaseUid]
   );
-  return (rows as any[]).length > 0;
+  return rows.length > 0;
 }
 
 // GET /api/shopowner/products?shopId=1&...
@@ -52,7 +96,7 @@ export async function GET(req: NextRequest) {
 
     // Build WHERE clause
     let whereClause = 'WHERE p.shop_id = ?';
-    const queryParams: any[] = [shopId];
+    const queryParams: (string | number)[] = [shopId];
 
     if (search) {
       const searchTerm = `%${search}%`;
@@ -85,13 +129,13 @@ export async function GET(req: NextRequest) {
 
     if (minPrice && maxPrice) {
       whereClause += ' AND p.price BETWEEN ? AND ?';
-      queryParams.push(minPrice, maxPrice);
+      queryParams.push(Number(minPrice), Number(maxPrice));
     } else if (minPrice) {
       whereClause += ' AND p.price >= ?';
-      queryParams.push(minPrice);
+      queryParams.push(Number(minPrice));
     } else if (maxPrice) {
       whereClause += ' AND p.price <= ?';
-      queryParams.push(maxPrice);
+      queryParams.push(Number(maxPrice));
     }
 
     if (inStock === 'true') {
@@ -116,14 +160,14 @@ export async function GET(req: NextRequest) {
     }
 
     // Total count
-    const [countResult] = await pool.query(
+    const [countResult] = await pool.query<CountResult[]>(
       `SELECT COUNT(*) as total FROM products p ${whereClause}`,
       queryParams
     );
-    const totalCount = (countResult as any[])[0].total;
+    const totalCount = countResult[0].total;
 
     // Products with images
-    const [products] = await pool.query(`
+    const [products] = await pool.query<ProductRow[]>(`
       SELECT 
         p.product_id,
         p.shop_id,
@@ -198,17 +242,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Get shop type
-    const [shopRows] = await pool.query(
+    const [shopRows] = await pool.query<ShopRow[]>(
       'SELECT shop_type FROM shops WHERE shop_id = ?',
       [shopId]
     );
-    if (!shopRows || (shopRows as any[]).length === 0) {
+    if (!shopRows || shopRows.length === 0) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
     }
-    const shopType = (shopRows as any[])[0].shop_type;
+    const shopType = shopRows[0].shop_type;
 
     // Insert product
-    const [productResult] = await pool.query(
+    const [productResult] = await pool.query<ProductInsertResult>(
       `INSERT INTO products 
        (shop_id, shop_type, product_name, product_slug, description, price, discount_price, in_stock, attributes) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -225,7 +269,7 @@ export async function POST(req: NextRequest) {
       ]
     );
 
-    const productId = (productResult as any).insertId;
+    const productId = productResult.insertId;
 
     return NextResponse.json({ 
       success: true, 
@@ -233,9 +277,10 @@ export async function POST(req: NextRequest) {
       shop_type: shopType
     }, { status: 201 });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Product creation error:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
+    const mysqlError = error as { code?: string };
+    if (mysqlError.code === 'ER_DUP_ENTRY') {
       return NextResponse.json({ error: 'Product name already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
@@ -272,12 +317,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     // First, verify that all products belong to this shop
-    const [verification] = await pool.query(
+    const [verification] = await pool.query<VerificationResult[]>(
       `SELECT COUNT(*) as count FROM products 
        WHERE product_id IN (?) AND shop_id = ?`,
       [productIds, shopId]
     );
-    const verifiedCount = (verification as any[])[0].count;
+    const verifiedCount = verification[0].count;
     if (verifiedCount !== productIds.length) {
       return NextResponse.json({ 
         error: 'Some products do not belong to this shop or do not exist' 
@@ -285,17 +330,17 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Delete from product_categories first
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       'DELETE FROM product_categories WHERE product_id IN (?)',
       [productIds]
     );
     // Delete product images
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       'DELETE FROM product_images WHERE product_id IN (?)',
       [productIds]
     );
     // Finally delete products
-    const [result] = await pool.query(
+    await pool.query<ResultSetHeader>(
       'DELETE FROM products WHERE product_id IN (?) AND shop_id = ?',
       [productIds, shopId]
     );

@@ -4,6 +4,11 @@ import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import path from 'path';
 import pool from '@/lib/db';
+import { RowDataPacket } from 'mysql2';
+
+interface BannerRow extends RowDataPacket {
+  banner_url: string;
+}
 
 export async function GET(
   req: NextRequest,
@@ -19,11 +24,14 @@ export async function GET(
 
     const allowedWidths = [200, 300, 800, 1200];
     if (!allowedWidths.includes(width)) {
-      return new NextResponse('Invalid width. Use 200, 300, 800, or 1200', { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid width. Use 200, 300, 800, or 1200' },
+        { status: 400 }
+      );
     }
 
     let query: string;
-    let queryParams: any[];
+    let queryParams: (string | number)[];
 
     // Case 1: Specific banner requested (for dashboard list)
     if (bannerId) {
@@ -48,30 +56,36 @@ export async function GET(
       queryParams = [shopSlug];
     }
 
-    const [bannerRows] = await pool.query(query, queryParams);
+    const [bannerRows] = await pool.query<BannerRow[]>(query, queryParams);
 
-    if (!bannerRows || (bannerRows as any[]).length === 0) {
-      return new NextResponse('Banner not found', { status: 404 });
+    if (!bannerRows || bannerRows.length === 0) {
+      return NextResponse.json(
+        { error: 'Banner not found' },
+        { status: 404 }
+      );
     }
 
-    const bannerUrl = (bannerRows as any[])[0].banner_url;
+    const bannerUrl = bannerRows[0].banner_url;
     const fullPath = path.join('/home/munene/storage/originals', bannerUrl);
 
     try {
       await fs.access(fullPath);
     } catch {
-      return new NextResponse('Banner image not found', { status: 404 });
+      return NextResponse.json(
+        { error: 'Banner image not found' },
+        { status: 404 }
+      );
     }
 
     const imageBuffer = await fs.readFile(fullPath);
 
     // Serve original if width >= 1200
     if (width >= 1200) {
-      return new NextResponse(imageBuffer, {
+      return new NextResponse(imageBuffer as any, {
         headers: {
           'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=86400, immutable'
-        }
+          'Cache-Control': 'public, max-age=86400, immutable',
+        },
       });
     }
 
@@ -79,20 +93,23 @@ export async function GET(
     const resizedBuffer = await sharp(imageBuffer)
       .resize(width, null, {
         fit: 'cover',
-        withoutEnlargement: true
+        withoutEnlargement: true,
       })
       .webp({ quality })
       .toBuffer();
 
-    return new NextResponse(resizedBuffer, {
+    return new NextResponse(resizedBuffer as any, {
       headers: {
         'Content-Type': 'image/webp',
-        'Cache-Control': 'public, max-age=86400, immutable'
-      }
+        'Cache-Control': 'public, max-age=86400, immutable',
+      },
     });
 
   } catch (error) {
     console.error('Serve banner error:', error);
-    return new NextResponse('Error processing banner', { status: 500 });
+    return NextResponse.json(
+      { error: 'Error processing banner' },
+      { status: 500 }
+    );
   }
 }

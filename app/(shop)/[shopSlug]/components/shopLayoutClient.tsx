@@ -1,9 +1,10 @@
 "use client";
 
 import { useShop, useActiveBanner } from "../../ShopContext";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { X } from "lucide-react";
+import Image from "next/image";
 import ShopHeader from "@/app/components/layout/shopHeader";
 import ShopFooter from "@/app/components/layout/shopFooter";
 import MobileBottomNav from "@/app/components/layout/mobileBottomNav";
@@ -15,9 +16,13 @@ import { RecentlyViewedProvider } from "@/context/recentlyViewed";
 import FloatingWhatsApp from "@/app/components/layout/floatingWhatsapp";
 
 type SortOption = "newest" | "oldest" | "price_low" | "price_high";
-interface PriceRange {
-  min: number;
-  max: number;
+
+// Removed unused PriceRange interface
+
+interface Banner {
+  banner_id: number;
+  category_id?: number;
+  // Add other banner properties as needed
 }
 
 interface ShopData {
@@ -38,7 +43,7 @@ interface ShopLayoutClientProps {
 }
 
 // Modal component
-function BannerModal({ banner, shopSlug, onClose }: { banner: any; shopSlug: string; onClose: () => void }) {
+function BannerModal({ banner, shopSlug, onClose }: { banner: Banner; shopSlug: string; onClose: () => void }) {
   const { toggleCategory } = useShopFilter();
   const [isClosing, setIsClosing] = useState(false);
 
@@ -82,12 +87,14 @@ function BannerModal({ banner, shopSlug, onClose }: { banner: any; shopSlug: str
           <X className="w-6 h-6 sm:w-7 sm:h-7 text-gray-600" />
         </button>
         
-        {/* Banner Image */}
+        {/* Banner Image - Using Next.js Image component */}
         <div className="relative md:aspect-[16/9] aspect-[3/4] rounded-xl overflow-hidden shadow-2xl">
-          <img
+          <Image
             src={`/api/shops/${shopSlug}/banner-image?bannerId=${banner.banner_id}&w=800`}
             alt="Banner"
-            className="w-full h-full object-cover cursor-pointer"
+            fill
+            className="object-cover cursor-pointer"
+            sizes="(max-width: 768px) 90vw, (max-width: 1200px) 80vw, 50vw"
             onClick={handleClick}
           />
         </div>
@@ -102,7 +109,7 @@ export default function ShopLayoutClient({
   initialProducts,
   initialTotalCount,
 }: ShopLayoutClientProps) {
-  const { shop, loading } = useShop();
+  const { loading } = useShop(); // Removed unused 'shop' variable
   const activeBanner = useActiveBanner();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -124,13 +131,11 @@ export default function ShopLayoutClient({
   const initialInStock = searchParams.get("inStock") === "true";
 
   // Check if banner was shown today
-  const shouldShowBanner = () => {
+  const shouldShowBanner = useCallback(() => {
     if (!activeBanner) return false;
-    
     
     const isHomepage = pathname === `/${shopData.shopSlug}`;
     if (!isHomepage) return false;
-    
     
     const lastShown = localStorage.getItem(`banner_${shopData.shopSlug}_date`);
     const today = new Date().toDateString();
@@ -138,7 +143,15 @@ export default function ShopLayoutClient({
     if (lastShown === today) return false;
     
     return true;
-  };
+  }, [activeBanner, pathname, shopData.shopSlug]);
+
+  const handleCloseModal = useCallback(() => {
+    setShowBannerModal(false);
+    setModalClosed(true);
+    // Save today's date to localStorage
+    const today = new Date().toDateString();
+    localStorage.setItem(`banner_${shopData.shopSlug}_date`, today);
+  }, [shopData.shopSlug]);
 
   // Show banner after 5 seconds
   useEffect(() => {
@@ -151,7 +164,7 @@ export default function ShopLayoutClient({
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [activeBanner, pathname, modalClosed, showBannerModal]);
+  }, [shouldShowBanner, modalClosed, showBannerModal]);
 
   // Auto-close after 3 minutes
   useEffect(() => {
@@ -164,15 +177,7 @@ export default function ShopLayoutClient({
     return () => {
       if (autoCloseRef.current) clearTimeout(autoCloseRef.current);
     };
-  }, [showBannerModal]);
-
-  const handleCloseModal = () => {
-    setShowBannerModal(false);
-    setModalClosed(true);
-    // Save today's date to localStorage
-    const today = new Date().toDateString();
-    localStorage.setItem(`banner_${shopData.shopSlug}_date`, today);
-  };
+  }, [showBannerModal, handleCloseModal]);
 
   // Apply CSS variables when shop data loads
   useEffect(() => {
@@ -225,7 +230,7 @@ export default function ShopLayoutClient({
             {/* Banner Modal */}
             {showBannerModal && activeBanner && (
               <BannerModal
-                banner={activeBanner}
+                banner={activeBanner as Banner}
                 shopSlug={shopData.shopSlug}
                 onClose={handleCloseModal}
               />

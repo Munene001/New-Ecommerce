@@ -32,7 +32,6 @@ export default function AddProductPage() {
     shopType,
     tabWarning,
     modalState,
-    warningRef,
     showWarning,
 
     handleCategoryCreated,

@@ -26,7 +26,7 @@ export interface ProductFormData {
   price: string;
   discountPrice?: string; // Add this (optional)
   inStock: boolean;
-  attributes: Record<string, any>;
+  attributes: Record<string, string | number | boolean | null>;
   images: ProductImage[];
   categoryIds: number[];
 }

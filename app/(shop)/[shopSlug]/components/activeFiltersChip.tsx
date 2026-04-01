@@ -2,10 +2,20 @@
 
 import { X } from "lucide-react";
 import FilterChip from "@/app/components/ui/filterChip";
-import Button from "@/app/components/ui/button";
+
+interface ActiveFilters {
+  search: string;
+  categories: (string | number)[];
+  priceRange: {
+    min: number;
+    max: number;
+  } | null;
+  sortBy: string;
+  inStock: boolean;
+}
 
 interface ActiveFilterChipsProps {
-  activeFilters: any; 
+  activeFilters: ActiveFilters;
   categories: Array<{ id: string | number; name: string }>;
   totalCount: number;
   onRemoveSearch: () => void;
@@ -51,7 +61,7 @@ export default function ActiveFilterChips({
         )}
 
         {/* Category chips - with type-safe ID handling */}
-        {activeFilters.categories.map((catId: unknown) => {
+        {activeFilters.categories.map((catId) => {
           const catIdStr = String(catId);
           const category = categories.find((c) => String(c.id) === catIdStr);
           if (!category) return null;
@@ -59,7 +69,7 @@ export default function ActiveFilterChips({
             <FilterChip
               key={catIdStr}
               label={category.name}
-              onRemove={() => onRemoveCategory(catIdStr)} 
+              onRemove={() => onRemoveCategory(catIdStr)}
               color={secondaryColor}
             />
           );
@@ -102,14 +112,12 @@ export default function ActiveFilterChips({
 
         {/* Clear all button */}
         <button
-  onClick={onClearAll}
-  className="flex items-center bg-black gap-1 px-3 py-1 rounded-full text-sm text-white ml-auto"
->
-  <X size={14} />
-  Clear all
-</button>
-
-      
+          onClick={onClearAll}
+          className="flex items-center bg-black gap-1 px-3 py-1 rounded-full text-sm text-white ml-auto"
+        >
+          <X size={14} />
+          Clear all
+        </button>
       </div>
 
       {/* Result count */}

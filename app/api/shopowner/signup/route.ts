@@ -1,10 +1,25 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { ResultSetHeader } from 'mysql2';
+
+interface SignupBody {
+  email: string;
+  password: string;
+  full_name: string;
+  phone: string;
+  business_name: string;
+  business_town: string;
+  business_address: string;
+}
+
+interface UserInsertResult extends ResultSetHeader {
+  insertId: number;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: SignupBody = await request.json();
     const requestUrl = new URL(request.url);
     const origin = requestUrl.origin;
     const redirectUrl = `${origin}/api/auth/callback`;
@@ -30,13 +45,13 @@ export async function POST(request: NextRequest) {
     if (!data.user) throw new Error('No user created');
     
     if (data.user.email_confirmed_at) {
-      const [userResult] = await pool.execute(
+      const [userResult] = await pool.execute<UserInsertResult>(
         `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
          VALUES (?, ?, ?, ?, 'shop_owner')`,
         [data.user.id, body.full_name, body.email, body.phone]
       );
       
-      const userId = (userResult as any).insertId;
+      const userId = userResult.insertId;
       const slug = `${body.business_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
       
       await pool.execute(
@@ -69,10 +84,11 @@ export async function POST(request: NextRequest) {
       user_id: data.user.id
     });
     
-  } catch (error: any) {
+  } catch (error) {
     console.error('Signup error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup';
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: errorMessage },
       { status: 400 }
     );
   }

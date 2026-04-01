@@ -34,26 +34,27 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// CartIcon component moved outside to avoid being recreated on each render
+const CartIcon = ({ cartIcon }: { cartIcon?: string }) => {
+  switch (cartIcon) {
+    case "bag":
+      return <ShoppingBag className="w-7 h-7" />;
+    case "basket":
+      return <ShoppingBasket className="w-7 h-7" />;
+    default:
+      return <ShoppingCart className="w-7 h-7" />;
+  }
+};
+
 export default function ShopHeader() {
   const { shop } = useShop();
   const router = useRouter();
   const searchParams = useSearchParams();
   const filterContext = useContext(ShopFilterContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isPreCheckoutOpen, setIsPreCheckoutOpen] = useState(false); // Add modal state
+  const [isPreCheckoutOpen, setIsPreCheckoutOpen] = useState(false);
   const { totalItems } = useCart();
   const { user, profile } = useAuth();
-
-  const CartIcon = () => {
-    switch (shop?.cartIcon) {
-      case "bag":
-        return <ShoppingBag className="w-7 h-7" />;
-      case "basket":
-        return <ShoppingBasket className="w-7 h-7" />;
-      default:
-        return <ShoppingCart className="w-7 h-7" />;
-    }
-  };
 
   // Function to scroll to footer
   const scrollToFooter = () => {
@@ -76,6 +77,7 @@ export default function ShopHeader() {
   // Refs for local state only
   const isUserTyping = useRef(false);
   const prevDebouncedRef = useRef(debouncedLocalSearch);
+  const hasInitializedRef = useRef(false);
 
   // Use context state if available, otherwise local
   const searchInput = hasContext ? filterContext.searchInput : localSearchInput;
@@ -86,7 +88,7 @@ export default function ShopHeader() {
 
   // For local-only: Update URL when debounced search changes
   useEffect(() => {
-    if (hasContext) return; // Context handles its own debounce and API calls
+    if (hasContext) return;
 
     if (!shop?.shopSlug) return;
     if (debouncedLocalSearch === prevDebouncedRef.current) return;
@@ -106,7 +108,9 @@ export default function ShopHeader() {
     if (hasContext) return;
 
     const urlSearch = searchParams.get("search") || "";
-    if (!isUserTyping.current && localSearchInput !== urlSearch) {
+    if (!isUserTyping.current && !hasInitializedRef.current && localSearchInput !== urlSearch) {
+      hasInitializedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalSearchInput(urlSearch);
     }
     const timer = setTimeout(() => {
@@ -130,7 +134,6 @@ export default function ShopHeader() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!shop?.shopSlug) return;
-    // The debounced effect will handle the search
   };
 
   // Handle cart click - open pre-checkout modal
@@ -177,7 +180,6 @@ export default function ShopHeader() {
 
               <div className="w-1/3 flex justify-end items-center gap-6">
                 {user ? (
-                  // ✅ Use profile.role and profile.fullName instead of user.role/user.name
                   <Link
                     href={
                       profile?.role === "shop_owner"
@@ -198,7 +200,6 @@ export default function ShopHeader() {
                     </span>
                   </Link>
                 ) : (
-                  // Not logged in: show sign up button only
                   <Link
                     href={`/auth/login?context=customer&redirect=/${shop?.shopSlug}/profile`}
                   >
@@ -210,7 +211,6 @@ export default function ShopHeader() {
                     </Button>
                   </Link>
                 )}
-                {/* Heart and Cart remain unchanged */}
                 <button className="hover:opacity-70 transition">
                   <Heart
                     className="w-7 h-7"
@@ -219,10 +219,10 @@ export default function ShopHeader() {
                 </button>
                 <button 
                   className="relative hover:opacity-70 transition"
-                  onClick={handleCartClick} // Add click handler
+                  onClick={handleCartClick}
                 >
                   <span style={{ color: shop?.primaryColor }}>
-                    <CartIcon />
+                    <CartIcon cartIcon={shop?.cartIcon} />
                   </span>
                   <span
                     className="absolute -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
@@ -277,10 +277,10 @@ export default function ShopHeader() {
 
               <button 
                 className="relative hover:opacity-70 transition"
-                onClick={handleCartClick} // Add click handler for mobile
+                onClick={handleCartClick}
               >
                 <span style={{ color: shop?.primaryColor }}>
-                  <CartIcon />
+                  <CartIcon cartIcon={shop?.cartIcon} />
                 </span>
                 <span
                   className="absolute -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"

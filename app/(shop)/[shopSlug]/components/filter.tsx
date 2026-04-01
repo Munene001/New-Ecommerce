@@ -1,8 +1,7 @@
-// app/(shop)/[shopSlug]/components/filter.tsx
 "use client";
 
 import { ListFilterPlus, Check, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Range } from "react-range";
 
 type SortOption = "newest" | "oldest" | "price_low" | "price_high";
@@ -29,7 +28,6 @@ interface FilterProps {
   onSetPriceRange: (min: number, max: number) => void | Promise<void>;
   onClearPriceRange: () => void | Promise<void>;
   onSetSortBy: (option: SortOption) => void | Promise<void>;
-  onClearFilters: () => void | Promise<void>;
   categories: { id: string; name: string }[];
   maxPrice: number;
 }
@@ -41,25 +39,29 @@ export default function Filter({
   onSetPriceRange,
   onClearPriceRange,
   onSetSortBy,
-  onClearFilters,
   categories,
   maxPrice,
 }: FilterProps) {
-  console.log("Filter received categories:", categories);
   const maxLimit = maxPrice || 150000;
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, maxLimit]);
-
-  // Sync with activeFilters.priceRange (e.g., after clear)
-  useEffect(() => {
+  
+  // Derive the initial/current price range from activeFilters using useMemo
+  const currentPriceRange = useMemo<[number, number]>(() => {
     if (activeFilters.priceRange) {
-      setPriceRange([
-        activeFilters.priceRange.min,
-        activeFilters.priceRange.max,
-      ]);
-    } else {
-      setPriceRange([0, maxLimit]);
+      return [activeFilters.priceRange.min, activeFilters.priceRange.max];
     }
+    return [0, maxLimit];
   }, [activeFilters.priceRange, maxLimit]);
+
+  // Local state for the slider while dragging
+  const [localPriceRange, setLocalPriceRange] = useState<[number, number]>(currentPriceRange);
+
+  // Update local state when external filter changes
+  const [prevPriceRange, setPrevPriceRange] = useState(currentPriceRange);
+  
+  if (prevPriceRange[0] !== currentPriceRange[0] || prevPriceRange[1] !== currentPriceRange[1]) {
+    setPrevPriceRange(currentPriceRange);
+    setLocalPriceRange(currentPriceRange);
+  }
 
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: "newest", label: "Newest First" },
@@ -68,15 +70,9 @@ export default function Filter({
     { value: "price_high", label: "Price: High to Low" },
   ];
 
-  const hasActiveFilters =
-    activeFilters.categories.length > 0 ||
-    activeFilters.priceRange !== null ||
-    activeFilters.sortBy !== "newest" ||
-    activeFilters.search !== "";
-
   const getTrackBackground = () => {
-    const minPercent = (priceRange[0] / maxLimit) * 100;
-    const maxPercent = (priceRange[1] / maxLimit) * 100;
+    const minPercent = (localPriceRange[0] / maxLimit) * 100;
+    const maxPercent = (localPriceRange[1] / maxLimit) * 100;
     return `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${minPercent}%, ${shopData.secondaryColor} ${minPercent}%, ${shopData.secondaryColor} ${maxPercent}%, #e5e7eb ${maxPercent}%, #e5e7eb 100%)`;
   };
 
@@ -87,7 +83,6 @@ export default function Filter({
           <ListFilterPlus size={20} style={{ color: shopData.secondaryColor }} />
           <span>Filter</span>
         </h2>
-        
       </div>
 
       <div className="space-y-6">
@@ -99,39 +94,47 @@ export default function Filter({
               step={100}
               min={0}
               max={maxLimit}
-              values={priceRange}
-              onChange={(values) => setPriceRange(values as [number, number])}
-              renderTrack={({ props, children }) => (
-                <div
-                  {...props}
-                  className="h-1 w-full rounded"
-                  style={{
-                    ...props.style,
-                    background: getTrackBackground(),
-                  }}
-                >
-                  {children}
-                </div>
-              )}
-              renderThumb={({ props }) => (
-                <div
-                  {...props}
-                  className="h-4 w-4 rounded-full shadow-md"
-                  style={{
-                    ...props.style,
-                    backgroundColor: shopData.secondaryColor,
-                    border: `2px solid ${shopData.secondaryColor}`,
-                  }}
-                />
-              )}
+              values={localPriceRange}
+              onChange={(values) => setLocalPriceRange(values as [number, number])}
+              renderTrack={({ props, children }) => {
+                 
+                const { style, ...trackProps } = props;
+                return (
+                  <div
+                    {...trackProps}
+                    className="h-1 w-full rounded"
+                    style={{
+                      ...style,
+                      background: getTrackBackground(),
+                    }}
+                  >
+                    {children}
+                  </div>
+                );
+              }}
+              renderThumb={({ props }) => {
+                 
+                const { style, ...thumbProps } = props;
+                return (
+                  <div
+                    {...thumbProps}
+                    className="h-4 w-4 rounded-full shadow-md"
+                    style={{
+                      ...style,
+                      backgroundColor: shopData.secondaryColor,
+                      border: `2px solid ${shopData.secondaryColor}`,
+                    }}
+                  />
+                );
+              }}
             />
           </div>
           <div className="flex justify-between text-sm mt-2">
-            <span className="text-gray-700">Ksh {priceRange[0].toLocaleString()}</span>
-            <span className="text-gray-700">{priceRange[1].toLocaleString()}</span>
+            <span className="text-gray-700">Ksh {localPriceRange[0].toLocaleString()}</span>
+            <span className="text-gray-700">{localPriceRange[1].toLocaleString()}</span>
           </div>
           <button
-            onClick={() => onSetPriceRange(priceRange[0], priceRange[1])}
+            onClick={() => onSetPriceRange(localPriceRange[0], localPriceRange[1])}
             className="mt-2 text-sm px-3 py-1.5 rounded w-full transition-colors"
             style={{ backgroundColor: shopData.secondaryColor, color: "white" }}
           >

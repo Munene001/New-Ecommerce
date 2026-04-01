@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
           } else {
             throw new Error('Invalid reset token');
           }
-        } catch (err) {
+        } catch {
           setError("Failed to process reset link");
           setStep("request");
         } finally {
@@ -79,7 +79,7 @@ export default function ResetPasswordPage() {
       setEmail(email);
       setStep("email-sent");
       setSuccess(`Reset link sent to ${email}`);
-    } catch (err) {
+    } catch {
       setError("Failed to send reset email");
     } finally {
       setIsLoading(false);
@@ -106,8 +106,8 @@ export default function ResetPasswordPage() {
       
       setStep("success");
       setSuccess("Password reset successfully! You can now login.");
-    } catch (err: any) {
-      setError(err.message || "Failed to reset password");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset password");
     } finally {
       setIsLoading(false);
     }

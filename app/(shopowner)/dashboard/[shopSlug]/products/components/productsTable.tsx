@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BulkActions from "@/app/components/ui/bulkAction";
+import { Product } from "@/lib/types/product"; // Import shared type
 
 interface ProductsTableProps {
-  products: any[];
+  products: Product[]; // Use imported type
   loading: boolean;
   shopSlug: string;
   selectedProducts: number[];
@@ -17,6 +17,8 @@ interface ProductsTableProps {
   hasMore: boolean;
   onBulkDelete?: (productIds: number[]) => void;
 }
+
+// Remove the local Product interface - no longer needed
 
 // Skeleton row component
 const SkeletonRow = () => (
@@ -61,7 +63,6 @@ export default function ProductsTable({
   onBulkDelete,
 }: ProductsTableProps) {
   const router = useRouter();
-  const [showBulkActions, setShowBulkActions] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [actionValues, setActionValues] = useState<
     Record<number, string | number>
@@ -84,9 +85,8 @@ export default function ProductsTable({
     [loading, hasMore, loadMore]
   );
 
- 
-
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => { // Make optional
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -227,7 +227,6 @@ export default function ProductsTable({
                     <div className="font-medium text-gray-900">
                       {product.product_name}
                     </div>
-                   
                   </div>
 
                   <div className="w-[12%] pr-4">
@@ -239,7 +238,7 @@ export default function ProductsTable({
                   <div className="w-[12%] pr-4">
                     {product.discount_price ? (
                       <div className="text-[#0FA965] font-medium">
-                        ${product.discount_price}
+                        {product.discount_price}
                       </div>
                     ) : (
                       <div className="text-gray-400">—</div>

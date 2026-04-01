@@ -9,7 +9,6 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export default function ButtonCart({
   children,
-  variant = "primary",
   loading = false,
   className = "",
   disabled,
