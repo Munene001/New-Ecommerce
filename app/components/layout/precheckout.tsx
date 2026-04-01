@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useCart } from "@/context/shopCartContext";
 import { useRouter } from "next/navigation";
 import { useShop } from "@/app/(shop)/ShopContext";
@@ -24,6 +25,14 @@ interface ProductImageMap {
   [productId: number]: string;
 }
 
+interface CartItem {
+  product_id: number;
+  product_name: string;
+  price: number | string;
+  discount_price: number | string | null;
+  quantity: number;
+}
+
 export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalProps) {
   const { items, subtotal, totalItems, removeFromCart, updateQuantity } = useCart();
   const { shop } = useShop();
@@ -32,7 +41,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
   const [loadingImages, setLoadingImages] = useState<{ [key: number]: boolean }>({});
 
   // Helper function to safely get price as number
-  const getDisplayPrice = (item: any) => {
+  const getDisplayPrice = (item: CartItem) => {
     if (item.discount_price && !isNaN(Number(item.discount_price))) {
       return Number(item.discount_price);
     }
@@ -135,20 +144,22 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                 return (
                   <div key={item.product_id} className="flex gap-4 py-4 border-b last:border-0">
                     {/* Product Image */}
-                    <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
+                    <div className="relative w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                       {loadingImages[item.product_id] ? (
                         <div className="w-full h-full flex items-center justify-center">
                           <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                         </div>
                       ) : productImages[item.product_id] ? (
-                        <img
+                        <Image
                           src={productImages[item.product_id]}
                           alt={item.product_name}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.src = '/placeholder.jpg';
                           }}
+                          sizes="80px"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-50">

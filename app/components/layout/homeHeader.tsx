@@ -30,7 +30,7 @@ export default function HomeHeader() {
       <div className="flex items-center gap-4">
         {isAuthenticated ? (
           <>
-            <span className="text-white mr-4">Welcome, {user?.name}</span>
+            
             <Button
               onClick={handleLogout}
               variant="secondary"

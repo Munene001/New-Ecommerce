@@ -49,8 +49,8 @@ export function ShopProvider({
   initialShopData: ShopData;
 }) {
   const [shop, setShop] = useState<ShopData | null>(initialShopData);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading ] = useState(false);
+  const [error] = useState<string | null>(null);
 
   // Optional: Fetch updates if needed (e.g., every 5 minutes)
   useEffect(() => {

@@ -9,7 +9,7 @@ import {
   User,
   Heart,
   Building2,
-  ExternalLink
+  
 } from "lucide-react";
 import Link from "next/link";
 

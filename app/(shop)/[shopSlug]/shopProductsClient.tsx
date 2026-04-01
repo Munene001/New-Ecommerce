@@ -1,4 +1,3 @@
-// app/(shop)/[shopSlug]/ShopProductsClient.tsx
 "use client";
 
 import { useShopFilter } from "@/context/shopFilterContext";
@@ -8,16 +7,10 @@ import PageBar from "@/app/components/layout/pageBar";
 import { ListFilterPlus, X } from "lucide-react";
 import Button from "@/app/components/ui/button";
 import Filter from "./components/filter";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ActiveFilterChips from "./components/activeFiltersChip";
 import SearchBar from "@/app/components/ui/searchBar";
-
-type SortOption = "newest" | "oldest" | "price_low" | "price_high";
-interface PriceRange {
-  min: number;
-  max: number;
-}
 
 const ProductCardSkeleton = () => (
   <div className="w-full font-[Poppins] animate-pulse">
@@ -33,7 +26,6 @@ const ProductCardSkeleton = () => (
 );
 
 export default function ShopProductsClient() {
-  
   const { shop } = useShop();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,17 +50,32 @@ export default function ShopProductsClient() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const prevFiltersRef = useRef(activeFilters);
-
-  // Check for focusSearch param on mount
-  useEffect(() => {
-    if (searchParams.get("focusSearch") === "true") {
-      setShowMobileSearch(true);
-      // Remove the param from URL
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Handle focus search - use a callback ref pattern instead of effect
+  const handleSearchBarMount = useCallback((element: HTMLInputElement | null) => {
+    if (element && searchParams.get("focusSearch") === "true") {
+      element.focus();
+      // Clean up URL
       const params = new URLSearchParams(searchParams.toString());
       params.delete("focusSearch");
       router.replace(`?${params.toString()}`, { scroll: false });
     }
   }, [searchParams, router]);
+
+  // Show search bar when focusSearch param is present
+  useEffect(() => {
+    if (searchParams.get("focusSearch") === "true") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowMobileSearch(true);
+    }
+  }, [searchParams]);
+
+  // Combine refs - one for the callback, one for the actual ref
+  const setSearchInputRef = useCallback((element: HTMLInputElement | null) => {
+    searchInputRef.current = element;
+    handleSearchBarMount(element);
+  }, [handleSearchBarMount]);
 
   // Scroll to top of page when filters change
   useEffect(() => {
@@ -77,29 +84,25 @@ export default function ShopProductsClient() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [activeFilters]);
 
-  if (!shop) return null;
-
   // Handlers for the mobile search bar
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchInput(e.target.value);
   };
 
-  const handleSearchClear = () => {
+  const handleSearchClear = useCallback(() => {
     setSearchInput("");
-    setShowMobileSearch(false); // Hide the bar when cleared
-  };
+    setShowMobileSearch(false);
+  }, [setSearchInput]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Debounced effect handles actual search
   };
+
+  if (!shop) return null;
 
   return (
     <div>
-     
       <PageBar breadcrumb="Shop" itemCount={totalCount} />
-
-     
 
       {/* Mobile filter bar */}
       <div
@@ -107,17 +110,17 @@ export default function ShopProductsClient() {
         onClick={() => setIsFilterOpen(true)}
       >
         <div className="flex flex-row gap-2">
-         
-            <ListFilterPlus />
-          
+          <ListFilterPlus />
           <span className="md:text-[16px] text-[18px] font-semibold">
             Filter
           </span>
         </div>
       </div>
+      
       {showMobileSearch && (
         <div className="lg:hidden mb-4">
           <SearchBar
+            ref={setSearchInputRef}
             value={searchInput}
             onChange={handleSearchChange}
             onSubmit={handleSearchSubmit}
@@ -145,7 +148,7 @@ export default function ShopProductsClient() {
             >
               <X className="w-6 h-6" style={{ color: shop.secondaryColor }} />
             </button>
-            <div className="flex-1 overflow-y-auto  pb-6 ">
+            <div className="flex-1 overflow-y-auto pb-6">
               <Filter
                 shopData={shop}
                 activeFilters={activeFilters}
@@ -153,7 +156,6 @@ export default function ShopProductsClient() {
                 onSetPriceRange={setPriceRange}
                 onClearPriceRange={clearPriceRange}
                 onSetSortBy={setSortBy}
-                onClearFilters={clearFilters}
                 categories={shop.categories || []}
                 maxPrice={shop.maxPrice}
               />
@@ -175,15 +177,12 @@ export default function ShopProductsClient() {
               onClearPriceRange={clearPriceRange}
               onSetSortBy={setSortBy}
               maxPrice={shop.maxPrice}
-              onClearFilters={clearFilters}
               categories={shop.categories || []}
             />
           </aside>
 
           {/* Products area */}
           <div className="flex-1 min-w-0">
-            {/* Mobile Search Bar - only visible when toggled */}
-
             {/* Active Filters Chips Component */}
             <ActiveFilterChips
               activeFilters={activeFilters}

@@ -1,8 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
+  images: {
+    localPatterns: [
+      {
+        pathname: "/**",  // Matches any local path
+        // No search key = allows any query string
+      },
+    ],
+  },
 };
 
 export default nextConfig;

@@ -2,7 +2,7 @@
 
 import { Search, X, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, forwardRef } from "react";
 
 interface SearchBarProps {
   value: string;
@@ -16,7 +16,7 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export default function SearchBar({
+const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(({
   value,
   onChange,
   onSubmit,
@@ -26,10 +26,11 @@ export default function SearchBar({
   shopSlug,
   variant,
   placeholder = "Search products...",
-}: SearchBarProps) {
+}, ref) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalRef = useRef<HTMLInputElement>(null);
+  const inputRef = (ref as React.RefObject<HTMLInputElement>) || internalRef;
 
   // Auto-focus when coming from focusSearch param
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function SearchBar({
       const newUrl = `${window.location.pathname}?${params.toString()}`;
       router.replace(newUrl, { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, inputRef]);
 
   const handleFocus = () => {
     const homePath = `/${shopSlug}`;
@@ -63,10 +64,10 @@ export default function SearchBar({
             onChange={onChange}
             onFocus={handleFocus}
             placeholder={placeholder}
-            className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none  focus:ring-opacity-50 transition-all"
+            className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-opacity-50 transition-all"
             style={
               {
-              
+                focusRingColor: secondaryColor,
                 borderColor: secondaryColor,
               } as React.CSSProperties
             }
@@ -100,6 +101,12 @@ export default function SearchBar({
         onFocus={handleFocus}
         placeholder={placeholder}
         className="w-full pl-4 pr-12 py-4 border border-[var(--secondary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--secondary)]"
+        style={
+          {
+            borderColor: secondaryColor,
+            "--tw-ring-color": secondaryColor,
+          } as React.CSSProperties
+        }
       />
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
         {loading && <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />}
@@ -116,4 +123,8 @@ export default function SearchBar({
       </div>
     </form>
   );
-}
+});
+
+SearchBar.displayName = "SearchBar";
+
+export default SearchBar;

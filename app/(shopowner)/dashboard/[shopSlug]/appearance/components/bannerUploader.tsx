@@ -2,12 +2,22 @@
 
 import { useState, useRef } from "react";
 import { Icon } from "@iconify/react";
+import Image from "next/image";
 import Button from "@/app/components/ui/button";
 import InstructionsList from "@/app/components/ui/instructionList";
 
+// Define proper types
+interface Banner {
+  banner_id: number;
+  category_id?: number | string | null;
+  link_url?: string | null;
+  is_active?: number;
+  image_url?: string;
+}
+
 interface BannerUploaderProps {
   shopSlug: string;
-  onUploadSuccess: (banners: any[]) => void;
+  onUploadSuccess: (banners: Banner[]) => void;
   onCancel: () => void;
   showWarning: (message: string, type: "success" | "error") => void;
 }
@@ -50,7 +60,7 @@ export default function BannerUploader({
     }
 
     setUploading(true);
-    const uploadedBanners: any[] = [];
+    const uploadedBanners: Banner[] = [];
 
     for (const file of selectedFiles) {
       const formData = new FormData();
@@ -66,8 +76,9 @@ export default function BannerUploader({
         if (!res.ok) throw new Error(data.error);
         
         uploadedBanners.push(data);
-      } catch (error: any) {
-        showWarning(`Failed to upload ${file.name}: ${error.message}`, "error");
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "An error occurred";
+        showWarning(`Failed to upload ${file.name}: ${errorMessage}`, "error");
       }
     }
 
@@ -130,10 +141,12 @@ export default function BannerUploader({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {previews.map((preview, index) => (
               <div key={index} className="relative aspect-[9/9] bg-gray-100 rounded-lg overflow-hidden group">
-                <img
+                <Image
                   src={preview}
                   alt={`Preview ${index + 1}`}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 50vw, 25vw"
                 />
                 <button
                   onClick={() => removeFile(index)}

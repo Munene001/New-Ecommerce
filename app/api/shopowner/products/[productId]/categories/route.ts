@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
-async function verifyProductOwnership(productId: number, supabaseUserId: string) {
-  const [rows] = await pool.query(
+interface OwnerCheckRow extends RowDataPacket {
+  1: number;
+}
+
+interface CategoryRow extends RowDataPacket {
+  category_id: number;
+  category_name: string;
+}
+
+async function verifyProductOwnership(productId: number, supabaseUserId: string): Promise<boolean> {
+  const [rows] = await pool.query<OwnerCheckRow[]>(
     `SELECT 1
      FROM products p
      JOIN shops s ON p.shop_id = s.shop_id
@@ -13,7 +23,7 @@ async function verifyProductOwnership(productId: number, supabaseUserId: string)
      )`,
     [productId, supabaseUserId]
   );
-  return (rows as any[]).length > 0;
+  return rows.length > 0;
 }
 
 export async function GET(
@@ -40,7 +50,7 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const [rows] = await pool.query(
+    const [rows] = await pool.query<CategoryRow[]>(
       `SELECT 
         c.category_id,
         c.category_name
@@ -87,15 +97,16 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       'INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)',
       [productId, category_id]
     );
 
     return NextResponse.json({ success: true, category_id });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Add category error:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
+    const mysqlError = error as { code?: string };
+    if (mysqlError.code === 'ER_DUP_ENTRY') {
       return NextResponse.json(
         { error: 'Product already has this category' },
         { status: 409 }
@@ -135,7 +146,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       'DELETE FROM product_categories WHERE product_id = ? AND category_id = ?',
       [productId, categoryId]
     );

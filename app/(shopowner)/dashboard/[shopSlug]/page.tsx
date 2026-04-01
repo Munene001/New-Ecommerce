@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  CheckCircle,
   ExternalLink,
   ShoppingCart,
   CreditCard,
@@ -18,7 +17,7 @@ import ShareButton from "@/app/components/ui/shareButton";
 export default function Dashboard() {
   const params = useParams();
   const shopSlug = params?.shopSlug as string;
-  const [showShareTooltip, setShowShareTooltip] = useState(false);
+  const [] = useState(false);
 
   // Guard against undefined shopSlug
   if (!shopSlug) {
@@ -31,27 +30,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const handleShare = async () => {
-    const shareData = {
-      title: "My Shop",
-      text: "Check out my shop",
-      url: `https://thamanitech.com/shop/${shopSlug}`,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.log("Share cancelled");
-      }
-    } else {
-      // Fallback - copy to clipboard
-      navigator.clipboard.writeText(`https://thamanitech.com/shop/${shopSlug}`);
-      setShowShareTooltip(true);
-      setTimeout(() => setShowShareTooltip(false), 2000);
-    }
-  };
 
   const guides = [
     {

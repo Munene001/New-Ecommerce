@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import Modal from "@/app/components/ui/modal";
 
-export default function CustomerSignup() {
-  const router = useRouter();
+// Component that uses useSearchParams
+function CustomerSignupContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState<{
@@ -309,5 +309,30 @@ export default function CustomerSignup() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function CustomerSignup() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen text-white font-[Plus_Jakarta_Sans] flex flex-col justify-center items-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-primaryText mb-2">
+              Customer Signup
+            </h1>
+            <p className="text-three">Loading...</p>
+          </div>
+          <div className="space-y-6">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 bg-gray-700 animate-pulse rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    }>
+      <CustomerSignupContent />
+    </Suspense>
   );
 }

@@ -17,7 +17,7 @@ export default function RequestStep({
   setError 
 }: RequestStepProps) {
   const [email, setEmail] = useState("");
-  const hasFormValue = email.length > 0;
+  
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);

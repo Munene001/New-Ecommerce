@@ -101,7 +101,7 @@ export function useProductForm() {
       const fields = data.fields || [];
       setAttributeSchema(fields);
 
-      const initialAttributes: Record<string, any> = {};
+      const initialAttributes: Record<string, string | number | boolean | null> = {};
       fields.forEach((field: Attribute) => {
         if (field.type === "boolean") {
           initialAttributes[field.name] = false;
@@ -128,7 +128,10 @@ export function useProductForm() {
       const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
       const data = await res.json();
       setCategories(
-        data.map((c: any) => ({ id: c.category_id, name: c.category_name }))
+        data.map((c: { category_id: number; category_name: string }) => ({ 
+          id: c.category_id, 
+          name: c.category_name 
+        }))
       );
     } catch (error) {
       console.error("Failed to fetch categories:", error);
@@ -152,7 +155,7 @@ export function useProductForm() {
       }
     });
 
-    const initialAttributes: Record<string, any> = {};
+    const initialAttributes: Record<string, string | number | boolean | null> = {};
     attributeSchema.forEach((field: Attribute) => {
       if (field.type === "boolean") {
         initialAttributes[field.name] = false;
@@ -334,13 +337,14 @@ export function useProductForm() {
         message: "Product has been created successfully.",
       });
       resetForm();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Submit failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create product";
       setModalState({
         isOpen: true,
         type: "error",
         title: "Error",
-        message: error.message || "Failed to create product",
+        message: errorMessage,
       });
     } finally {
       setLoading(false);

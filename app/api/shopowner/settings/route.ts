@@ -2,9 +2,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
+interface ShopRow extends RowDataPacket {
+  shop_id: number;
+}
+
+interface OwnerCheckRow extends RowDataPacket {
+  1: number;
+}
+
+interface UpdateBody {
+  shopSlug: string;
+  shop_name?: string;
+  description?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  business_town?: string;
+  business_address?: string;
+  whatsapp_number?: string;
+}
 
 async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query(
+  const [rows] = await pool.query<OwnerCheckRow[]>(
     `SELECT 1
      FROM shops s
      JOIN tenant t ON s.tenant_id = t.tenant_id
@@ -12,7 +32,7 @@ async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise
      WHERE s.shop_id = ? AND u.supabase_uid = ?`,
     [shopId, supabaseUid]
   );
-  return (rows as any[]).length > 0;
+  return rows.length > 0;
 }
 
 export async function PUT(request: NextRequest) {
@@ -29,6 +49,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 2. Parse request body
+    const body: UpdateBody = await request.json();
     const { 
       shopSlug, 
       shop_name, 
@@ -38,7 +59,7 @@ export async function PUT(request: NextRequest) {
       business_town,
       business_address,
       whatsapp_number 
-    } = await request.json();
+    } = body;
 
     if (!shopSlug) {
       return NextResponse.json(
@@ -48,10 +69,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // 3. Get shop_id from slug
-    const [shopRows] = await pool.query(
+    const [shopRows] = await pool.query<ShopRow[]>(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
-    ) as any[];
+    );
     
     if (shopRows.length === 0) {
       return NextResponse.json(
@@ -73,7 +94,7 @@ export async function PUT(request: NextRequest) {
 
     // 5. Update shops table
     const updateFields: string[] = [];
-    const updateValues: any[] = [];
+    const updateValues: (string | number)[] = [];
 
     if (shop_name !== undefined) {
       updateFields.push('shop_name = ?');
@@ -107,7 +128,7 @@ export async function PUT(request: NextRequest) {
 
     if (updateFields.length > 0) {
       updateValues.push(shopId);
-      await pool.query(
+      await pool.query<ResultSetHeader>(
         `UPDATE shops SET ${updateFields.join(', ')} WHERE shop_id = ?`,
         updateValues
       );
@@ -115,7 +136,7 @@ export async function PUT(request: NextRequest) {
 
     // 6. Update shop_settings table (whatsapp_number)
     if (whatsapp_number !== undefined) {
-      await pool.query(
+      await pool.query<ResultSetHeader>(
         `UPDATE shop_settings SET whatsapp_number = ? WHERE shop_id = ?`,
         [whatsapp_number, shopId]
       );
@@ -126,10 +147,11 @@ export async function PUT(request: NextRequest) {
       message: 'Shop settings updated successfully'
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Update shop settings error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update shop settings';
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to update shop settings' },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }

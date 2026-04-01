@@ -4,15 +4,21 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
-import Button from "@/app/components/ui/button";
 import { useToast } from "@/context/toastContext";
 import SimpleToast from "@/app/components/ui/simpleToast";
-import InstructionsList from "@/app/components/ui/instructionList";
 import HeaderForm from "./components/headerForm";
 import ColorForm from "./components/colorForm";
 import BannerManager from "./components/bannerManager";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
 import LoadingFix from "@/app/components/layout/loadingFix";
+
+interface Banner {
+  banner_id: number;
+  category_id?: number | string | null;
+  link_url?: string | null;
+  is_active?: number;
+  image_url?: string;
+}
 
 export default function AppearancePage() {
   const params = useParams();
@@ -29,7 +35,7 @@ export default function AppearancePage() {
   const [secondaryColor, setSecondaryColor] = useState("#f54a00");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [banners, setBanners] = useState<any[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
 
   // Fetch current appearance settings
   useEffect(() => {
@@ -47,7 +53,7 @@ export default function AppearancePage() {
         if (bannerData.success) {
           setBanners(bannerData.banners);
         }
-      } catch (error) {
+      } catch {
         showToast("Failed to load appearance settings", "error");
       } finally {
         setLoading(false);
@@ -73,8 +79,9 @@ export default function AppearancePage() {
       if (!res.ok) throw new Error(result.error);
       showToast("Header settings updated!", "success");
       return true;
-    } catch (error: any) {
-      showToast(error.message, "error");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      showToast(errorMessage, "error");
       return false;
     } finally {
       setSubmitting(false);
@@ -93,8 +100,9 @@ export default function AppearancePage() {
       if (!res.ok) throw new Error(result.error);
       showToast("Color updated!", "success");
       return true;
-    } catch (error: any) {
-      showToast(error.message, "error");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      showToast(errorMessage, "error");
       return false;
     } finally {
       setSubmitting(false);
@@ -166,7 +174,7 @@ export default function AppearancePage() {
           Appearance
         </h1>
         <p className="text-gray-600 mt-2 font-[Poppins]">
-          Customize your shop's look and feel
+          Customize your shop&apos;s look and feel
         </p>
       </div>
 

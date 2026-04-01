@@ -5,8 +5,6 @@ import Button from '@/app/components/ui/button';
 import { useCart } from '@/context/shopCartContext';
 import { useShop } from "@/app/(shop)/ShopContext";
 
-
-
 interface Props {
   productId: number;
   productName: string;
@@ -15,6 +13,22 @@ interface Props {
   secondaryColor: string;
   maxQuantity?: number;
 }
+
+// Move CartIcon component outside of the main component
+interface CartIconProps {
+  cartIcon?: string;
+}
+
+const CartIcon = ({ cartIcon }: CartIconProps) => {
+  switch (cartIcon) {
+    case 'bag':
+      return <ShoppingBag className="w-6 h-6 mr-2" />;
+    case 'basket':
+      return <ShoppingBasket className="w-6 h-6 mr-2" />;
+    default:
+      return <ShoppingCart className="w-6 h-6 mr-2" />;
+  }
+};
 
 export default function MobileProductBar({
   productId,
@@ -28,18 +42,6 @@ export default function MobileProductBar({
   const cartItem = items.find(i => i.product_id === productId);
   const displayQuantity = cartItem ? cartItem.quantity : 1;
   const { shop } = useShop();
-
-const CartIcon = () => {
-  switch (shop?.cartIcon) {
-    case 'bag':
-      return <ShoppingBag className="w-6 h-6 mr-2" />;
-    case 'basket':
-      return <ShoppingBasket className="w-6 h-6 mr-2" />;
-    default:
-      return <ShoppingCart className="w-6 h-6 mr-2" />;
-  }
-};
-
 
   const handleIncrement = () => {
     if (cartItem) {
@@ -90,7 +92,7 @@ const CartIcon = () => {
         className="flex-1 flex flex-row gap-3 justify-center items-center text-white px-0 py-0 border-0"
         style={{ backgroundColor: secondaryColor }}
       >
-        <CartIcon />
+        <CartIcon cartIcon={shop?.cartIcon} />
         {cartItem ? 'Update Cart' : 'Add to Cart'}
       </Button>
     </div>

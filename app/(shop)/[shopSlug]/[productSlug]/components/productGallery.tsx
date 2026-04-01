@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { X } from "lucide-react";
+import Image from "next/image";
 
 interface ImageType {
   id: number;
@@ -15,25 +16,32 @@ interface Props {
   secondaryColor: string;
 }
 
-export default function ProductGallery({ productId, images, secondaryColor }: Props) {
+export default function ProductGallery({
+  productId,
+  images,
+  secondaryColor,
+}: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalImageId, setModalImageId] = useState<number | null>(null);
   const mainImageRef = useRef<HTMLImageElement>(null);
 
-  const imageUrl = (imageId: number, width = 800, quality = 80) =>
-    `/api/shopowner/products/${productId}/images/primary?imageId=${imageId}&w=${width}&q=${quality}`;
+  const imageUrl = useCallback(
+    (imageId: number, width = 800, quality = 80) =>
+      `/api/shopowner/products/${productId}/images/primary?imageId=${imageId}&w=${width}&q=${quality}`,
+    [productId],
+  );
 
-  // Preload images
+  // Preload images - using native browser Image constructor
   useEffect(() => {
-    images.forEach(img => {
-      const thumb = new Image();
+    images.forEach((img) => {
+      const thumb = new window.Image();
       thumb.src = imageUrl(img.id, 200);
-      const large = new Image();
+      const large = new window.Image();
       large.src = imageUrl(img.id, 800);
     });
-  }, [images, productId]);
+  }, [images, imageUrl]);
 
   // Check if current image is already loaded (cached)
   useEffect(() => {
@@ -43,39 +51,56 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
     // If already marked as loaded, do nothing
     if (loadedImages.has(currentImageId)) return;
 
-    // If the image element exists and is already complete, mark it as loaded
-    if (mainImageRef.current?.complete) {
-      setLoadedImages(prev => new Set(prev).add(currentImageId));
-    }
-  }, [currentIndex, images, loadedImages]);
-
-  const handleImageLoad = (imageId: number) => {
-    setLoadedImages(prev => new Set(prev).add(imageId));
-  };
-
-  const openModal = (imageId: number) => {
-    setModalImageId(imageId);
-    setIsModalOpen(true);
-    document.body.style.overflow = 'hidden';
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setModalImageId(null);
-    document.body.style.overflow = '';
-  };
-
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeModal();
+    // Use a ref to check if the image is already complete
+    const checkImageLoaded = () => {
+      if (mainImageRef.current?.complete && !loadedImages.has(currentImageId)) {
+        setLoadedImages((prev) => new Set(prev).add(currentImageId));
+      }
     };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+
+    // Check immediately
+    checkImageLoaded();
+
+    // Also set up load event listener
+    const img = mainImageRef.current;
+    if (img && !img.complete) {
+      const handleLoad = () => {
+        setLoadedImages((prev) => new Set(prev).add(currentImageId));
+      };
+      img.addEventListener("load", handleLoad);
+      return () => img.removeEventListener("load", handleLoad);
+    }
+  }, [currentIndex, images, loadedImages, imageUrl]);
+
+  const handleImageLoad = useCallback((imageId: number) => {
+    setLoadedImages((prev) => new Set(prev).add(imageId));
   }, []);
 
+  const openModal = useCallback((imageId: number) => {
+    setModalImageId(imageId);
+    setIsModalOpen(true);
+    document.body.style.overflow = "hidden";
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false);
+    setModalImageId(null);
+    document.body.style.overflow = "";
+  }, []);
+
+  // Handle ESC key for modal
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [closeModal]);
+
+  // Clean up body overflow on unmount
   useEffect(() => {
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     };
   }, []);
 
@@ -93,7 +118,7 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
     <>
       <div className="flex flex-col md:flex-row gap-4 min-w-[250px]">
         {/* Thumbnails */}
-        <div className="flex justify-center md:justify-start md:flex-col gap-2 order-2 md:order-1 overflow-x-auto md:overflow-visible ">
+        <div className="flex justify-center md:justify-start md:flex-col gap-2 order-2 md:order-1 overflow-x-auto md:overflow-visible">
           {images.map((img, idx) => (
             <button
               key={img.id}
@@ -101,8 +126,8 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
               onMouseEnter={() => setCurrentIndex(idx)}
               className={`flex-shrink-0 w-18 h-18 border rounded-md overflow-hidden transition-all ${
                 idx === currentIndex
-                  ? 'ring-1 ring-offset-1'
-                  : 'border-gray-200 hover:border-gray-400'
+                  ? "ring-1 ring-offset-1"
+                  : "border-gray-200 hover:border-gray-400"
               }`}
               style={
                 idx === currentIndex
@@ -113,13 +138,16 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
                   : { borderColor: undefined }
               }
             >
-              <img
+              <Image
                 src={imageUrl(img.id, 200)}
                 alt=""
                 className="w-full h-full object-cover"
+                width={200}
+                height={200}
                 loading="lazy"
                 onError={(e) => {
-                  e.currentTarget.src = '/placeholder.jpg';
+                  const target = e.currentTarget as HTMLImageElement;
+                  target.src = "/placeholder.jpg";
                 }}
               />
             </button>
@@ -134,16 +162,17 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
           {!loadedImages.has(currentImage.id) && (
             <div className="absolute inset-0 bg-gray-200 animate-pulse" />
           )}
-          <img
+          <Image
             ref={mainImageRef}
             src={imageUrl(currentImage.id, 800)}
             alt=""
-            className={`w-full h-full object-contain ${
-              loadedImages.has(currentImage.id) ? 'block' : 'hidden'
-            }`}
+            className="w-full h-full object-contain relative z-10"
+            width={800}
+            height={800}
             onLoad={() => handleImageLoad(currentImage.id)}
             onError={(e) => {
-              e.currentTarget.src = '/placeholder.jpg';
+              const target = e.currentTarget as HTMLImageElement;
+              target.src = "/placeholder.jpg";
               handleImageLoad(currentImage.id);
             }}
           />
@@ -156,11 +185,16 @@ export default function ProductGallery({ productId, images, secondaryColor }: Pr
           className="fixed inset-0 z-50 flex lg:items-center py-5 lg:py-0 justify-center bg-black bg-opacity-80"
           onClick={closeModal}
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <img
+          <div
+            className="relative max-w-[90vw] max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image
               src={imageUrl(modalImageId, 1200)}
               alt="Full size"
               className="max-w-full max-h-[90vh] object-contain"
+              width={1200}
+              height={1200}
             />
             <button
               onClick={closeModal}

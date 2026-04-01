@@ -1,17 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import Button from "@/app/components/ui/button";
 import FormField from "@/app/components/ui/formField";
 
+// Define proper types - make category_id more flexible to handle both string and number
+interface Banner {
+  banner_id: number;
+  category_id?: number | string | null;
+  link_url?: string | null;
+  is_active?: number;
+}
+
+interface Category {
+  category_id: number;
+  category_name: string;
+}
+
 interface BannerConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  banner: any;
+  banner: Banner | null;  // Allow banner to be null
   mode: "activate" | "edit";
-  categories: any[];
-  onSave: (bannerId: number, data: any) => Promise<void>;
+  categories: Category[];
+  onSave: (bannerId: number, data: { category_id?: string; link_url?: string }) => Promise<void>;
   showWarning: (message: string, type: "success" | "error") => void;
 }
 
@@ -28,21 +41,47 @@ export default function BannerConfigModal({
   const [categoryId, setCategoryId] = useState("");
   const [customUrl, setCustomUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const prevBannerIdRef = useRef<number | null>(null);
 
+  // Initialize state when banner changes - use a reducer-like pattern
   useEffect(() => {
-    if (banner) {
+    // Only initialize if we have a banner and it's different from the previous one
+    if (banner && prevBannerIdRef.current !== banner.banner_id) {
+      prevBannerIdRef.current = banner.banner_id;
+      
+      // Initialize form state based on banner data
       if (banner.category_id) {
         setLinkType("category");
         setCategoryId(banner.category_id.toString());
+        setCustomUrl(""); // Clear custom URL
       } else if (banner.link_url) {
         setLinkType("custom");
         setCustomUrl(banner.link_url);
+        setCategoryId(""); // Clear category selection
+      } else {
+        // Default state if no link data
+        setLinkType("category");
+        setCategoryId("");
+        setCustomUrl("");
       }
     }
   }, [banner]);
 
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset form state when modal closes
+      setLinkType("category");
+      setCategoryId("");
+      setCustomUrl("");
+      prevBannerIdRef.current = null;
+    }
+  }, [isOpen]);
+
   const handleSave = async () => {
-    const data: any = {};
+    if (!banner) return;
+    
+    const data: { category_id?: string; link_url?: string } = {};
 
     if (linkType === "category") {
       if (!categoryId) {
@@ -59,12 +98,24 @@ export default function BannerConfigModal({
     }
 
     setSaving(true);
-    await onSave(banner.banner_id, data);
-    setSaving(false);
-    onClose();
+    try {
+      await onSave(banner.banner_id, data);
+    } finally {
+      setSaving(false);
+      onClose();
+    }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !banner) return null;
+
+  // Handle FormField onChange which may pass either event or direct value
+  const handleCategoryChange = (value: string | number | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (typeof value === 'string' || typeof value === 'number') {
+      setCategoryId(value.toString());
+    } else if (value && typeof value === 'object' && 'target' in value) {
+      setCategoryId(value.target.value);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -119,9 +170,9 @@ export default function BannerConfigModal({
               label="Select Category"
               type="select"
               value={categoryId}
-              onChange={(e: any) => setCategoryId(e.target.value)}
+              onChange={handleCategoryChange}
               options={categories.map((c) => ({
-                id: c.category_id,
+                id: c.category_id.toString(),
                 name: c.category_name,
               }))}
               placeholder="Choose a category"

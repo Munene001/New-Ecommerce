@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Product } from '../types/product';
 
 type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high';
@@ -47,7 +47,6 @@ export function useShopProducts({
   initialInStock = false,
 }: UseShopProductsProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState(false);
@@ -95,24 +94,6 @@ export function useShopProducts({
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [filters, router]);
 
-  const buildQueryParams = (page: number) => {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: '20',
-    });
-
-    if (filters.search) params.append('search', filters.search);
-    if (filters.categories.length) params.append('categories', filters.categories.join(','));
-    if (filters.priceRange) {
-      params.append('minPrice', filters.priceRange.min.toString());
-      params.append('maxPrice', filters.priceRange.max.toString());
-    }
-    if (filters.sortBy) params.append('sortBy', filters.sortBy);
-    if (filters.inStock) params.append('inStock', 'true');
-
-    return params;
-  };
-
   const fetchProducts = useCallback(async (page: number, append: boolean = false) => {
     console.log('fetchProducts called, shopSlug:', shopSlug);
     
@@ -123,7 +104,20 @@ export function useShopProducts({
 
     setLoading(true);
     try {
-      const params = buildQueryParams(page);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+      });
+
+      if (filters.search) params.append('search', filters.search);
+      if (filters.categories.length) params.append('categories', filters.categories.join(','));
+      if (filters.priceRange) {
+        params.append('minPrice', filters.priceRange.min.toString());
+        params.append('maxPrice', filters.priceRange.max.toString());
+      }
+      if (filters.sortBy) params.append('sortBy', filters.sortBy);
+      if (filters.inStock) params.append('inStock', 'true');
+
       const url = `/api/shops/${shopSlug}/products?${params}`;
       console.log('Fetching URL:', url);
       const res = await fetch(url);

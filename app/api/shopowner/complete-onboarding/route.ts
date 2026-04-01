@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
+interface UserRow extends RowDataPacket {
+  user_id: number;
+  role: string;
+  email: string;
+  phone: string;
+}
+
+interface TenantRow extends RowDataPacket {
+  tenant_id: number;
+  business_name: string;
+  business_slug: string;
+  business_town: string;
+  business_address: string;
+}
+
+interface ShopInsertResult extends ResultSetHeader {
+  insertId: number;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,10 +33,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Get internal user_id from MySQL using Supabase user ID
-    const [userRows] = await pool.query(
+    const [userRows] = await pool.query<UserRow[]>(
       `SELECT user_id, role, email, phone FROM users WHERE supabase_uid = ?`,
       [user.id]
-    ) as any[];
+    );
     
     if (userRows.length === 0) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
@@ -39,12 +59,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Get tenant (including town and address)
-    const [tenantRows] = await pool.query(
+    const [tenantRows] = await pool.query<TenantRow[]>(
       `SELECT tenant_id, business_name, business_slug, business_town, business_address
        FROM tenant
        WHERE user_id = ?`,
       [userId]
-    ) as any[];
+    );
     
     if (tenantRows.length === 0) {
       return NextResponse.json({ success: false, error: 'Tenant not found' }, { status: 404 });
@@ -53,7 +73,7 @@ export async function POST(request: NextRequest) {
     const tenant = tenantRows[0];
 
     // 6. Create shop with contact info AND town/address from tenant
-    const [shopResult] = await pool.query(
+    const [shopResult] = await pool.query<ShopInsertResult>(
       `INSERT INTO shops (tenant_id, shop_name, shop_slug, shop_type, contact_email, contact_phone, business_town, business_address)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -66,13 +86,13 @@ export async function POST(request: NextRequest) {
         tenant.business_town,
         tenant.business_address
       ]
-    ) as any;
+    );
     
     const shopId = shopResult.insertId;
     const shopSlug = tenant.business_slug;
 
     // 7. Create shop settings with defaults and whatsapp from user
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       `INSERT INTO shop_settings 
        (shop_id, primary_color, secondary_color, whatsapp_number, product_card_style, cart_icon) 
        VALUES (?, '#000000', '#f54a00', ?, 'standard', 'cart')`,
@@ -86,10 +106,11 @@ export async function POST(request: NextRequest) {
       shopSlug,
       redirectTo: `/dashboard/${shopSlug}`,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Complete onboarding error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create shop';
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to create shop' },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }

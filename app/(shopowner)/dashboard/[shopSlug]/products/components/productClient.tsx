@@ -9,23 +9,24 @@ import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import SimpleToast from "@/app/components/ui/simpleToast";
-// ❌ Remove useAuth import - no longer needed
+
+
+interface Category {
+  category_id: number;
+  category_name: string;
+}
 
 interface ProductsClientProps {
-  initialProducts: any[];
   shopId: number;
   shopSlug: string;
   totalProducts: number;
   totalCategories: number;
   totalDiscounted: number;
   totalInstock: number;
-  categories: any[];
-  initialPage: number;
-  totalPages: number;
+  categories: Category[];
 }
 
 export default function ProductsClient({
-  initialProducts,
   shopId,
   shopSlug,
   totalProducts,
@@ -33,21 +34,16 @@ export default function ProductsClient({
   totalDiscounted,
   totalInstock,
   categories,
-  initialPage,
-  totalPages: initialTotalPages,
 }: ProductsClientProps) {
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [categorySelect, setCategorySelect] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [showBulkActions, setShowBulkActions] = useState(false);
-  // ❌ Remove token and isAuthenticated - no longer needed
   
   const messageRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ✅ Remove token parameter from useDashboardProducts
   const {
     products,
     loading,
@@ -56,18 +52,11 @@ export default function ProductsClient({
     searchProducts,
     filterByCategory,
     refreshProducts,
-    totalCount,
   } = useDashboardProducts(
     shopId.toString(),
-    totalProducts,  
-    undefined,               // initialTotalPages not needed
-    // ❌ Remove token parameter
+    totalProducts,
+    undefined,
   );
-
-  // Show bulk actions when products are selected
-  useEffect(() => {
-    setShowBulkActions(selectedProducts.length > 0);
-  }, [selectedProducts]);
 
   // Auto-hide message after 5 seconds
   useEffect(() => {
@@ -129,10 +118,6 @@ export default function ProductsClient({
     filterByCategory("");
   };
 
-  const handleBulkDeleteClick = () => {
-    // This will be handled by the modal in ProductsTable
-  };
-
   const handleBulkDelete = async (productIds: number[]) => {
     if (isDeleting) return;
     
@@ -144,7 +129,6 @@ export default function ProductsClient({
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          // ❌ Remove Authorization header - cookies are sent automatically
         },
         body: JSON.stringify({ productIds }),
       });
@@ -164,10 +148,11 @@ export default function ProductsClient({
           text: `Successfully deleted ${result.deletedCount} product(s)`
         });
       }
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete products';
       setMessage({
         type: 'error',
-        text: error.message || 'Failed to delete products'
+        text: errorMessage
       });
     } finally {
       setIsDeleting(false);

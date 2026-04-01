@@ -6,9 +6,30 @@ import path from 'path';
 import pool from '@/lib/db';
 import { randomUUID } from 'crypto';
 import sharp from 'sharp';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
+interface OwnerCheckRow extends RowDataPacket {
+  1: number;
+}
+
+interface ShopRow extends RowDataPacket {
+  shop_id: number;
+}
+
+interface CountRow extends RowDataPacket {
+  count: number;
+}
+
+interface BannerRow extends RowDataPacket {
+  banner_url: string;
+}
+
+interface BannerInsertResult extends ResultSetHeader {
+  insertId: number;
+}
 
 async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query(
+  const [rows] = await pool.query<OwnerCheckRow[]>(
     `SELECT 1
      FROM shops s
      JOIN tenant t ON s.tenant_id = t.tenant_id
@@ -16,7 +37,7 @@ async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise
      WHERE s.shop_id = ? AND u.supabase_uid = ?`,
     [shopId, supabaseUid]
   );
-  return (rows as any[]).length > 0;
+  return rows.length > 0;
 }
 
 // GET - Get all banners for a shop
@@ -37,10 +58,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get shop_id from slug
-    const [shopRows] = await pool.query(
+    const [shopRows] = await pool.query<ShopRow[]>(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
-    ) as any[];
+    );
     
     if (shopRows.length === 0) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
@@ -55,7 +76,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all banners for this shop (no date fields)
-    const [banners] = await pool.query(
+    const [banners] = await pool.query<RowDataPacket[]>(
       `SELECT 
         banner_id,
         banner_url,
@@ -95,10 +116,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get shop_id from slug
-    const [shopRows] = await pool.query(
+    const [shopRows] = await pool.query<ShopRow[]>(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
-    ) as any[];
+    );
     
     if (shopRows.length === 0) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
@@ -113,11 +134,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check banner count limit (max 6)
-    const [countRows] = await pool.query(
+    const [countRows] = await pool.query<CountRow[]>(
       'SELECT COUNT(*) as count FROM shop_banners WHERE shop_id = ?',
       [shopId]
     );
-    if ((countRows as any[])[0].count >= 6) {
+    if (countRows[0].count >= 6) {
       return NextResponse.json({ error: 'Maximum 6 banners per shop' }, { status: 400 });
     }
 
@@ -162,7 +183,7 @@ export async function POST(request: NextRequest) {
     await writeFile(fullPath, compressed);
 
     // Insert banner record (no date fields)
-    const [result] = await pool.query(
+    const [result] = await pool.query<BannerInsertResult>(
       `INSERT INTO shop_banners 
        (shop_id, banner_url, link_url, category_id, is_active) 
        VALUES (?, ?, ?, ?, 0)`,
@@ -174,7 +195,7 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    const bannerId = (result as any).insertId;
+    const bannerId = result.insertId;
 
     return NextResponse.json({
       success: true,
@@ -212,10 +233,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get shop_id from slug
-    const [shopRows] = await pool.query(
+    const [shopRows] = await pool.query<ShopRow[]>(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
-    ) as any[];
+    );
     
     if (shopRows.length === 0) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
@@ -231,11 +252,11 @@ export async function PUT(request: NextRequest) {
 
     // If activating, deactivate all other banners first
     if (activate === true) {
-      await pool.query(
+      await pool.query<ResultSetHeader>(
         'UPDATE shop_banners SET is_active = 0 WHERE shop_id = ?',
         [shopId]
       );
-      await pool.query(
+      await pool.query<ResultSetHeader>(
         `UPDATE shop_banners SET is_active = 1, link_url = ?, category_id = ? 
          WHERE banner_id = ? AND shop_id = ?`,
         [link_url || null, category_id || null, banner_id, shopId]
@@ -243,7 +264,7 @@ export async function PUT(request: NextRequest) {
     } else {
       // Update banner fields only (no activation)
       const updateFields: string[] = [];
-      const updateValues: any[] = [];
+      const updateValues: (string | number | null)[] = [];
 
       if (link_url !== undefined) {
         updateFields.push('link_url = ?');
@@ -256,7 +277,7 @@ export async function PUT(request: NextRequest) {
 
       if (updateFields.length > 0) {
         updateValues.push(banner_id, shopId);
-        await pool.query(
+        await pool.query<ResultSetHeader>(
           `UPDATE shop_banners SET ${updateFields.join(', ')} WHERE banner_id = ? AND shop_id = ?`,
           updateValues
         );
@@ -293,10 +314,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get shop_id from slug
-    const [shopRows] = await pool.query(
+    const [shopRows] = await pool.query<ShopRow[]>(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
-    ) as any[];
+    );
     
     if (shopRows.length === 0) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
@@ -311,10 +332,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get banner URL before deleting
-    const [bannerRows] = await pool.query(
+    const [bannerRows] = await pool.query<BannerRow[]>(
       'SELECT banner_url FROM shop_banners WHERE banner_id = ? AND shop_id = ?',
       [banner_id, shopId]
-    ) as any[];
+    );
 
     if (bannerRows.length === 0) {
       return NextResponse.json({ error: 'Banner not found' }, { status: 404 });
@@ -324,7 +345,7 @@ export async function DELETE(request: NextRequest) {
     const fullPath = path.join('/home/munene/storage/originals', bannerUrl);
 
     // Delete from database
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       'DELETE FROM shop_banners WHERE banner_id = ? AND shop_id = ?',
       [banner_id, shopId]
     );
@@ -332,7 +353,7 @@ export async function DELETE(request: NextRequest) {
     // Delete file from storage
     try {
       await unlink(fullPath);
-    } catch (err) {
+    } catch {
       console.log('File already deleted or not found:', bannerUrl);
     }
 

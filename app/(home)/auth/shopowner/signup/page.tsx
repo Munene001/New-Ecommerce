@@ -2,13 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import Modal from "@/app/components/ui/modal";
 
 export default function ShopOwnerSignup() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState<{
     isOpen: boolean;

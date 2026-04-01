@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import {  useRef } from "react";
 import { Icon } from "@iconify/react";
 import Image from "next/image";
 import { ProductImage } from "../types";
@@ -19,26 +19,22 @@ export default function ImagesForm({
 }: ImagesFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const additionalInputRef = useRef<HTMLInputElement>(null);
-  const [localError, setLocalError] = useState<string | null>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
 
   const validateFileSize = (file: File): boolean => {
     if (file.size > MAX_FILE_SIZE) {
       const errorMsg = `Image "${file.name}" exceeds 5MB limit. Please choose a smaller file.`;
-      setLocalError(errorMsg);
       if (onError) onError(errorMsg);
 
       // Clear error after 5 seconds
-      setTimeout(() => setLocalError(null), 5000);
+      setTimeout(() => onError?.(""), 5000);
       return false;
     }
     return true;
   };
 
   const handlePrimaryImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalError(null);
-
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
@@ -58,8 +54,6 @@ export default function ImagesForm({
   };
 
   const handleAdditionalImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalError(null);
-
     if (e.target.files) {
       const newImages: ProductImage[] = [];
       const remainingSlots = 6 - images.length;
@@ -70,9 +64,8 @@ export default function ImagesForm({
         const errorMsg = `You can only add ${remainingSlots} more image${
           remainingSlots !== 1 ? "s" : ""
         }.`;
-        setLocalError(errorMsg);
         if (onError) onError(errorMsg);
-        setTimeout(() => setLocalError(null), 5000);
+        setTimeout(() => onError?.(""), 5000);
         e.target.value = "";
         return;
       }
@@ -86,9 +79,8 @@ export default function ImagesForm({
         } ${fileNames} exceed${
           invalidFiles.length === 1 ? "s" : ""
         } 5MB limit.`;
-        setLocalError(errorMsg);
         if (onError) onError(errorMsg);
-        setTimeout(() => setLocalError(null), 5000);
+        setTimeout(() => onError?.(""), 5000);
         e.target.value = "";
         return;
       }
@@ -109,7 +101,7 @@ export default function ImagesForm({
     URL.revokeObjectURL(newImages[index].preview);
     newImages.splice(index, 1);
     setImages(newImages);
-    setLocalError(null); // Clear any errors when removing
+    if (onError) onError(""); // Clear any errors when removing
   };
 
   const setAsPrimary = (index: number) => {

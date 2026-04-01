@@ -4,6 +4,7 @@ import { useRecentlyViewed } from '@/context/recentlyViewed';
 import { useShop } from '@/app/(shop)/ShopContext';
 import Link from 'next/link';
 import useEmblaCarousel from 'embla-carousel-react';
+import Image from 'next/image';
 
 interface Props {
   currentProductId: number;
@@ -35,11 +36,14 @@ export default function RecentlyViewed({ currentProductId, secondaryColor, varia
             href={`/${shop?.shopSlug}/${item.product_slug}`}
             className="flex items-center gap-2 p-1 hover:bg-gray-50 rounded transition"
           >
-            <img
+            <Image
               src={`/api/shopowner/products/${item.product_id}/images/primary?w=200`}
               alt={item.product_name}
               className="w-10 h-10 object-cover rounded"
               onError={(e) => (e.currentTarget.src = '/placeholder.jpg')}
+              width={10}
+              height={10}
+              
             />
             <span className="text-xs line-clamp-2">{item.product_name}</span>
           </Link>
@@ -63,11 +67,13 @@ export default function RecentlyViewed({ currentProductId, secondaryColor, varia
               className="flex-shrink-0 w-36 md:w-44"
             >
               <div className="bg-white rounded-lg border hover:shadow transition p-2">
-                <img
+                <Image
                   src={`/api/shopowner/products/${item.product_id}/images/primary?w=200`}
                   alt={item.product_name}
                   className="w-full h-32 object-cover rounded"
                   onError={(e) => (e.currentTarget.src = '/placeholder.jpg')}
+                  width={100}
+                  height={32}
                 />
                 <p className="text-sm font-medium mt-2 line-clamp-2">{item.product_name}</p>
                 <div className="flex items-center gap-1 mt-1">

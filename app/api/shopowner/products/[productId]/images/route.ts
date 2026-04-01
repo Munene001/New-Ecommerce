@@ -5,6 +5,19 @@ import path from 'path';
 import pool from '@/lib/db';
 import { randomUUID } from 'crypto';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
+interface ProductCheckRow extends RowDataPacket {
+  product_id: number;
+}
+
+interface CountRow extends RowDataPacket {
+  count: number;
+}
+
+interface ImageInsertResult extends ResultSetHeader {
+  insertId: number;
+}
 
 export async function POST(
   req: NextRequest,
@@ -26,7 +39,7 @@ export async function POST(
 
   try {
     // Verify product ownership using user.id from Supabase
-    const [productRows] = await pool.query(
+    const [productRows] = await pool.query<ProductCheckRow[]>(
       `SELECT p.product_id
        FROM products p
        JOIN shops s ON p.shop_id = s.shop_id
@@ -37,7 +50,7 @@ export async function POST(
       [productId, user.id]
     );
     
-    if ((productRows as any[]).length === 0) {
+    if (productRows.length === 0) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -56,11 +69,11 @@ export async function POST(
       return NextResponse.json({ error: 'Image too large. Max 5MB.' }, { status: 400 });
     }
 
-    const [countRows] = await pool.query(
+    const [countRows] = await pool.query<CountRow[]>(
       'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
       [productId]
     );
-    if ((countRows as any[])[0].count >= 6) {
+    if (countRows[0].count >= 6) {
       return NextResponse.json({ error: 'Maximum 6 images per product' }, { status: 400 });
     }
 
@@ -98,19 +111,19 @@ export async function POST(
     await writeFile(fullPath, compressed);
 
     if (isPrimary) {
-      await pool.query(
+      await pool.query<ResultSetHeader>(
         'UPDATE product_images SET is_primary = FALSE WHERE product_id = ?',
         [productId]
       );
     }
 
-    const [result] = await pool.query(
+    const [result] = await pool.query<ImageInsertResult>(
       `INSERT INTO product_images (product_id, image_path, is_primary) 
        VALUES (?, ?, ?)`,
       [productId, relativePath, isPrimary]
     );
 
-    const imageId = (result as any).insertId;
+    const imageId = result.insertId;
 
     return NextResponse.json({
       success: true,

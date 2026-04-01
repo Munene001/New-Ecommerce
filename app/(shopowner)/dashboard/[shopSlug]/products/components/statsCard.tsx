@@ -16,7 +16,7 @@ export default function StatsCards({
   totalCategories, 
   totalDiscounted, 
   totalInstock,
-  currentShown 
+  
 }: StatsCardsProps) {
   
   const statsData = [

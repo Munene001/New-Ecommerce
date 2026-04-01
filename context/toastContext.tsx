@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import SimpleToast from "@/app/components/ui/simpleToast";
 
@@ -28,10 +28,14 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  // For portal
+  // For portal - this is a valid use case for setState in useEffect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    return () => setMounted(false);
+    return () => {
+       
+      setMounted(false);
+    };
   }, []);
 
   const showToast = useCallback((text: string, type: ToastType = 'success') => {

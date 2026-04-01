@@ -70,8 +70,8 @@ export default function CategoryComponent({
         name: categoryName.trim(),
       });
       setCategoryName("");
-    } catch (err: any) {
-      const errorMsg = err.message;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to create category";
       setError(errorMsg);
       onCategoryError?.(errorMsg);
     } finally {

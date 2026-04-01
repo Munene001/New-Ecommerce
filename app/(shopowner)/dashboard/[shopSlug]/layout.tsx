@@ -1,15 +1,12 @@
-"use client"
+"use client";
 import BaseLeftMenu from "@/app/components/layout/leftNav";
 import DashHeader from "@/app/components/layout/dashHeader";
 import { useParams } from "next/navigation";
 import { ShopProvider } from "../../shopownerContext";
-import { ToastProvider } from "@/context/toastContext"; // Add this import
+import { ToastProvider } from "@/context/toastContext";
 import * as React from 'react'
-import { useState, useEffect } from 'react'
-import { Menu, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname } from "next/navigation";
-
-
 
 export default function DashboardLayout({
   children,
@@ -20,18 +17,19 @@ export default function DashboardLayout({
   const shopSlug = params?.shopSlug as string;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const previousParamsRef = useRef(params);
 
   const pathname = usePathname();
-const getPageTitle = (path: string) => {
-  if (path.includes('/products')) return 'Products';
-  if (path.includes('/payments')) return 'Payments';
-  if (path.includes('/sales')) return 'Sales & Analytics';
-  if (path.includes('/appearance')) return 'Appearance';
-  if (path.includes('/settings')) return 'Settings';
-  return 'Dashboard';
-};
+  const getPageTitle = (path: string) => {
+    if (path.includes('/products')) return 'Products';
+    if (path.includes('/payments')) return 'Payments';
+    if (path.includes('/sales')) return 'Sales & Analytics';
+    if (path.includes('/appearance')) return 'Appearance';
+    if (path.includes('/settings')) return 'Settings';
+    return 'Dashboard';
+  };
 
-const pageTitle = getPageTitle(pathname);
+  const pageTitle = getPageTitle(pathname);
 
   // Check if mobile on mount and when window resizes
   useEffect(() => {
@@ -45,6 +43,15 @@ const pageTitle = getPageTitle(pathname);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Close mobile menu when route changes
+  useEffect(() => {
+    if (previousParamsRef.current !== params) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsMobileMenuOpen(false);
+      previousParamsRef.current = params;
+    }
+  }, [params]);
+
   // Close mobile menu when clicking outside or on navigation
   const handleMenuClick = (bool: boolean) => {
     console.log("Menu clicked:", bool);
@@ -52,11 +59,6 @@ const pageTitle = getPageTitle(pathname);
       setIsMobileMenuOpen(false);
     }
   };
-
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [params]);
 
   return (
     <ShopProvider shopSlug={shopSlug}>

@@ -21,17 +21,17 @@ export default function ColorForm({
   const [localColor, setLocalColor] = useState(secondaryColor);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const handleColorChange = (e: React.ChangeEvent<any> | string | number) => {
-    if (typeof e === "string" || typeof e === "number") {
-      setLocalColor(String(e));
-      setHasChanges(true);
-      return;
-    }
-    if (e && typeof e === "object" && "target" in e) {
-      setLocalColor(e.target.value);
-      setHasChanges(true);
-    }
-  };
+ const handleColorChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
+  if (typeof e === "string" || typeof e === "number") {
+    setLocalColor(String(e));
+    setHasChanges(true);
+    return;
+  }
+  if (e && typeof e === "object" && "target" in e) {
+    setLocalColor(e.target.value);
+    setHasChanges(true);
+  }
+};
 
   const handleSave = async () => {
     const success = await onSubmit({ secondary_color: localColor });

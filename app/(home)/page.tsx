@@ -1,11 +1,12 @@
 "use client"
 
-import Link from "next/link";
+
 import Button from "../components/ui/button";
 import { MoveRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import Phase2 from "./components/phase2";
+import Image from "next/image";
 
 export default function Home() {
   const router = useRouter();
@@ -43,10 +44,12 @@ export default function Home() {
         </div>
 
         <div className="md:flex md:flex-row hidden justify-center gap-4">
-          <img
+          <Image
             src="/assets/Home/s-left.webp"
             alt="sample app"
             className="md:h-[70vh] h-[20vh] animate-glide-in"
+            width={100}
+            height={70}
           />
         </div>
       </div>

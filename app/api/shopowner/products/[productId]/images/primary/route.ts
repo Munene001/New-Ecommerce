@@ -3,6 +3,18 @@ import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import path from 'path';
 import pool from '@/lib/db';
+import { RowDataPacket } from 'mysql2';
+
+interface ImageRow extends RowDataPacket {
+  image_path: string;
+}
+
+interface ImageMetadataRow extends RowDataPacket {
+  image_id: number;
+  image_path: string;
+  is_primary: number;
+  created_at: Date;
+}
 
 export async function GET(
   req: NextRequest,
@@ -12,76 +24,91 @@ export async function GET(
 
   try {
     if (!/^\d+$/.test(productId)) {
-      return new NextResponse('Invalid product ID', { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid product ID' },
+        { status: 400 }
+      );
     }
 
     const { searchParams } = new URL(req.url);
     const width = parseInt(searchParams.get('w') || '600');
     const quality = parseInt(searchParams.get('q') || '80');
-    const mode = searchParams.get('mode'); // 'primary' or 'all' (optional)
-    const imageId = searchParams.get('imageId'); // fetch a specific image
+    const mode = searchParams.get('mode');
+    const imageId = searchParams.get('imageId');
 
     const allowedWidths = [200, 300, 800, 1200];
     if (!allowedWidths.includes(width)) {
-      return new NextResponse('Invalid width. Use 200, 300, 800, or 1200', { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid width. Use 200, 300, 800, or 1200' },
+        { status: 400 }
+      );
     }
+
+    // Helper function to return image response
+    const createImageResponse = (buffer: Buffer) => {
+      return new NextResponse(buffer as any, {
+        headers: {
+          'Content-Type': 'image/webp',
+          'Cache-Control': 'public, max-age=86400, immutable',
+        },
+      });
+    };
 
     // ----- Case 1: Specific image requested by imageId -----
     if (imageId) {
       if (!/^\d+$/.test(imageId)) {
-        return new NextResponse('Invalid image ID', { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid image ID' },
+          { status: 400 }
+        );
       }
 
-      const [imageRows] = await pool.query(
+      const [imageRows] = await pool.query<ImageRow[]>(
         'SELECT image_path FROM product_images WHERE image_id = ? AND product_id = ?',
         [imageId, productId]
       );
 
-      if (!imageRows || (imageRows as any[]).length === 0) {
-        return new NextResponse('Image not found', { status: 404 });
+      if (!imageRows || imageRows.length === 0) {
+        return NextResponse.json(
+          { error: 'Image not found' },
+          { status: 404 }
+        );
       }
 
-      const imagePath = (imageRows as any[])[0].image_path;
+      const imagePath = imageRows[0].image_path;
       const fullPath = path.join('/home/munene/storage/originals', imagePath);
 
       try {
         await fs.access(fullPath);
       } catch {
-        return new NextResponse('Image file not found', { status: 404 });
+        return NextResponse.json(
+          { error: 'Image file not found' },
+          { status: 404 }
+        );
       }
 
       const imageBuffer = await fs.readFile(fullPath);
 
       // Serve original if width >= 1200
       if (width >= 1200) {
-        return new NextResponse(imageBuffer, {
-          headers: {
-            'Content-Type': 'image/webp',
-            'Cache-Control': 'public, max-age=86400, immutable'
-          }
-        });
+        return createImageResponse(imageBuffer);
       }
 
       // Resize and convert to WebP
       const resizedBuffer = await sharp(imageBuffer)
         .resize(width, null, {
           fit: 'cover',
-          withoutEnlargement: true
+          withoutEnlargement: true,
         })
         .webp({ quality })
         .toBuffer();
 
-      return new NextResponse(resizedBuffer, {
-        headers: {
-          'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=86400, immutable'
-        }
-      });
+      return createImageResponse(resizedBuffer);
     }
 
     // ----- Case 2: Return metadata for all images (mode=all) -----
     if (mode === 'all') {
-      const [imageRows] = await pool.query(
+      const [imageRows] = await pool.query<ImageMetadataRow[]>(
         `SELECT 
           image_id,
           image_path,
@@ -97,52 +124,51 @@ export async function GET(
     }
 
     // ----- Case 3: Default – return primary image -----
-    const [imageRows] = await pool.query(
+    const [imageRows] = await pool.query<ImageRow[]>(
       'SELECT image_path FROM product_images WHERE product_id = ? AND is_primary = 1 LIMIT 1',
       [productId]
     );
 
-    if (!imageRows || (imageRows as any[]).length === 0) {
-      return new NextResponse('Primary image not found', { status: 404 });
+    if (!imageRows || imageRows.length === 0) {
+      return NextResponse.json(
+        { error: 'Primary image not found' },
+        { status: 404 }
+      );
     }
 
-    const imagePath = (imageRows as any[])[0].image_path;
+    const imagePath = imageRows[0].image_path;
     const fullPath = path.join('/home/munene/storage/originals', imagePath);
 
     try {
       await fs.access(fullPath);
     } catch {
-      return new NextResponse('Image file not found', { status: 404 });
+      return NextResponse.json(
+        { error: 'Image file not found' },
+        { status: 404 }
+      );
     }
 
     const imageBuffer = await fs.readFile(fullPath);
 
     if (width >= 1200) {
-      return new NextResponse(imageBuffer, {
-        headers: {
-          'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=86400, immutable'
-        }
-      });
+      return createImageResponse(imageBuffer);
     }
 
     const resizedBuffer = await sharp(imageBuffer)
       .resize(width, null, {
         fit: 'cover',
-        withoutEnlargement: true
+        withoutEnlargement: true,
       })
       .webp({ quality })
       .toBuffer();
 
-    return new NextResponse(resizedBuffer, {
-      headers: {
-        'Content-Type': 'image/webp',
-        'Cache-Control': 'public, max-age=86400, immutable'
-      }
-    });
+    return createImageResponse(resizedBuffer);
 
   } catch (error) {
     console.error('Serve error:', error);
-    return new NextResponse('Error processing image', { status: 500 });
+    return NextResponse.json(
+      { error: 'Error processing image' },
+      { status: 500 }
+    );
   }
 }

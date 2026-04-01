@@ -20,8 +20,6 @@ export default function NewPasswordStep({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState("");
-
-  const hasFormValue = newPassword.length > 0 || confirmPassword.length > 0;
   const hasError = Boolean(error || localError);
 
   const handleNewPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {

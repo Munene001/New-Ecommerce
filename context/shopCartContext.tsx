@@ -1,7 +1,7 @@
 // context/shopCartContext.tsx
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from "./toastContext";
 
@@ -38,6 +38,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const storageKey = shopId ? `cart-${shopId}` : null;
 
   const [items, setItems] = useState<CartItem[]>([]);
+  const hasLoadedRef = useRef(false);
 
   // Helper to safely show toast after render
   const safeShowToast = (message: string, type: 'success' | 'error') => {
@@ -46,22 +47,29 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  // Load cart from localStorage only once when storageKey is available
   useEffect(() => {
-    if (!storageKey) return;
+    if (!storageKey || hasLoadedRef.current) return;
+    
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
-        setItems(JSON.parse(stored));
+        const parsedItems = JSON.parse(stored);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setItems(parsedItems);
+        hasLoadedRef.current = true;
       } catch (e) {
         console.error("Failed to parse cart", e);
       }
     } else {
+       
       setItems([]);
+      hasLoadedRef.current = true;
     }
   }, [storageKey]);
 
   useEffect(() => {
-    if (!storageKey) return;
+    if (!storageKey || !hasLoadedRef.current) return;
     localStorage.setItem(storageKey, JSON.stringify(items));
   }, [items, storageKey]);
 

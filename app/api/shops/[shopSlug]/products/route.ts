@@ -1,5 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { RowDataPacket, } from 'mysql2';
+
+interface ShopRow extends RowDataPacket {
+  shop_id: number;
+}
+
+interface CountResult extends RowDataPacket {
+  total: number;
+}
+
+interface ProductImage {
+  image_id: number;
+  image_path: string;
+  is_primary: boolean;
+}
+
+interface ProductRow extends RowDataPacket {
+  product_id: number;
+  product_name: string;
+  product_slug: string;
+  price: number;
+  discount_price: number | null;
+  in_stock: number;
+  created_at: Date;
+  images: string | ProductImage[] | null;
+}
 
 export async function GET(
   req: NextRequest,
@@ -21,18 +47,18 @@ export async function GET(
 
   try {
     // First get shop_id from slug
-    const [shopRows] = await pool.query(
+    const [shopRows] = await pool.query<ShopRow[]>(
       'SELECT shop_id FROM shops WHERE shop_slug = ?',
       [shopSlug]
     );
-    if ((shopRows as any[]).length === 0) {
+    if (shopRows.length === 0) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
     }
-    const shopId = (shopRows as any[])[0].shop_id;
+    const shopId = shopRows[0].shop_id;
 
     // Build WHERE clause
     let whereClause = 'WHERE p.shop_id = ?';
-    const queryParams: any[] = [shopId];
+    const queryParams: (string | number)[] = [shopId];
 
     if (search) {
       const searchTerm = `%${search}%`;
@@ -84,14 +110,14 @@ export async function GET(
     }
 
     // Count total
-    const [countResult] = await pool.query(
+    const [countResult] = await pool.query<CountResult[]>(
       `SELECT COUNT(*) as total FROM products p ${whereClause}`,
       queryParams
     );
-    const totalCount = (countResult as any[])[0].total;
+    const totalCount = countResult[0].total;
 
     // Fetch products
-    const [products] = await pool.query(
+    const [products] = await pool.query<ProductRow[]>(
       `SELECT 
         p.product_id,
         p.product_name,
