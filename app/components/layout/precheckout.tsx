@@ -95,14 +95,14 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
       
       {/* Drawer from right */}
       <div 
-        className="fixed top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-white shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
+        className="fixed  b top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-gray-50 shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-5 border-b bg-white sticky top-0 z-10">
+        <div className="flex bg-gray-50 justify-between items-center p-5 border-b sticky top-0 z-10">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="w-9 h-9 text-gray-600" />
+            <ShoppingBag className="w-9 h-9 text-black" />
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-black">
                 Your Cart
               </h2>
               <p className="text-sm text-gray-500">
@@ -142,9 +142,9 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                 const hasDiscount = item.discount_price && !isNaN(Number(item.discount_price));
                 
                 return (
-                  <div key={item.product_id} className="flex gap-4 py-4 border-b last:border-0">
+                  <div key={item.product_id} className="flex gap-4 py-4 border-b-black ">
                     {/* Product Image */}
-                    <div className="relative w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
+                    <div className="relative w-20 h-20  bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                       {loadingImages[item.product_id] ? (
                         <div className="w-full h-full flex items-center justify-center">
                           <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
@@ -233,7 +233,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
 
         {/* Fixed Footer with Total and Buttons */}
         {items.length > 0 && (
-          <div className="border-t bg-white sticky bottom-0">
+          <div className="border-t bg-gray-50 sticky bottom-0">
             {/* Total Section */}
             <div className="p-5 border-b bg-gray-50">
               <div className="flex justify-between items-center">
@@ -245,7 +245,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
             </div>
             
             {/* Buttons Section */}
-            <div className="p-5 bg-white">
+            <div className="p-5 bg-gray-50">
               <button
                 onClick={handleContinue}
                 className="w-full py-3 text-white rounded-lg hover:opacity-90 transition-opacity font-medium flex items-center justify-center gap-2"

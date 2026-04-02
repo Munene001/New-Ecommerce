@@ -73,7 +73,7 @@ export default async function ProductPage({ params }: PageProps) {
   // 1. Fetch shop data (includes secondaryColor and shopType)
   const shopApiUrl = new URL(
     `/api/shops/${shopSlug}`,
-    process.env.NEXTAUTH_URL || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
   );
   const shopRes = await fetch(shopApiUrl.toString(), {
     next: { revalidate: 60 },
