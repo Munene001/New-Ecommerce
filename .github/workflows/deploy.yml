@@ -9,48 +9,35 @@ jobs:
     if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v0.1.5
         with:
-          node-version: '20'
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - run: pnpm install
-      - run: pnpm build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      
-      - name: Copy build to staging server
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          scp -o StrictHostKeyChecking=no -r .next munene@${{ secrets.SERVER_HOST }}:~/staging/
-          ssh -o StrictHostKeyChecking=no munene@${{ secrets.SERVER_HOST }} "cd ~/staging && pnpm install --prod && pm2 restart pazia-staging"
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/staging
+            git pull origin dev
+            pnpm install
+            pnpm build
+            pm2 restart pazia-staging
 
   deploy-production:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v0.1.5
         with:
-          node-version: '20'
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - run: pnpm install
-      - run: pnpm build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      
-      - name: Copy build to production server
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          scp -o StrictHostKeyChecking=no -r .next munene@${{ secrets.SERVER_HOST }}:~/production/
-          ssh -o StrictHostKeyChecking=no munene@${{ secrets.SERVER_HOST }} "mysqldump -u munene -p'${{ secrets.DB_PASSWORD }}' --no-data newecommerce > ~/schema.sql && mysql -u munene -p'${{ secrets.DB_PASSWORD }}' newecommerce_production < ~/schema.sql && rm ~/schema.sql && cd ~/production && pnpm install --prod && pm2 restart pazia-production"
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mysqldump -u munene -p'${{ secrets.DB_PASSWORD }}' --no-data newecommerce > ~/schema.sql
+            mysql -u munene -p'${{ secrets.DB_PASSWORD }}' newecommerce_production < ~/schema.sql
+            rm ~/schema.sql
+            cd ~/production
+            git pull origin main
+            pnpm install
+            pnpm build
+            pm2 restart pazia-production
