@@ -35,7 +35,7 @@ const inter = Inter({
 
 
 export const metadata: Metadata = {
-  title: "Thamani Tech",
+  title: "PaziaTech",
   description: "Launch an online, shop receive payments",
 };
 
