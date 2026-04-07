@@ -97,6 +97,7 @@ function CustomerSignupContent() {
           full_name: formData.full_name,
           phone: formData.phone,
           redirect,
+           redirectTo: `${window.location.origin}/api/auth/callback?next=/auth/login`,
         }),
       });
 

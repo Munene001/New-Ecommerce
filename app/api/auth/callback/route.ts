@@ -16,29 +16,32 @@ interface ShopRow extends RowDataPacket {
   shop_id: number;
 }
 
-// Helper function to get base URL
+// Gets the base URL dynamically from the request - NO HARDCODING
+// Works for localhost, staging, and production automatically
 function getBaseUrl(request: NextRequest): string {
-  // Check for environment variable first
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL;
-  if (envUrl) return envUrl;
-  
-  // Fallback to request origin for local development
-  const { origin } = new URL(request.url);
-  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-    return origin;
-  }
-  
-  // Default production fallback
-  return 'https://paziatech.co.ke';
+  const host = request.headers.get('host') || 'localhost:3000';
+  const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+  return `${protocol}://${host}`;
 }
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const type = requestUrl.searchParams.get('type')
+  const accessToken = requestUrl.searchParams.get('access_token')
+  const next = requestUrl.searchParams.get('next')
   const redirectParam = requestUrl.searchParams.get('redirect') || ''
   const baseUrl = getBaseUrl(request)
   
+  // Handle password reset flow
+  if (type === 'recovery' && accessToken) {
+    return NextResponse.redirect(`${baseUrl}/auth/resetpassword?access_token=${accessToken}`);
+  }
+  
   if (!code) {
+    if (accessToken) {
+      return NextResponse.redirect(`${baseUrl}/auth/resetpassword?access_token=${accessToken}`);
+    }
     return NextResponse.redirect(`${baseUrl}/login`)
   }
   
@@ -54,10 +57,14 @@ export async function GET(request: NextRequest) {
     const user = data.user
     const role = user.user_metadata?.role
 
-    // Only allow known roles
     if (role !== 'shop_owner' && role !== 'customer') {
       console.error('Invalid role:', role)
       return NextResponse.redirect(`${baseUrl}/errors/emailverification`)
+    }
+    
+    // Redirect to password reset page if that's the intent
+    if (next === '/auth/resetpassword') {
+      return NextResponse.redirect(`${baseUrl}/auth/resetpassword`);
     }
     
     // Check if user already exists in MySQL
@@ -67,7 +74,6 @@ export async function GET(request: NextRequest) {
     )
     
     if (existing.length > 0) {
-      // ✅ User already registered – redirect to login with verified flag
       const loginUrl = new URL(`${baseUrl}/auth/login`);
       loginUrl.searchParams.set('verified', 'true');
       if (redirectParam) {
@@ -76,15 +82,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Handle based on role
+    // Handle new user creation based on role
     if (role === 'shop_owner') {
-      // --- Shop owner flow – use a transaction with a dedicated connection ---
       let conn;
       try {
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        // 1. Insert user
         const [userResult] = await conn.execute<UserInsertResult>(
           `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
            VALUES (?, ?, ?, ?, 'shop_owner')`,
@@ -100,20 +104,12 @@ export async function GET(request: NextRequest) {
         const businessName = user.user_metadata?.business_name || 'My Business';
         const slug = `${businessName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
         
-        // 2. Insert tenant
         await conn.execute(
           `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) 
            VALUES (?, ?, ?, ?, ?)`,
-          [
-            userId,
-            businessName,
-            slug,
-            user.user_metadata?.business_town || '',
-            user.user_metadata?.business_address || ''
-          ]
+          [userId, businessName, slug, user.user_metadata?.business_town || '', user.user_metadata?.business_address || '']
         );
 
-        // 3. Get the shop_id that was created (assuming a trigger creates it)
         const [shopRows] = await conn.execute<ShopRow[]>(
           'SELECT shop_id FROM shops WHERE tenant_id = ?',
           [userId]
@@ -122,7 +118,6 @@ export async function GET(request: NextRequest) {
         if (shopRows.length > 0) {
           const shopId = shopRows[0].shop_id;
           
-          // 4. Insert default shop settings
           await conn.execute(
             `INSERT INTO shop_settings 
              (shop_id, primary_color, secondary_color, product_card_style, cart_icon) 
@@ -130,7 +125,6 @@ export async function GET(request: NextRequest) {
             [shopId]
           );
           
-          // 5. Insert default banner
           await conn.execute(
             `INSERT INTO shop_banners 
              (shop_id, banner_url, banner_type, start_date, end_date, is_active) 
@@ -152,7 +146,6 @@ export async function GET(request: NextRequest) {
       }
     } 
     else { // role === 'customer'
-      // --- Customer flow – simple insert, no transaction needed ---
       try {
         await pool.execute(
           `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
