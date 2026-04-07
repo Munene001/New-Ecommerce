@@ -31,9 +31,6 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-
-
-
 export const metadata: Metadata = {
   title: "PaziaTech",
   description: "Launch an online, shop receive payments",
@@ -45,13 +42,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    
-    <html lang="en" className={`${poppins.variable} ${jakarta.variable} ${inter.variable} ${lora.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen">
+    <html 
+      lang="en" 
+      className={`${poppins.variable} ${jakarta.variable} ${inter.variable} ${lora.variable}`} 
+      suppressHydrationWarning
+    >
+      <head>
+        
+        <meta name="color-scheme" content="light only" />
+        <meta name="supported-color-schemes" content="light" />
+        
+        <meta name="darkreader-lock" content="yes" />
+      </head>
+      <body className="min-h-screen bg-white">
         <AuthProvider>
           {children}
         </AuthProvider>
       </body>
     </html>
   );
-} 
+}
