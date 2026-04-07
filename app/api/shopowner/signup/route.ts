@@ -11,6 +11,7 @@ interface SignupBody {
   business_name: string;
   business_town: string;
   business_address: string;
+  redirectTo?: string;  // ← ADD THIS
 }
 
 interface UserInsertResult extends ResultSetHeader {
@@ -20,9 +21,14 @@ interface UserInsertResult extends ResultSetHeader {
 export async function POST(request: NextRequest) {
   try {
     const body: SignupBody = await request.json();
-    const requestUrl = new URL(request.url);
-    const origin = requestUrl.origin;
-    const redirectUrl = `${origin}/api/auth/callback`;
+    
+    // Get origin from request headers (works for all environments)
+    const origin = request.headers.get('origin') || 
+                   process.env.NEXT_PUBLIC_APP_URL || 
+                   'http://localhost:3000';
+    
+    // Use redirectTo from frontend if provided, otherwise construct default
+    const redirectUrl = body.redirectTo || `${origin}/api/auth/callback?next=/auth/login`;
 
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signUp({
