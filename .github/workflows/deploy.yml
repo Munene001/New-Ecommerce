@@ -33,9 +33,6 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            mysqldump -u munene -p'${{ secrets.DB_PASSWORD }}' --no-data newecommerce > ~/schema.sql
-            mysql -u munene -p'${{ secrets.DB_PASSWORD }}' newecommerce_production < ~/schema.sql
-            rm ~/schema.sql
             cd ~/production
             git pull origin main
             pnpm install
