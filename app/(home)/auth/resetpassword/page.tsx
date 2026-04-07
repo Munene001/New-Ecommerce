@@ -7,7 +7,11 @@ import NewPasswordStep from "./components/newPasswordStep";
 import SuccessStep from "./components/successStep";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-export type ResetPasswordStep = "request" | "email-sent" | "new-password" | "success";
+export type ResetPasswordStep =
+  | "request"
+  | "email-sent"
+  | "new-password"
+  | "success";
 
 export default function ResetPasswordPage() {
   const [step, setStep] = useState<ResetPasswordStep>("request");
@@ -23,28 +27,35 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const checkRecoverySession = async () => {
       const hash = window.location.hash;
-      
-      if (hash && hash.includes('type=recovery')) {
+
+      const params = new URLSearchParams(window.location.search);
+      if (
+        params.get("access_token") ||
+        (hash && hash.includes("type=recovery"))
+      ) {
         setIsLoading(true);
         setError("");
-        
+
         try {
           // Wait a moment for Supabase to process the token
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+
+          const {
+            data: { session },
+            error: sessionError,
+          } = await supabase.auth.getSession();
 
           if (sessionError) {
-            throw new Error('Invalid or expired reset link');
+            throw new Error("Invalid or expired reset link");
           }
 
           if (session?.user) {
-            setEmail(session.user.email || '');
+            setEmail(session.user.email || "");
             setStep("new-password");
             setSuccess("Please set your new password");
-            window.history.replaceState({}, document.title, '/resetpassword');
+            window.history.replaceState({}, document.title, "/resetpassword");
           } else {
-            throw new Error('Invalid reset token');
+            throw new Error("Invalid reset token");
           }
         } catch {
           setError("Failed to process reset link");
@@ -71,7 +82,7 @@ export default function ResetPasswordPage() {
         email,
         {
           redirectTo: `${window.location.origin}/auth/resetpassword`,
-        }
+        },
       );
 
       if (resetError) throw new Error(resetError.message);
@@ -86,7 +97,10 @@ export default function ResetPasswordPage() {
     }
   };
 
-  const handleResetPassword = async (newPassword: string, confirmPassword: string) => {
+  const handleResetPassword = async (
+    newPassword: string,
+    confirmPassword: string,
+  ) => {
     setIsLoading(true);
     setError("");
 
@@ -103,7 +117,7 @@ export default function ResetPasswordPage() {
 
       // Sign out to clear any session
       await supabase.auth.signOut();
-      
+
       setStep("success");
       setSuccess("Password reset successfully! You can now login.");
     } catch (err) {
@@ -127,11 +141,35 @@ export default function ResetPasswordPage() {
   const renderStep = () => {
     switch (step) {
       case "request":
-        return <RequestStep onSubmit={handleSendEmail} isLoading={isLoading} error={error} setError={setError} />;
+        return (
+          <RequestStep
+            onSubmit={handleSendEmail}
+            isLoading={isLoading}
+            error={error}
+            setError={setError}
+          />
+        );
       case "email-sent":
-        return <EmailSentStep email={email} onChangeEmail={() => setStep("request")} isLoading={isLoading} success={success} setStep={setStep} setError={setError} />;
+        return (
+          <EmailSentStep
+            email={email}
+            onChangeEmail={() => setStep("request")}
+            isLoading={isLoading}
+            success={success}
+            setStep={setStep}
+            setError={setError}
+          />
+        );
       case "new-password":
-        return <NewPasswordStep email={email} onSubmit={handleResetPassword} isLoading={isLoading} error={error} setError={setError} />;
+        return (
+          <NewPasswordStep
+            email={email}
+            onSubmit={handleResetPassword}
+            isLoading={isLoading}
+            error={error}
+            setError={setError}
+          />
+        );
       case "success":
         return <SuccessStep success={success} />;
     }

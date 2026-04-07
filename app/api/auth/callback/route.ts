@@ -16,14 +16,30 @@ interface ShopRow extends RowDataPacket {
   shop_id: number;
 }
 
+// Helper function to get base URL
+function getBaseUrl(request: NextRequest): string {
+  // Check for environment variable first
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL;
+  if (envUrl) return envUrl;
+  
+  // Fallback to request origin for local development
+  const { origin } = new URL(request.url);
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    return origin;
+  }
+  
+  // Default production fallback
+  return 'https://paziatech.co.ke';
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const redirectParam = requestUrl.searchParams.get('redirect') || ''
+  const baseUrl = getBaseUrl(request)
   
   if (!code) {
-    return NextResponse.redirect(new URL('/login', request.url))
-    console.log('')
+    return NextResponse.redirect(`${baseUrl}/login`)
   }
   
   try {
@@ -32,7 +48,7 @@ export async function GET(request: NextRequest) {
     
     if (error || !data.user) {
       console.error('Auth error:', error?.message)
-      return NextResponse.redirect(new URL('/errors/emailverification', request.url))
+      return NextResponse.redirect(`${baseUrl}/errors/emailverification`)
     }
     
     const user = data.user
@@ -41,7 +57,7 @@ export async function GET(request: NextRequest) {
     // Only allow known roles
     if (role !== 'shop_owner' && role !== 'customer') {
       console.error('Invalid role:', role)
-      return NextResponse.redirect(new URL('/errors/emailverification', request.url))
+      return NextResponse.redirect(`${baseUrl}/errors/emailverification`)
     }
     
     // Check if user already exists in MySQL
@@ -52,7 +68,7 @@ export async function GET(request: NextRequest) {
     
     if (existing.length > 0) {
       // ✅ User already registered – redirect to login with verified flag
-      const loginUrl = new URL('/auth/login', request.url);
+      const loginUrl = new URL(`${baseUrl}/auth/login`);
       loginUrl.searchParams.set('verified', 'true');
       if (redirectParam) {
         loginUrl.searchParams.set('redirect', redirectParam);
@@ -125,12 +141,12 @@ export async function GET(request: NextRequest) {
 
         await conn.commit();
         
-        return NextResponse.redirect(new URL('/auth/login?verified=true', request.url));
+        return NextResponse.redirect(`${baseUrl}/auth/login?verified=true`);
         
       } catch (dbError) {
         if (conn) await conn.rollback();
         console.error('Database error:', dbError);
-        return NextResponse.redirect(new URL('/errors/emailverification', request.url));
+        return NextResponse.redirect(`${baseUrl}/errors/emailverification`);
       } finally {
         if (conn) conn.release();
       }
@@ -149,7 +165,7 @@ export async function GET(request: NextRequest) {
           ]
         );
 
-        const loginUrl = new URL('/auth/login', request.url);
+        const loginUrl = new URL(`${baseUrl}/auth/login`);
         loginUrl.searchParams.set('verified', 'true');
         if (redirectParam) {
           loginUrl.searchParams.set('redirect', redirectParam);
@@ -157,12 +173,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(loginUrl);
       } catch (dbError) {
         console.error('Customer insert error:', dbError);
-        return NextResponse.redirect(new URL('/errors/emailverification', request.url));
+        return NextResponse.redirect(`${baseUrl}/errors/emailverification`);
       }
     }
     
   } catch (error) {
     console.error('Callback error:', error);
-    return NextResponse.redirect(new URL('/errors/emailverification', request.url));
+    return NextResponse.redirect(`${baseUrl}/errors/emailverification`);
   }
 }
