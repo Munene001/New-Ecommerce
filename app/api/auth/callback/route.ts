@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   
   if (!code) {
     return NextResponse.redirect(new URL('/login', request.url))
+    console.log('')
   }
   
   try {
