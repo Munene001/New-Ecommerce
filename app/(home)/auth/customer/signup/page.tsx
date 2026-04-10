@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import Modal from "@/app/components/ui/modal";
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 // Component that uses useSearchParams
 function CustomerSignupContent() {
@@ -31,6 +33,7 @@ function CustomerSignupContent() {
     confirm_password: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [phoneValue, setPhoneValue] = useState<string | undefined>("");
 
   // Store redirect parameter on mount
   useEffect(() => {
@@ -48,6 +51,14 @@ function CustomerSignupContent() {
     }
   };
 
+  const handlePhoneChange = (value: string | undefined) => {
+    setPhoneValue(value);
+    setFormData((prev) => ({ ...prev, phone: value || "" }));
+    if (errors.phone) {
+      setErrors((prev) => ({ ...prev, phone: "" }));
+    }
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -59,8 +70,6 @@ function CustomerSignupContent() {
       newErrors.email = "Invalid email format";
 
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
-    else if (!/^[0-9]{10,15}$/.test(formData.phone.replace(/\D/g, "")))
-      newErrors.phone = "Invalid phone number";
 
     if (!formData.password) newErrors.password = "Password is required";
     else if (formData.password.length < 8)
@@ -97,7 +106,7 @@ function CustomerSignupContent() {
           full_name: formData.full_name,
           phone: formData.phone,
           redirect,
-           redirectTo: `${window.location.origin}/api/auth/callback?next=/auth/login`,
+          redirectTo: `${window.location.origin}/api/auth/callback?next=/auth/login`,
         }),
       });
 
@@ -119,6 +128,7 @@ function CustomerSignupContent() {
             password: "",
             confirm_password: "",
           });
+          setPhoneValue("");
         } else {
           setModal({
             isOpen: true,
@@ -212,22 +222,58 @@ function CustomerSignupContent() {
             />
           </div>
 
-          {/* Phone */}
+          {/* Phone - Using react-phone-number-input */}
           <div>
             <label htmlFor="phone" className="block text-sm font-medium mb-2">
               Phone Number *
             </label>
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              placeholder="254712345678"
-              value={formData.phone}
-              onChange={handleChange}
-              hasError={!!errors.phone}
-              error={errors.phone}
-              required
+            <PhoneInput
+              international
+              defaultCountry="KE"
+              value={phoneValue}
+              onChange={handlePhoneChange}
+              placeholder="Enter phone number"
+              className="w-full"
             />
+            {errors.phone && (
+              <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+            )}
+            <style jsx global>{`
+              .PhoneInput {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: #1f2937;
+                border: 1px solid ${errors.phone ? '#ef4444' : '#374151'};
+                border-radius: 0.5rem;
+                padding: 0.5rem 0.75rem;
+              }
+              .PhoneInput:focus-within {
+                outline: none;
+                ring: 2px solid #EAA022;
+              }
+              .PhoneInputInput {
+                border: none;
+                outline: none;
+                flex: 1;
+                background: transparent;
+                font-size: 1rem;
+                color: white;
+              }
+              .PhoneInputInput::placeholder {
+                color: #6b7280;
+              }
+              .PhoneInputCountry {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              }
+              .PhoneInputCountrySelect {
+                background: #1f2937;
+                color: white;
+                border: none;
+              }
+            `}</style>
           </div>
 
           {/* Password */}
@@ -276,11 +322,11 @@ function CustomerSignupContent() {
             />
             <label htmlFor="terms" className="text-sm text-gray-300">
               I agree to the{" "}
-              <Link href="/terms" className="text-three hover:underline">
+              <Link href="/terms" className="text-[#EAA022] hover:underline">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="text-three hover:underline">
+              <Link href="/privacy" className="text-[#EAA022] hover:underline">
                 Privacy Policy
               </Link>
             </label>
@@ -303,7 +349,7 @@ function CustomerSignupContent() {
         <div className="mt-8 text-center mb-20">
           <p className="text-gray-400">
             Already have an account?{" "}
-            <Link href={loginLink()} className="text-three font-medium hover:underline">
+            <Link href={loginLink()} className="text-[#EAA022] font-medium hover:underline">
               Sign in here
             </Link>
           </p>
@@ -323,7 +369,7 @@ export default function CustomerSignup() {
             <h1 className="text-3xl font-bold text-primaryText mb-2">
               Customer Signup
             </h1>
-            <p className="text-three">Loading...</p>
+            <p className="text-[#EAA022]">Loading...</p>
           </div>
           <div className="space-y-6">
             {[1, 2, 3, 4, 5].map((i) => (
