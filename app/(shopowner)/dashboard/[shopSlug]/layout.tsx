@@ -104,6 +104,7 @@ export default function DashboardLayout({
               <BaseLeftMenu 
                 onMenuClicked={handleMenuClick}  
                 shopSlug={shopSlug || ""}
+                
               />
             </aside>
             

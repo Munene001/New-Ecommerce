@@ -16,14 +16,44 @@ import Link from "next/link";
 export default function ShopFooter() {
   const { shop } = useShop();
 
+  // Format phone number for display
+  const formatPhoneNumber = (phone: string) => {
+    if (!phone) return "";
+    // If it's in +254 format, display as is
+    if (phone.startsWith('+254')) {
+      return phone;
+    }
+    // If it starts with 0, convert to +254 format for display
+    if (phone.startsWith('0')) {
+      return '+254' + phone.substring(1);
+    }
+    return phone;
+  };
+
+  // Format phone number for WhatsApp (must be in international format without +)
+  const getWhatsAppNumber = (phone: string) => {
+    if (!phone) return "";
+    // Remove all non-digit characters
+    let cleaned = phone.replace(/\D/g, '');
+    // If it starts with 0 (Kenyan format), replace with 254
+    if (cleaned.startsWith('0')) {
+      cleaned = '254' + cleaned.substring(1);
+    }
+    // If it starts with 254, keep as is
+    if (cleaned.startsWith('254')) {
+      return cleaned;
+    }
+    return cleaned;
+  };
+
   const handleWhatsAppClick = () => {
     if (!shop?.contactPhone) return;
-    let phoneNumber = shop.contactPhone;
-    if (phoneNumber.startsWith('0')) {
-      phoneNumber = '+254' + phoneNumber.substring(1);
-    }
-    window.open(`https://wa.me/${phoneNumber}`, '_blank');
+    const whatsappNumber = getWhatsAppNumber(shop.contactPhone);
+    window.open(`https://wa.me/${whatsappNumber}`, '_blank');
   };
+
+  // Get display phone number
+  const displayPhone = formatPhoneNumber(shop?.contactPhone || "");
 
   return (
     <footer className="bg-[#050505] text-white rounded-t-2xl border-t border-white/10 pt-16 pb-8">
@@ -44,11 +74,11 @@ export default function ShopFooter() {
           <div className="flex flex-wrap gap-4 w-full md:w-auto">
             {shop?.contactPhone && (
               <a 
-                href={`tel:${shop.contactPhone}`}
+                href={`tel:${displayPhone}`}
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-4 rounded-2xl transition-all group"
               >
                 <Phone className="w-5 h-5  group-hover:scale-110 transition-transform" />
-                <span className="text-white font-medium">{shop.contactPhone}</span>
+                <span className="text-white font-medium">{displayPhone}</span>
               </a>
             )}
             <button 

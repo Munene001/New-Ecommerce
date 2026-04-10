@@ -5,6 +5,7 @@ import { useAuth } from "@/context/authcontext";
 import { useRouter } from "next/navigation";
 import Button from "../ui/button";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function HomeHeader() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -22,28 +23,27 @@ export default function HomeHeader() {
   return (
     <div className="h-[85px]  bg-black flex items-center justify-between px-6">
       {/* Logo/Left side */}
-      <div className="text-white font-bold text-xl">
-        <Link href="/">Your Logo</Link>
-      </div>
+
+  <Link href="/" className="inline-block rounded-lg leading-none">
+  <Image
+    src="/logo.webp"
+    alt="Logo"
+    width={80}
+    height={40}
+    className="object-cover block"
+  />
+</Link>
 
       {/* Right side - Auth buttons */}
       <div className="flex items-center gap-4">
         {isAuthenticated ? (
           <>
-            
-            <Button
-              onClick={handleLogout}
-              variant="secondary"
-              
-            >
+            <Button onClick={handleLogout} variant="secondary">
               Logout
             </Button>
           </>
         ) : (
-          <Button
-            onClick={handleLogin}
-            variant="secondary"
-          >
+          <Button onClick={handleLogin} variant="secondary">
             Login
           </Button>
         )}
