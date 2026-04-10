@@ -158,6 +158,7 @@ export default function ShopProductsClient() {
                 onSetSortBy={setSortBy}
                 categories={shop.categories || []}
                 maxPrice={shop.maxPrice}
+                onClose={() => setIsFilterOpen(false)} 
               />
             </div>
           </div>

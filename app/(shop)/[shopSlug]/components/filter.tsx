@@ -30,6 +30,7 @@ interface FilterProps {
   onSetSortBy: (option: SortOption) => void | Promise<void>;
   categories: { id: string; name: string }[];
   maxPrice: number;
+  onClose?: () => void;
 }
 
 export default function Filter({
@@ -41,10 +42,10 @@ export default function Filter({
   onSetSortBy,
   categories,
   maxPrice,
+  onClose,
 }: FilterProps) {
   const maxLimit = maxPrice || 150000;
   
-  // Derive the initial/current price range from activeFilters using useMemo
   const currentPriceRange = useMemo<[number, number]>(() => {
     if (activeFilters.priceRange) {
       return [activeFilters.priceRange.min, activeFilters.priceRange.max];
@@ -52,10 +53,7 @@ export default function Filter({
     return [0, maxLimit];
   }, [activeFilters.priceRange, maxLimit]);
 
-  // Local state for the slider while dragging
   const [localPriceRange, setLocalPriceRange] = useState<[number, number]>(currentPriceRange);
-
-  // Update local state when external filter changes
   const [prevPriceRange, setPrevPriceRange] = useState(currentPriceRange);
   
   if (prevPriceRange[0] !== currentPriceRange[0] || prevPriceRange[1] !== currentPriceRange[1]) {
@@ -76,6 +74,27 @@ export default function Filter({
     return `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${minPercent}%, ${shopData.secondaryColor} ${minPercent}%, ${shopData.secondaryColor} ${maxPercent}%, #e5e7eb ${maxPercent}%, #e5e7eb 100%)`;
   };
 
+  // Wrapper functions that close modal after action
+  const handleToggleCategory = async (categoryId: string) => {
+    await onToggleCategory(categoryId);
+    if (onClose) onClose();
+  };
+
+  const handleSetSortBy = async (option: SortOption) => {
+    await onSetSortBy(option);
+    if (onClose) onClose();
+  };
+
+  const handleApplyPriceRange = () => {
+    onSetPriceRange(localPriceRange[0], localPriceRange[1]);
+    if (onClose) onClose();
+  };
+
+  const handleClearPriceRange = () => {
+    onClearPriceRange();
+    if (onClose) onClose();
+  };
+
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-200 sticky top-4">
       <div className="flex justify-between items-center mb-6">
@@ -83,6 +102,7 @@ export default function Filter({
           <ListFilterPlus size={20} style={{ color: shopData.secondaryColor }} />
           <span>Filter</span>
         </h2>
+      
       </div>
 
       <div className="space-y-6">
@@ -97,7 +117,6 @@ export default function Filter({
               values={localPriceRange}
               onChange={(values) => setLocalPriceRange(values as [number, number])}
               renderTrack={({ props, children }) => {
-                 
                 const { style, ...trackProps } = props;
                 return (
                   <div
@@ -113,7 +132,6 @@ export default function Filter({
                 );
               }}
               renderThumb={({ props }) => {
-                 
                 const { style, ...thumbProps } = props;
                 return (
                   <div
@@ -134,7 +152,7 @@ export default function Filter({
             <span className="text-gray-700">{localPriceRange[1].toLocaleString()}</span>
           </div>
           <button
-            onClick={() => onSetPriceRange(localPriceRange[0], localPriceRange[1])}
+            onClick={handleApplyPriceRange}
             className="mt-2 text-sm px-3 py-1.5 rounded w-full transition-colors"
             style={{ backgroundColor: shopData.secondaryColor, color: "white" }}
           >
@@ -142,7 +160,7 @@ export default function Filter({
           </button>
           {activeFilters.priceRange && (
             <button
-              onClick={onClearPriceRange}
+              onClick={handleClearPriceRange}
               className="mt-1 text-xs text-gray-600 hover:text-gray-700 flex items-center gap-1 mx-auto"
             >
               <X size={12} />
@@ -177,7 +195,7 @@ export default function Filter({
                   name="sortBy"
                   value={option.value}
                   checked={activeFilters.sortBy === option.value}
-                  onChange={() => onSetSortBy(option.value)}
+                  onChange={() => handleSetSortBy(option.value)}
                   className="hidden"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900">
@@ -215,7 +233,7 @@ export default function Filter({
                 <input
                   type="checkbox"
                   checked={activeFilters.categories.includes(String(cat.id))}
-                  onChange={() => onToggleCategory(String(cat.id))}
+                  onChange={() => handleToggleCategory(String(cat.id))}
                   className="hidden"
                 />
                 <span className="text-sm text-gray-600 group-hover:text-gray-900">

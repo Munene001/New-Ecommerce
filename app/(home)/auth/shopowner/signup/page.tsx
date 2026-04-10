@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
@@ -32,13 +34,21 @@ export default function ShopOwnerSignup() {
     business_address: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [phoneValue, setPhoneValue] = useState<string | undefined>("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user types
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handlePhoneChange = (value: string | undefined) => {
+    setPhoneValue(value);
+    setFormData((prev) => ({ ...prev, phone: value || "" }));
+    if (errors.phone) {
+      setErrors((prev) => ({ ...prev, phone: "" }));
     }
   };
 
@@ -52,8 +62,6 @@ export default function ShopOwnerSignup() {
       newErrors.email = "Invalid email format";
 
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
-    else if (!/^[0-9]{10,15}$/.test(formData.phone.replace(/\D/g, "")))
-      newErrors.phone = "Invalid phone number";
 
     if (!formData.password) newErrors.password = "Password is required";
     else if (formData.password.length < 8)
@@ -101,7 +109,6 @@ export default function ShopOwnerSignup() {
           business_town: formData.business_town,
           business_address: formData.business_address,
           redirectTo: `${window.location.origin}/api/auth/callback?next=/auth/login`,
-
         }),
       });
 
@@ -115,7 +122,6 @@ export default function ShopOwnerSignup() {
             message: "Account verified and created successfully! You can now log in.",
             type: "success"
           });
-          // Only clear form on successful verified signup
           setFormData({
             full_name: "",
             email: "",
@@ -126,6 +132,7 @@ export default function ShopOwnerSignup() {
             business_town: "",
             business_address: "",
           });
+          setPhoneValue("");
         } else {
           setModal({
             isOpen: true,
@@ -133,7 +140,6 @@ export default function ShopOwnerSignup() {
             message: "Account created successfully! Please check your email to verify your account before logging in.",
             type: "info"
           });
-          // Do NOT clear form for email verification case
         }
       } else {
         setModal({
@@ -142,7 +148,6 @@ export default function ShopOwnerSignup() {
           message: data.error || "Signup failed. Please try again.",
           type: "error"
         });
-        // Do NOT clear form on error - user can fix and resubmit
       }
     } catch (error) {
       console.error("Signup error:", error);
@@ -152,7 +157,6 @@ export default function ShopOwnerSignup() {
         message: "An error occurred. Please try again.",
         type: "error"
       });
-      // Do NOT clear form on network/unknown errors
     } finally {
       setLoading(false);
     }
@@ -169,7 +173,6 @@ export default function ShopOwnerSignup() {
       />
       
       <div className="w-full max-w-2xl">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primaryText mb-2">
             Shop Owner Signup
@@ -177,16 +180,10 @@ export default function ShopOwnerSignup() {
           <p className="text-three">Create your Shop account</p>
         </div>
 
-        {/* Signup Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Personal Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Full Name */}
             <div>
-              <label
-                htmlFor="full_name"
-                className="block text-sm font-medium mb-2"
-              >
+              <label htmlFor="full_name" className="block text-sm font-medium mb-2">
                 Full Name *
               </label>
               <Input
@@ -202,7 +199,6 @@ export default function ShopOwnerSignup() {
               />
             </div>
 
-            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-2">
                 Email Address *
@@ -220,30 +216,24 @@ export default function ShopOwnerSignup() {
               />
             </div>
 
-            {/* Phone */}
             <div>
               <label htmlFor="phone" className="block text-sm font-medium mb-2">
                 Phone Number *
               </label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder="254712345678"
-                value={formData.phone}
-                onChange={handleChange}
-                hasError={!!errors.phone}
-                error={errors.phone}
-                required
+              <PhoneInput
+                international
+                defaultCountry="KE"
+                value={phoneValue}
+                onChange={handlePhoneChange}
+                placeholder="Enter phone number"
               />
+              {errors.phone && (
+                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+              )}
             </div>
 
-            {/* Business Name */}
             <div>
-              <label
-                htmlFor="business_name"
-                className="block text-sm font-medium mb-2"
-              >
+              <label htmlFor="business_name" className="block text-sm font-medium mb-2">
                 Business Name *
               </label>
               <Input
@@ -259,15 +249,8 @@ export default function ShopOwnerSignup() {
               />
             </div>
 
-            {/* Business County */}
-            
-
-            {/* Business Town */}
             <div>
-              <label
-                htmlFor="business_town"
-                className="block text-sm font-medium mb-2"
-              >
+              <label htmlFor="business_town" className="block text-sm font-medium mb-2">
                 Business Town *
               </label>
               <Input
@@ -284,12 +267,8 @@ export default function ShopOwnerSignup() {
             </div>
           </div>
 
-          {/* Business Address - Full Width */}
           <div>
-            <label
-              htmlFor="business_address"
-              className="block text-sm font-medium mb-2"
-            >
+            <label htmlFor="business_address" className="block text-sm font-medium mb-2">
               Business Address *
             </label>
             <Input
@@ -305,14 +284,9 @@ export default function ShopOwnerSignup() {
             />
           </div>
 
-          {/* Passwords */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Password */}
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium mb-2"
-              >
+              <label htmlFor="password" className="block text-sm font-medium mb-2">
                 Password *
               </label>
               <Input
@@ -328,12 +302,8 @@ export default function ShopOwnerSignup() {
               />
             </div>
 
-            {/* Confirm Password */}
             <div>
-              <label
-                htmlFor="confirm_password"
-                className="block text-sm font-medium mb-2"
-              >
+              <label htmlFor="confirm_password" className="block text-sm font-medium mb-2">
                 Confirm Password *
               </label>
               <Input
@@ -350,7 +320,6 @@ export default function ShopOwnerSignup() {
             </div>
           </div>
 
-          {/* Terms Checkbox */}
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -370,7 +339,6 @@ export default function ShopOwnerSignup() {
             </label>
           </div>
 
-          {/* Submit Button */}
           <div className="pt-4">
             <Button 
               type="submit" 
@@ -383,7 +351,6 @@ export default function ShopOwnerSignup() {
           </div>
         </form>
 
-        {/* Login Link */}
         <div className="mt-8 text-center mb-20">
           <p className="text-gray-400">
             Already have an account?{" "}

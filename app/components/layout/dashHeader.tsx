@@ -3,23 +3,25 @@
 import { useAuth } from "@/context/authcontext";
 import { useRouter } from "next/navigation";
 import Button from "../ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Store } from "lucide-react";
+import Link from "next/link";
 
 interface DashHeaderProps {
     shopSlug: string;
-    title?: string; // Add this for dynamic page title
+    title?: string;
     isMobile?: boolean;
     isMobileMenuOpen?: boolean;
     onMobileMenuToggle?: () => void;
 }
 
 export default function DashHeader({ 
-    title, // Add this
+    shopSlug,
+    title,
     isMobile = false, 
     isMobileMenuOpen = false, 
     onMobileMenuToggle 
 }: DashHeaderProps) {
-  const {  isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const router = useRouter();
 
   const handleLogin = () => {
@@ -57,26 +59,18 @@ export default function DashHeader({
         )}
       </div>
 
-      {/* Right side - Auth buttons */}
+      {/* Right side - View Shop & Auth buttons */}
       <div className="flex items-center gap-4">
-        {isAuthenticated ? (
-          <>
-            
-            <Button
-              onClick={handleLogout}
-              variant="secondary"
-            >
-              Logout
+        {/* View Shop Button - Always visible when authenticated */}
+        {isAuthenticated && (
+          <Link href={`/${shopSlug}`}>
+            <Button variant="secondary" className="flex items-center gap-2">
+              <Store size={18} />
+              View Shop
             </Button>
-          </>
-        ) : (
-          <Button
-            onClick={handleLogin}
-            variant="secondary"
-          >
-            Login
-          </Button>
+          </Link>
         )}
+        
       </div>
     </div>
   );

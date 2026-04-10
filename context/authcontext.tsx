@@ -9,6 +9,7 @@ type UserProfile = {
   role: string;
   onboardingComplete: boolean;
   shopSlug?: string;
+  phone?: string; 
 };
 
 type AuthContextType = {
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('✅ Profile fetched:', data);
         setProfile({
           fullName: data.fullName,
+          phone:data.phone,
           role: data.role,
           onboardingComplete: data.onboardingComplete,
           shopSlug: data.shopSlug,

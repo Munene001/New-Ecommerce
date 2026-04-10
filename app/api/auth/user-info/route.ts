@@ -7,6 +7,7 @@ interface UserDataRow extends RowDataPacket {
   user_id: number;
   role: string;
   full_name: string;
+  phone:string;
   tenant_id: number | null;
   business_info_complete: number | null;
   shop_slug: string | null;
@@ -36,6 +37,7 @@ export async function POST() {
         u.user_id,
         u.role,
         u.full_name,
+        u.phone,
         t.tenant_id,
         t.business_info_complete,
         s.shop_slug,
@@ -68,6 +70,7 @@ export async function POST() {
       success: true,
       role: userData.role,
       fullName: userData.full_name,
+      phone: userData.phone,
       onboardingComplete: onboardingComplete,
       hasShop: userData.shop_count > 0,
       tenantId: userData.tenant_id,
