@@ -100,6 +100,8 @@ export default function ShopOwnerSignup() {
           business_name: formData.business_name,
           business_town: formData.business_town,
           business_address: formData.business_address,
+          redirectTo: `${window.location.origin}/api/auth/callback?next=/auth/login`,
+
         }),
       });
 
