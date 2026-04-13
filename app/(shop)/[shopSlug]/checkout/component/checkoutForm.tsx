@@ -1,6 +1,4 @@
-// app/(shop)/[shopSlug]/checkout/components/CheckoutForm.tsx
 "use client";
-import { User } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { CreditCard, Wallet, Truck } from "lucide-react";
@@ -21,6 +19,7 @@ interface CheckoutFormProps {
   paymentMethod: "mpesa" | "cod";
   onPaymentMethodChange: (method: "mpesa" | "cod") => void;
   secondaryColor?: string;
+  codEnabled?: boolean; // Add this prop
 }
 
 // Convert Kenyan number formats to +254 format
@@ -49,6 +48,7 @@ export default function CheckoutForm({
   paymentMethod,
   onPaymentMethodChange,
   secondaryColor,
+  codEnabled = true, // Default to true if not provided
 }: CheckoutFormProps) {
   const [phoneValue, setPhoneValue] = useState<string | undefined>(() => 
     convertToE164(formData.phone)
@@ -69,7 +69,6 @@ export default function CheckoutForm({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6">
       <h2 className="text-xl font-semibold text-black mb-5 flex items-center gap-2">
-        <User className="w-5 h-5" style={{ color: secondaryColor }} />
         Delivery Information
       </h2>
       
@@ -180,7 +179,7 @@ export default function CheckoutForm({
         </h3>
         
         <div className="space-y-3">
-          {/* M-Pesa - Default */}
+          {/* M-Pesa - Always shown */}
           <label 
             className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
               paymentMethod === "mpesa" ? "border-opacity-100 bg-opacity-5" : "border-gray-200"
@@ -211,37 +210,39 @@ export default function CheckoutForm({
             )}
           </label>
           
-          {/* Cash on Delivery - Will be toggled later via dashboard */}
-          <button
-            type="button"
-            onClick={() => onPaymentMethodChange("cod")}
-            className={`w-full flex items-center justify-between p-4 border-2 rounded-lg transition-all ${
-              paymentMethod === "cod" 
-                ? "border-opacity-100 bg-opacity-5" 
-                : "border-gray-200 hover:border-gray-300"
-            }`}
-            style={{ 
-              borderColor: paymentMethod === "cod" ? secondaryColor : undefined,
-              backgroundColor: paymentMethod === "cod" ? `${secondaryColor}10` : undefined
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                paymentMethod === "cod" ? "border-" : "border-gray-300"
+          {/* Cash on Delivery - Only show if enabled */}
+          {codEnabled && (
+            <button
+              type="button"
+              onClick={() => onPaymentMethodChange("cod")}
+              className={`w-full flex items-center justify-between p-4 border-2 rounded-lg transition-all ${
+                paymentMethod === "cod" 
+                  ? "border-opacity-100 bg-opacity-5" 
+                  : "border-gray-200 hover:border-gray-300"
               }`}
-              style={paymentMethod === "cod" ? { borderColor: secondaryColor } : {}}
-              >
-                {paymentMethod === "cod" && (
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
-                )}
+              style={{ 
+                borderColor: paymentMethod === "cod" ? secondaryColor : undefined,
+                backgroundColor: paymentMethod === "cod" ? `${secondaryColor}10` : undefined
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  paymentMethod === "cod" ? "border-" : "border-gray-300"
+                }`}
+                style={paymentMethod === "cod" ? { borderColor: secondaryColor } : {}}
+                >
+                  {paymentMethod === "cod" && (
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
+                  )}
+                </div>
+                <CreditCard className="w-5 h-5 text-orange-600" />
+                <div className="text-left">
+                  <p className="font-medium text-black">Cash on Delivery</p>
+                  <p className="text-xs text-gray-500">Pay when you receive your order</p>
+                </div>
               </div>
-              <CreditCard className="w-5 h-5 text-orange-600" />
-              <div className="text-left">
-                <p className="font-medium text-black">Cash on Delivery</p>
-                <p className="text-xs text-gray-500">Pay when you receive your order</p>
-              </div>
-            </div>
-          </button>
+            </button>
+          )}
         </div>
       </div>
       

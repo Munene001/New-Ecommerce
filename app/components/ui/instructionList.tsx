@@ -35,7 +35,7 @@ const variantStyles = {
   green: {
     bg: 'bg-green-50',
     border: 'border-green-200',
-    text: 'text-green-700',
+    text: 'text-black',
     icon: 'text-green-500',
   },
   gray: {
