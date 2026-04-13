@@ -1,13 +1,13 @@
-// app/(shop)/[shopSlug]/checkout/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/authcontext";
 import { useCart } from "@/context/shopCartContext";
 import { useShop } from "@/app/(shop)/ShopContext";
-import { User, ShoppingBag, Loader2, CreditCard } from "lucide-react";
+import { useToast } from "@/context/toastContext";
+import { User, ShoppingBag } from "lucide-react";
 import PageBar from "@/app/components/layout/pageBar";
 import CheckoutForm from "./component/checkoutForm";
 import OrderSummary from "./component/orderSummary";
@@ -15,8 +15,9 @@ import CheckoutSkeleton from "./component/checkoutSkeleton";
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
-  const { items, subtotal, totalItems } = useCart();
+  const { items, subtotal, totalItems, clearCart } = useCart();
   const { shop } = useShop();
   
   const [formData, setFormData] = useState({
@@ -30,6 +31,35 @@ export default function CheckoutPage() {
   
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "cod">("mpesa");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [codEnabled, setCodEnabled] = useState(true);
+  
+  // Flag to prevent redirect after order is placed
+  const orderPlacedRef = useRef(false);
+
+  // Fetch COD status from payment settings
+  useEffect(() => {
+    const fetchPaymentSettings = async () => {
+      if (!shop?.shopId) return;
+      
+      try {
+        const response = await fetch(`/api/shopowner/payments?shop_id=${shop.shopId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setCodEnabled(result.data.cod_enabled);
+          
+          // If COD is disabled and current payment method is COD, switch to mpesa
+          if (!result.data.cod_enabled && paymentMethod === "cod") {
+            setPaymentMethod("mpesa");
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch payment settings:', error);
+      }
+    };
+    
+    fetchPaymentSettings();
+  }, [shop?.shopId]);
 
   // Pre-fill form for logged-in users
   useEffect(() => {
@@ -45,9 +75,10 @@ export default function CheckoutPage() {
     }
   }, [authLoading, isAuthenticated, profile, user]);
 
-  // Redirect if cart is empty
+  // Redirect if cart is empty - BUT NOT if order was just placed
   useEffect(() => {
-    if (!authLoading && items.length === 0) {
+    // Don't redirect if order was just placed (waiting for payment page redirect)
+    if (!orderPlacedRef.current && !authLoading && items.length === 0) {
       router.push(`/${shop?.shopSlug}`);
     }
   }, [items, authLoading, router, shop]);
@@ -56,28 +87,74 @@ export default function CheckoutPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleContinue = () => {
+  const handlePlaceOrder = async () => {
+    // Validate required fields
     if (!formData.fullName || !formData.email || !formData.phone || !formData.city || !formData.address) {
+      showToast("Please fill in all required fields", "error");
       return;
     }
-    
-    sessionStorage.setItem("checkoutData", JSON.stringify({
-      formData,
-      paymentMethod,
-      subtotal,
-      items
-    }));
-    
-    router.push(`/${shop?.shopSlug}/checkout/payment`);
+
+    setIsSubmitting(true);
+
+    try {
+      // Prepare order data
+      const orderData = {
+        shop_id: shop?.shopId,
+        customer_name: formData.fullName,
+        customer_email: formData.email,
+        customer_phone: formData.phone,
+        customer_city: formData.city,
+        customer_address: formData.address,
+        special_instructions: formData.specialInstructions || undefined,
+        payment_method: paymentMethod === "cod" ? "cash_on_delivery" : "mpesa",
+        subtotal: subtotal,
+        items: items.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity
+        }))
+      };
+
+      // Call order API
+      const response = await fetch('/api/shops/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Set flag to prevent redirect
+        orderPlacedRef.current = true;
+        
+        // Clear cart
+        clearCart();
+        
+        // Show success message
+        showToast(result.data.message, "success");
+        
+        // Redirect to payment page with order info
+        router.push(
+          `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}&order_number=${result.data.order_number}&method=${paymentMethod}`
+        );
+      } else {
+        showToast(result.error || "Failed to place order", "error");
+      }
+    } catch (error) {
+      console.error('Place order error:', error);
+      showToast("Network error. Please try again.", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (authLoading) {
-    return (
-    <CheckoutSkeleton/>
-    );
+    return <CheckoutSkeleton />;
   }
 
-  if (items.length === 0) {
+  if (items.length === 0 && !orderPlacedRef.current) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -103,7 +180,7 @@ export default function CheckoutPage() {
       />
       
       <div className="min-h-screen py-6 md:py-10 bg-gray-50">
-        <div className=" mx-auto px-4 md:px-6 ">
+        <div className="mx-auto px-4 md:px-6">
           
           {/* Login Prompt - Only show for guests */}
           {!isAuthenticated && (
@@ -136,6 +213,7 @@ export default function CheckoutPage() {
                 paymentMethod={paymentMethod}
                 onPaymentMethodChange={setPaymentMethod}
                 secondaryColor={shop?.secondaryColor}
+                codEnabled={codEnabled}
               />
             </div>
             
@@ -145,7 +223,7 @@ export default function CheckoutPage() {
                 items={items}
                 subtotal={subtotal}
                 totalItems={totalItems}
-                onContinue={handleContinue}
+                onContinue={handlePlaceOrder}
                 isSubmitting={isSubmitting}
                 secondaryColor={shop?.secondaryColor}
               />
