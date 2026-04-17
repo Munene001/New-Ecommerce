@@ -3,8 +3,16 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Product } from '../types/product';
 
+interface DashboardStats {
+  totalProducts: number;
+  totalDiscounted: number;
+  totalInstock: number;
+  totalOutOfStock: number;
+}
+
 interface UseDashboardProductsReturn {
   products: Product[];
+  stats: DashboardStats;
   loading: boolean;
   currentPage: number;
   totalPages: number;
@@ -22,9 +30,14 @@ export function useDashboardProducts(
   shopId: string,
   initialTotalCount?: number,
   initialTotalPages: number = 1,
-  // Remove token parameter - no longer needed
 ): UseDashboardProductsReturn {
   const [products, setProducts] = useState<Product[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProducts: 0,
+    totalDiscounted: 0,
+    totalInstock: 0,
+    totalOutOfStock: 0,
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
@@ -33,6 +46,36 @@ export function useDashboardProducts(
   const [currentCategory, setCurrentCategory] = useState<string>('');
 
   const initialFetchDone = useRef(false);
+
+  // Calculate stats from products array
+  const calculateStats = useCallback((productsList: Product[]): DashboardStats => {
+    const totalProducts = productsList.length;
+    const totalDiscounted = productsList.filter(p => p.discount_price !== null && p.discount_price > 0).length;
+    
+    // Fix: Handle both boolean and number cases for in_stock
+    const totalInstock = productsList.filter(p => {
+      if (typeof p.in_stock === 'boolean') {
+        return p.in_stock === true;  // If boolean, true means in stock
+      } else {
+        return p.in_stock > 0;  // If number, greater than 0 means in stock
+      }
+    }).length;
+    
+    const totalOutOfStock = productsList.filter(p => {
+      if (typeof p.in_stock === 'boolean') {
+        return p.in_stock === false;  // If boolean, false means out of stock
+      } else {
+        return p.in_stock === 0;  // If number, 0 means out of stock
+      }
+    }).length;
+
+    return {
+      totalProducts,
+      totalDiscounted,
+      totalInstock,
+      totalOutOfStock,
+    };
+  }, []);
 
   const fetchProducts = useCallback(async (
     page: number,
@@ -50,7 +93,6 @@ export function useDashboardProducts(
         ...(category && { category })
       });
 
-      // Remove Authorization header - cookies are sent automatically
       const res = await fetch(`/api/shopowner/products?${params}`);
 
       if (!res.ok) {
@@ -59,7 +101,9 @@ export function useDashboardProducts(
 
       const data = await res.json();
 
-      setProducts(prev => append ? [...prev, ...data.products] : data.products);
+      const newProducts = append ? [...products, ...data.products] : data.products;
+      setProducts(newProducts);
+      setStats(calculateStats(newProducts));
       setCurrentPage(data.pagination.currentPage);
       setTotalPages(data.pagination.totalPages);
       setTotalCount(data.pagination.totalCount);
@@ -69,9 +113,9 @@ export function useDashboardProducts(
     } finally {
       setLoading(false);
     }
-  }, [shopId]);
+  }, [shopId, products, calculateStats]);
 
-  // Initial fetch - no token check needed
+  // Initial fetch
   useEffect(() => {
     if (!initialFetchDone.current) {
       initialFetchDone.current = true;
@@ -118,6 +162,7 @@ export function useDashboardProducts(
 
   return {
     products,
+    stats,
     loading,
     currentPage,
     totalPages,

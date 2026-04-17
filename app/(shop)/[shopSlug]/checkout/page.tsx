@@ -19,7 +19,7 @@ export default function CheckoutPage() {
   const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
   const { items, subtotal, totalItems, clearCart } = useCart();
   const { shop } = useShop();
-  
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -28,11 +28,11 @@ export default function CheckoutPage() {
     address: "",
     specialInstructions: "",
   });
-  
+
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "cod">("mpesa");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [codEnabled, setCodEnabled] = useState(true);
-  
+
   // Flag to prevent redirect after order is placed
   const orderPlacedRef = useRef(false);
 
@@ -40,24 +40,26 @@ export default function CheckoutPage() {
   useEffect(() => {
     const fetchPaymentSettings = async () => {
       if (!shop?.shopId) return;
-      
+
       try {
-        const response = await fetch(`/api/shopowner/payments?shop_id=${shop.shopId}`);
+        const response = await fetch(
+          `/api/shopowner/payments?shop_id=${shop.shopId}`,
+        );
         const result = await response.json();
-        
+
         if (result.success) {
           setCodEnabled(result.data.cod_enabled);
-          
+
           // If COD is disabled and current payment method is COD, switch to mpesa
           if (!result.data.cod_enabled && paymentMethod === "cod") {
             setPaymentMethod("mpesa");
           }
         }
       } catch (error) {
-        console.error('Failed to fetch payment settings:', error);
+        console.error("Failed to fetch payment settings:", error);
       }
     };
-    
+
     fetchPaymentSettings();
   }, [shop?.shopId]);
 
@@ -84,12 +86,18 @@ export default function CheckoutPage() {
   }, [items, authLoading, router, shop]);
 
   const handleFormChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handlePlaceOrder = async () => {
     // Validate required fields
-    if (!formData.fullName || !formData.email || !formData.phone || !formData.city || !formData.address) {
+    if (
+      !formData.fullName ||
+      !formData.email ||
+      !formData.phone ||
+      !formData.city ||
+      !formData.address
+    ) {
       showToast("Please fill in all required fields", "error");
       return;
     }
@@ -108,17 +116,17 @@ export default function CheckoutPage() {
         special_instructions: formData.specialInstructions || undefined,
         payment_method: paymentMethod === "cod" ? "cash_on_delivery" : "mpesa",
         subtotal: subtotal,
-        items: items.map(item => ({
+        items: items.map((item) => ({
           product_id: item.product_id,
-          quantity: item.quantity
-        }))
+          quantity: item.quantity,
+        })),
       };
 
       // Call order API
-      const response = await fetch('/api/shops/orders', {
-        method: 'POST',
+      const response = await fetch("/api/shops/orders", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(orderData),
       });
@@ -128,22 +136,25 @@ export default function CheckoutPage() {
       if (result.success) {
         // Set flag to prevent redirect
         orderPlacedRef.current = true;
-        
-        // Clear cart
-        clearCart();
-        
+
+        // Clear cart silently
+        clearCart(true);
+
         // Show success message
         showToast(result.data.message, "success");
-        
-        // Redirect to payment page with order info
+
+        // Get total amount from API response or use subtotal
+        const totalAmount = result.data.total_amount || subtotal;
+
+        // Redirect to payment page with all parameters including total amount
         router.push(
-          `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}&order_number=${result.data.order_number}&method=${paymentMethod}`
+          `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}&order_number=${result.data.order_number}&method=${paymentMethod}&total_amount=${totalAmount}`
         );
       } else {
         showToast(result.error || "Failed to place order", "error");
       }
     } catch (error) {
-      console.error('Place order error:', error);
+      console.error("Place order error:", error);
       showToast("Network error. Please try again.", "error");
     } finally {
       setIsSubmitting(false);
@@ -160,7 +171,7 @@ export default function CheckoutPage() {
         <div className="text-center">
           <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">Your cart is empty</p>
-          <Link 
+          <Link
             href={`/${shop?.shopSlug}`}
             className="inline-block mt-4 px-6 py-2 rounded-lg text-white"
             style={{ backgroundColor: shop?.secondaryColor }}
@@ -174,14 +185,10 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <PageBar 
-        breadcrumb="shop / checkout" 
-        itemCount={totalItems}
-      />
-      
+      <PageBar breadcrumb="shop / checkout" itemCount={totalItems} />
+
       <div className="min-h-screen py-6 md:py-10 bg-gray-50">
         <div className="mx-auto px-4 md:px-6">
-          
           {/* Login Prompt - Only show for guests */}
           {!isAuthenticated && (
             <div className="bg-blue-50 border-l-4 p-4 mb-6 rounded-r-lg">
@@ -189,7 +196,8 @@ export default function CheckoutPage() {
                 <div className="flex items-center gap-3">
                   <User className="w-5 h-5 text-black" />
                   <p className="text-sm text-black-800">
-                    <strong>Already have an account?</strong> Sign in for faster checkout
+                    <strong>Already have an account?</strong> Sign in for faster
+                    checkout
                   </p>
                 </div>
                 <Link
@@ -201,10 +209,9 @@ export default function CheckoutPage() {
               </div>
             </div>
           )}
-          
+
           {/* Desktop: Form left, Summary right | Mobile: Form top, Summary bottom */}
           <div className="flex flex-col lg:flex-row lg:gap-8">
-            
             {/* LEFT COLUMN - Form */}
             <div className="lg:flex-1 order-1 lg:order-1">
               <CheckoutForm
@@ -216,7 +223,7 @@ export default function CheckoutPage() {
                 codEnabled={codEnabled}
               />
             </div>
-            
+
             {/* RIGHT COLUMN - Order Summary */}
             <div className="lg:w-[420px] order-2 lg:order-2 mt-6 lg:mt-0">
               <OrderSummary

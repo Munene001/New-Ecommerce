@@ -18,7 +18,7 @@ interface CartContextType {
   addToCart: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   removeFromCart: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
-  clearCart: () => void;
+  clearCart: (silent?: boolean) => void; // ← Add optional silent parameter
   totalItems: number;
   subtotal: number;
 }
@@ -121,9 +121,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  const clearCart = () => {
+  // Update clearCart to accept silent parameter
+  const clearCart = (silent: boolean = false) => {
     setItems([]);
-    safeShowToast("Cart cleared", 'success');
+    // Only show toast if not silent
+    if (!silent) {
+      safeShowToast("Cart cleared", 'success');
+    }
   };
 
   return (
