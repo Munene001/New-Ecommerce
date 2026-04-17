@@ -242,35 +242,35 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check order status - only allow deletion of pending or cancelled orders
-    const [orders] = await pool.query<OrderRow[]>(
-      'SELECT order_status FROM orders WHERE order_id = ?',
-      [orderId]
-    );
-    
-    const orderStatus = orders[0]?.order_status;
-    if (orderStatus !== 'pending' && orderStatus !== 'cancelled') {
-      return NextResponse.json({ 
-        error: 'Cannot delete orders that are processing or delivered' 
-      }, { status: 400 });
+    // Start a transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Delete order items first (foreign key constraint)
+      await connection.query(
+        `DELETE FROM order_items WHERE order_id = ?`,
+        [orderId]
+      );
+      
+      // Delete order
+      await connection.query(
+        `DELETE FROM orders WHERE order_id = ?`,
+        [orderId]
+      );
+
+      await connection.commit();
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Order deleted successfully'
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    // Delete order items first (foreign key constraint)
-    await pool.query(
-      `DELETE FROM order_items WHERE order_id = ?`,
-      [orderId]
-    );
-    
-    // Delete order
-    await pool.query(
-      `DELETE FROM orders WHERE order_id = ?`,
-      [orderId]
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: 'Order deleted successfully'
-    });
 
   } catch (error) {
     console.error('DELETE order error:', error);

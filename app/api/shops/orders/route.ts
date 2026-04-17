@@ -212,12 +212,13 @@ export async function POST(request: NextRequest) {
       await connection.commit();
       connection.release();
 
-      // Return success response
+      // Return success response WITH total_amount
       return NextResponse.json({
         success: true,
         data: {
           order_id: orderId,
           order_number: orderNumber,
+          total_amount: subtotal,  // ← ADDED THIS LINE
           message: payment_method === 'cash_on_delivery' 
             ? 'Order placed successfully' 
             : 'Order created. Complete payment to confirm your order.'

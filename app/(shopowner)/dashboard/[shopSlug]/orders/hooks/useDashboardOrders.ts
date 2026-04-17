@@ -19,8 +19,33 @@ interface Order {
   updated_at: string;
 }
 
+interface OrderItem {
+  order_item_id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  price_at_time: number;
+  total_price: number;
+}
+
+interface OrderWithItems extends Order {
+  items: OrderItem[];
+}
+
+interface DashboardStats {
+  totalOrders: number;
+  pendingOrders: number;
+  processingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalRevenue: number;
+  paidOrders: number;
+  pendingPayment: number;
+}
+
 interface UseDashboardOrdersReturn {
   orders: Order[];
+  stats: DashboardStats;
   loading: boolean;
   currentPage: number;
   totalPages: number;
@@ -37,10 +62,22 @@ interface UseDashboardOrdersReturn {
   updatePaymentStatus: (orderId: number, status: string) => Promise<boolean>;
   cancelOrder: (orderId: number) => Promise<boolean>;
   deleteOrder: (orderId: number) => Promise<boolean>;
+  getOrderWithItems: (orderId: number) => Promise<OrderWithItems | null>;
+  getOrderItems: (orderId: number) => Promise<OrderItem[]>;
 }
 
 export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalOrders: 0,
+    pendingOrders: 0,
+    processingOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
+    totalRevenue: 0,
+    paidOrders: 0,
+    pendingPayment: 0,
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -53,6 +90,31 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
   const [currentSearch, setCurrentSearch] = useState<string>('');
 
   const initialFetchDone = useRef(false);
+
+  // Calculate stats from orders array
+  const calculateStats = useCallback((ordersList: Order[]): DashboardStats => {
+    const totalOrders = ordersList.length;
+    const pendingOrders = ordersList.filter(o => o.order_status === 'pending').length;
+    const processingOrders = ordersList.filter(o => o.order_status === 'processing').length;
+    const completedOrders = ordersList.filter(o => o.order_status === 'delivered').length;
+    const cancelledOrders = ordersList.filter(o => o.order_status === 'cancelled').length;
+    const paidOrders = ordersList.filter(o => o.payment_status === 'paid').length;
+    const pendingPayment = ordersList.filter(o => o.payment_status === 'pending').length;
+    const totalRevenue = ordersList
+      .filter(o => o.payment_status === 'paid')
+      .reduce((sum, o) => sum + o.subtotal, 0);
+
+    return {
+      totalOrders,
+      pendingOrders,
+      processingOrders,
+      completedOrders,
+      cancelledOrders,
+      totalRevenue,
+      paidOrders,
+      pendingPayment,
+    };
+  }, []);
 
   const fetchOrders = useCallback(async (
     page: number,
@@ -83,7 +145,9 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
 
       const data = await res.json();
 
-      setOrders(prev => append ? [...prev, ...data.orders] : data.orders);
+      const newOrders = append ? [...orders, ...data.orders] : data.orders;
+      setOrders(newOrders);
+      setStats(calculateStats(newOrders));
       setCurrentPage(data.pagination.currentPage);
       setTotalPages(data.pagination.totalPages);
       setTotalCount(data.pagination.totalCount);
@@ -93,7 +157,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     } finally {
       setLoading(false);
     }
-  }, [shopId]);
+  }, [shopId, orders, calculateStats]);
 
   // Initial fetch
   useEffect(() => {
@@ -225,8 +289,54 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     }
   };
 
+  // New: Get single order with its items
+  const getOrderWithItems = async (orderId: number): Promise<OrderWithItems | null> => {
+    try {
+      const res = await fetch(`/api/shopowner/orders/${orderId}`);
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch order');
+      }
+
+      const data = await res.json();
+      
+      if (data.success) {
+        return {
+          ...data.order,
+          items: data.items || []
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch order with items:', error);
+      return null;
+    }
+  };
+
+  // New: Get only order items
+  const getOrderItems = async (orderId: number): Promise<OrderItem[]> => {
+    try {
+      const res = await fetch(`/api/shopowner/orders/${orderId}/items`);
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch order items');
+      }
+
+      const data = await res.json();
+      
+      if (data.success) {
+        return data.items;
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch order items:', error);
+      return [];
+    }
+  };
+
   return {
     orders,
+    stats,
     loading,
     currentPage,
     totalPages,
@@ -243,5 +353,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     updatePaymentStatus,
     cancelOrder,
     deleteOrder,
+    getOrderWithItems,
+    getOrderItems,
   };
 }
