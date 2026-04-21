@@ -237,17 +237,15 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Top Strip - Payment Info */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
+      <div className=" border-b border-gray-200 shadow-sm" style={{ 
+        backgroundColor: `${shop?.secondaryColor}20`
+      
+      }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Left: Back and Title */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.back()}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
-              </button>
+            <div className="flex items-center  gap-4">
+             
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg" style={{ backgroundColor: `${shop?.secondaryColor}10` }}>
                   {paymentDetails.icon}
@@ -285,7 +283,7 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
               {/* Total Amount */}
               <div className="bg-green-50 rounded-lg px-4 py-2 min-w-[140px] border border-green-200">
                 <p className="text-xs text-green-700 font-medium">Total Amount</p>
-                <p className="font-bold text-gray-900 text-sm">{formatAmount(safeTotalAmount)}</p>
+                <p className="font-bold text-gray-900 text-lg">{formatAmount(safeTotalAmount)}</p>
               </div>
             </div>
           </div>
