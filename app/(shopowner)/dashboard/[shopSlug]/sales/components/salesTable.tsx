@@ -1,4 +1,5 @@
-'use client';
+// app/(dashboard)/[shopSlug]/sales/components/SalesTable.tsx
+"use client";
 
 import { useState, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
@@ -18,14 +19,13 @@ interface Order {
   created_at: string;
 }
 
-interface OrdersTableProps {
+interface SalesTableProps {
   orders: Order[];
   loading: boolean;
   hasMore: boolean;
   loadMore: () => void;
-  onUpdateStatus: (orderId: number, status: string) => Promise<boolean>;
-  onUpdatePaymentStatus: (orderId: number, status: string) => Promise<boolean>;
-  refreshOrders: () => Promise<void>;
+  onStatusUpdate: (orderId: number, status: string) => Promise<boolean>;
+  onRefresh: () => Promise<void>;
   shopSlug: string;
 }
 
@@ -36,8 +36,8 @@ const SkeletonRow = () => (
     <div className="w-[15%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
     <div className="w-[10%] px-4"><div className="h-4 bg-gray-300 rounded w-20 animate-pulse"></div></div>
     <div className="w-[10%] px-4"><div className="h-6 bg-gray-300 rounded-full w-20 animate-pulse"></div></div>
-    <div className="w-[10%] px-4"><div className="h-6 bg-gray-300 rounded-full w-20 animate-pulse"></div></div>
-    <div className="w-[15%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
+    <div className="w-[15%] px-4"><div className="h-6 bg-gray-300 rounded-full w-24 animate-pulse"></div></div>
+    <div className="w-[10%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
   </div>
 );
 
@@ -51,12 +51,6 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const getPaymentStatusColor = (status: string) => {
-  return status === 'paid' 
-    ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
-    : 'bg-amber-100 text-amber-800 border-amber-300';
-};
-
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
@@ -66,16 +60,15 @@ const formatDate = (dateString: string) => {
   });
 };
 
-export default function OrdersTable({
+export default function SalesTable({
   orders,
   loading,
   hasMore,
   loadMore,
-  onUpdateStatus,
-  onUpdatePaymentStatus,
-  refreshOrders,
+  onStatusUpdate,
+  onRefresh,
   shopSlug,
-}: OrdersTableProps) {
+}: SalesTableProps) {
   const router = useRouter();
   const [updating, setUpdating] = useState(false);
 
@@ -105,21 +98,9 @@ export default function OrdersTable({
     if (updating) return;
     setUpdating(true);
     
-    const success = await onUpdateStatus(orderId, newStatus);
+    const success = await onStatusUpdate(orderId, newStatus);
     if (success) {
-      await refreshOrders();
-    }
-    setUpdating(false);
-  };
-
-  const handlePaymentStatusChange = async (orderId: number, newStatus: string, e: React.MouseEvent | React.ChangeEvent) => {
-    e.stopPropagation();
-    if (updating) return;
-    setUpdating(true);
-    
-    const success = await onUpdatePaymentStatus(orderId, newStatus);
-    if (success) {
-      await refreshOrders();
+      await onRefresh();
     }
     setUpdating(false);
   };
@@ -131,23 +112,18 @@ export default function OrdersTable({
     { value: 'cancelled', label: 'Cancelled' },
   ];
 
-  const paymentStatusOptions = [
-    { value: 'pending', label: 'Pending' },
-    { value: 'paid', label: 'Paid' },
-  ];
-
   return (
     <div className="w-full relative">
       <div className="w-full overflow-x-auto">
         <div className="w-full">
           {/* Table header */}
           <div className="flex flex-row border-b border-gray-400 h-[52px] items-center text-gray-700 font-semibold text-sm bg-gray-100 w-full">
-            <div className="w-[18%] px-4">Order #</div>
+            <div className="w-[18%] px-4">Sales #</div>
             <div className="w-[22%] px-4">Customer</div>
             <div className="w-[15%] px-4">Phone</div>
             <div className="w-[10%] px-4">Amount</div>
             <div className="w-[10%] px-4">Payment</div>
-            <div className="w-[15%] px-4">Status</div>
+            <div className="w-[15%] px-4">Delivery Status</div>
             <div className="w-[10%] px-4">Date</div>
           </div>
 
@@ -203,19 +179,8 @@ export default function OrdersTable({
                   </div>
 
                   <div className="w-[10%] px-4">
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={order.payment_status}
-                        onChange={(e) => handlePaymentStatusChange(order.order_id, e.target.value, e)}
-                        disabled={updating}
-                        className={`text-xs px-2 py-1 rounded-full border font-medium cursor-pointer ${getPaymentStatusColor(order.payment_status)}`}
-                      >
-                        {paymentStatusOptions.map(opt => (
-                          <option key={opt.value} value={opt.value} className="text-gray-800">
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="text-xs px-2 py-1 rounded-full border font-medium bg-emerald-100 text-emerald-800 border-emerald-300">
+                      {order.payment_status === 'paid' ? 'Paid' : 'Pending'}
                     </div>
                   </div>
 
@@ -259,7 +224,7 @@ export default function OrdersTable({
           ) : (
             <div className="flex flex-col justify-center items-center h-64 text-gray-600">
               <Icon icon="mdi:package-variant" className="w-16 h-16 mb-4 text-gray-500" />
-              <p className="text-lg font-medium">No orders found</p>
+              <p className="text-lg font-medium">No sales found</p>
               <p className="text-sm">Try adjusting your search or filter</p>
             </div>
           )}

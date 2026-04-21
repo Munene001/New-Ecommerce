@@ -146,9 +146,9 @@ export default function CheckoutPage() {
         // Get total amount from API response or use subtotal
         const totalAmount = result.data.total_amount || subtotal;
 
-        // Redirect to payment page with all parameters including total amount
+        // Redirect to payment page with id
         router.push(
-          `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}&order_number=${result.data.order_number}&method=${paymentMethod}&total_amount=${totalAmount}`
+          `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}`,
         );
       } else {
         showToast(result.error || "Failed to place order", "error");
