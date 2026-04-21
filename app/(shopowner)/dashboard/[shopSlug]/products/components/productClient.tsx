@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useRef, useEffect } from "react";
 import { useDashboardProducts } from "@/lib/hooks/useProductDashboard";
@@ -10,7 +10,6 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import SimpleToast from "@/app/components/ui/simpleToast";
 
-
 interface Category {
   category_id: number;
   category_name: string;
@@ -19,20 +18,17 @@ interface Category {
 interface ProductsClientProps {
   shopId: number;
   shopSlug: string;
-  totalProducts: number;
-  totalCategories: number;
-  totalDiscounted: number;
-  totalInstock: number;
   categories: Category[];
+  // Remove these - we'll get from hook
+  // totalProducts: number;
+  // totalCategories: number;
+  // totalDiscounted: number;
+  // totalInstock: number;
 }
 
 export default function ProductsClient({
   shopId,
   shopSlug,
-  totalProducts,
-  totalCategories,
-  totalDiscounted,
-  totalInstock,
   categories,
 }: ProductsClientProps) {
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
@@ -46,6 +42,7 @@ export default function ProductsClient({
 
   const {
     products,
+    stats,  // ← Get LIVE stats from hook
     loading,
     hasMore,
     loadMoreProducts,
@@ -54,8 +51,8 @@ export default function ProductsClient({
     refreshProducts,
   } = useDashboardProducts(
     shopId.toString(),
-    totalProducts,
-    undefined,
+    undefined,  // Remove initialTotalCount
+    undefined,  // Remove initialTotalPages
   );
 
   // Auto-hide message after 5 seconds
@@ -164,13 +161,14 @@ export default function ProductsClient({
   return (
     <div className="md:p-4 px-2 py-6 font-[Poppins] relative">
       <StatsCards
-        totalProducts={totalProducts}
-        totalCategories={totalCategories}
-        totalDiscounted={totalDiscounted}
-        totalInstock={totalInstock}
+        totalProducts={stats.totalProducts}
+        totalCategories={categories.length}  // This is static from props
+        totalDiscounted={stats.totalDiscounted}
+        totalInstock={stats.totalInstock}
         currentShown={products.length}
       />
 
+      {/* Rest of your component remains the same */}
       <div className="flex justify-end pt-6">
         <Link href={`/dashboard/${shopSlug}/products/add`}>
           <Button
@@ -236,22 +234,6 @@ export default function ProductsClient({
         hasMore={hasMore}
         onBulkDelete={handleBulkDelete}
       />
-
-      <style jsx>{`
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translate(-50%, 100%);
-          }
-          to {
-            opacity: 1;
-            transform: translate(-50%, 0);
-          }
-        }
-        .animate-slideUp {
-          animation: slideUp 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
