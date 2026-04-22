@@ -54,9 +54,9 @@ export default function SalesClient({
 
   const handleTabClick = (index: number) => {
     if (index === 0) {
-      router.push(`/${shopSlug}/sales`);
+      router.push(`/dashboard/${shopSlug}/sales`);
     } else {
-      router.push(`/${shopSlug}/analytics`);
+      router.push(`/dashboard/${shopSlug}/analytics`);
     }
   };
 
@@ -174,9 +174,9 @@ export default function SalesClient({
           ))}
         </div>
 
-        <div className="relative w-full h-[3px] bg-gray-200 rounded-full">
+        <div className="relative w-full h-2 bg-gray-200 rounded-full">
           <div
-            className="absolute h-[3px] bg-magenta-dark rounded-full transition-all duration-300"
+            className="absolute h-2 bg-magenta-dark rounded-full transition-all duration-300"
             style={{
               width: `${100 / sections.length}%`,
               left: `${(100 / sections.length) * activeIndex}%`,
@@ -193,6 +193,8 @@ export default function SalesClient({
         averageOrderValue={metrics.averageOrderValue}
         loading={loading}
       />
+
+      <div className="text-three font-bold">Sales are Paid Orders</div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 my-4">
