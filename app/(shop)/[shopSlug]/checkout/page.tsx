@@ -32,11 +32,12 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "cod">("mpesa");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [codEnabled, setCodEnabled] = useState(true);
+  const [mpesaEnabled, setMpesaEnabled] = useState(false); // Changed to false
 
   // Flag to prevent redirect after order is placed
   const orderPlacedRef = useRef(false);
 
-  // Fetch COD status from payment settings
+  // Fetch payment settings
   useEffect(() => {
     const fetchPaymentSettings = async () => {
       if (!shop?.shopId) return;
@@ -49,10 +50,14 @@ export default function CheckoutPage() {
 
         if (result.success) {
           setCodEnabled(result.data.cod_enabled);
+          // Use has_any_mpesa_config from API response
+          setMpesaEnabled(result.data.has_any_mpesa_config);
 
-          // If COD is disabled and current payment method is COD, switch to mpesa
-          if (!result.data.cod_enabled && paymentMethod === "cod") {
+          // Auto-select available payment method
+          if (result.data.has_any_mpesa_config) {
             setPaymentMethod("mpesa");
+          } else if (result.data.cod_enabled) {
+            setPaymentMethod("cod");
           }
         }
       } catch (error) {
@@ -79,7 +84,6 @@ export default function CheckoutPage() {
 
   // Redirect if cart is empty - BUT NOT if order was just placed
   useEffect(() => {
-    // Don't redirect if order was just placed (waiting for payment page redirect)
     if (!orderPlacedRef.current && !authLoading && items.length === 0) {
       router.push(`/${shop?.shopSlug}`);
     }
@@ -90,7 +94,6 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
-    // Validate required fields
     if (
       !formData.fullName ||
       !formData.email ||
@@ -105,7 +108,6 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     try {
-      // Prepare order data
       const orderData = {
         shop_id: shop?.shopId,
         customer_name: formData.fullName,
@@ -122,7 +124,6 @@ export default function CheckoutPage() {
         })),
       };
 
-      // Call order API
       const response = await fetch("/api/shops/orders", {
         method: "POST",
         headers: {
@@ -134,19 +135,9 @@ export default function CheckoutPage() {
       const result = await response.json();
 
       if (result.success) {
-        // Set flag to prevent redirect
         orderPlacedRef.current = true;
-
-        // Clear cart silently
         clearCart(true);
-
-        // Show success message
         showToast(result.data.message, "success");
-
-        // Get total amount from API response or use subtotal
-        const totalAmount = result.data.total_amount || subtotal;
-
-        // Redirect to payment page with id
         router.push(
           `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}`,
         );
@@ -189,7 +180,6 @@ export default function CheckoutPage() {
 
       <div className="min-h-screen py-6 md:py-10 bg-gray-50">
         <div className="mx-auto px-4 md:px-6">
-          {/* Login Prompt - Only show for guests */}
           {!isAuthenticated && (
             <div className="bg-blue-50 border-l-4 p-4 mb-6 rounded-r-lg">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -210,9 +200,7 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* Desktop: Form left, Summary right | Mobile: Form top, Summary bottom */}
           <div className="flex flex-col lg:flex-row lg:gap-8">
-            {/* LEFT COLUMN - Form */}
             <div className="lg:flex-1 order-1 lg:order-1">
               <CheckoutForm
                 formData={formData}
@@ -221,10 +209,10 @@ export default function CheckoutPage() {
                 onPaymentMethodChange={setPaymentMethod}
                 secondaryColor={shop?.secondaryColor}
                 codEnabled={codEnabled}
+                mpesaEnabled={mpesaEnabled}
               />
             </div>
 
-            {/* RIGHT COLUMN - Order Summary */}
             <div className="lg:w-[420px] order-2 lg:order-2 mt-6 lg:mt-0">
               <OrderSummary
                 items={items}

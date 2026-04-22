@@ -19,7 +19,8 @@ interface CheckoutFormProps {
   paymentMethod: "mpesa" | "cod";
   onPaymentMethodChange: (method: "mpesa" | "cod") => void;
   secondaryColor?: string;
-  codEnabled?: boolean; // Add this prop
+  codEnabled?: boolean;
+  mpesaEnabled?: boolean;
 }
 
 // Convert Kenyan number formats to +254 format
@@ -48,7 +49,8 @@ export default function CheckoutForm({
   paymentMethod,
   onPaymentMethodChange,
   secondaryColor,
-  codEnabled = true, // Default to true if not provided
+  codEnabled = true,
+  mpesaEnabled = true,
 }: CheckoutFormProps) {
   const [phoneValue, setPhoneValue] = useState<string | undefined>(() => 
     convertToE164(formData.phone)
@@ -97,7 +99,6 @@ export default function CheckoutForm({
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Phone - Special case with react-phone-number-input */}
           <div>
             <label className="block text-sm font-medium text-black mb-2">
               Phone Number <span className="text-red-500">*</span>
@@ -179,38 +180,40 @@ export default function CheckoutForm({
         </h3>
         
         <div className="space-y-3">
-          {/* M-Pesa - Always shown */}
-          <label 
-            className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
-              paymentMethod === "mpesa" ? "border-opacity-100 bg-opacity-5" : "border-gray-200"
-            }`}
-            style={{ 
-              borderColor: paymentMethod === "mpesa" ? secondaryColor : undefined,
-              backgroundColor: paymentMethod === "mpesa" ? `${secondaryColor}10` : undefined
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="mpesa"
-                checked={paymentMethod === "mpesa"}
-                onChange={() => onPaymentMethodChange("mpesa")}
-                className="w-4 h-4"
-                style={{ accentColor: secondaryColor }}
-              />
-              <Wallet className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="font-medium text-black">M-Pesa</p>
-                <p className="text-xs text-gray-500">Pay via M-Pesa (STK Push or Paybill)</p>
+          {/* M-Pesa - Radio button style */}
+          {mpesaEnabled && (
+            <label 
+              className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                paymentMethod === "mpesa" ? "border-opacity-100 bg-opacity-5" : "border-gray-200"
+              }`}
+              style={{ 
+                borderColor: paymentMethod === "mpesa" ? secondaryColor : undefined,
+                backgroundColor: paymentMethod === "mpesa" ? `${secondaryColor}10` : undefined
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="mpesa"
+                  checked={paymentMethod === "mpesa"}
+                  onChange={() => onPaymentMethodChange("mpesa")}
+                  className="w-4 h-4"
+                  style={{ accentColor: secondaryColor }}
+                />
+                <Wallet className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="font-medium text-black">M-Pesa</p>
+                  <p className="text-xs text-gray-500">Pay via M-Pesa (STK Push or Paybill)</p>
+                </div>
               </div>
-            </div>
-            {paymentMethod === "mpesa" && (
-              <div className="w-5 h-5 rounded-full" style={{ backgroundColor: secondaryColor }} />
-            )}
-          </label>
+              {paymentMethod === "mpesa" && (
+                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: secondaryColor }} />
+              )}
+            </label>
+          )}
           
-          {/* Cash on Delivery - Only show if enabled */}
+          {/* Cash on Delivery - Original button style restored */}
           {codEnabled && (
             <button
               type="button"
