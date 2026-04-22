@@ -3,7 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
-import SalesClient from './components/salesClient';
+import AnalyticsClient from './components/analyticsClient';
 
 interface PageProps {
   params: Promise<{ shopSlug: string }>;
@@ -13,7 +13,7 @@ interface ShopRow extends RowDataPacket {
   shop_id: number;
 }
 
-export default async function SalesAnalyticsPage({ params }: PageProps) {
+export default async function AnalyticsPage({ params }: PageProps) {
   const { shopSlug } = await params;
   
   let shopId: number | null = null;
@@ -47,7 +47,7 @@ export default async function SalesAnalyticsPage({ params }: PageProps) {
   }
   
   return (
-    <SalesClient 
+    <AnalyticsClient
       shopId={shopId}
       shopSlug={shopSlug}
     />
