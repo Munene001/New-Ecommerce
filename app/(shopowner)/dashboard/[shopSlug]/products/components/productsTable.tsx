@@ -159,7 +159,7 @@ export default function ProductsTable({
       <div className="w-full overflow-x-auto">
         <div className="min-w-[900px] md:min-w-full">
           {/* Table header */}
-          <div className="flex flex-row border-b border-[#294248] h-[52px] items-center text-[#4B5563] font-medium text-sm bg-gray-50">
+          <div className="flex flex-row border-b border-[#294248] h-[52px] items-center text-gray-900 font-medium text-sm bg-gray-50">
             <div className="w-[5.7%] px-4">
               <input
                 type="checkbox"
@@ -267,7 +267,7 @@ export default function ProductsTable({
                         handleActionChange(e.target.value, product.product_id)
                       }
                     >
-                      <option className="text-black/90" value="">
+                      <option className="text-black" value="">
                         Actions
                       </option>
                       <option value="update">Update</option>

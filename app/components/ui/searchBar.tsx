@@ -64,10 +64,10 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(({
             onChange={onChange}
             onFocus={handleFocus}
             placeholder={placeholder}
-            className="w-full pl-11 pr-11 text-black py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 transition-all placeholder:text-gray-700"
+            className="w-full pl-11 pr-11 text-black py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:ring-2 focus:ring-[${secondaryColor}] focus:outline-none  transition-all placeholder:text-gray-700"
             style={
               {
-                focusRingColor: secondaryColor,
+                
                 borderColor: secondaryColor,
               } as React.CSSProperties
             }
