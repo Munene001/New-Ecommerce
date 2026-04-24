@@ -149,7 +149,7 @@ export default function AnalyticsCharts({
             </p>
           )}
         </div>
-        <ResponsiveContainer width="100%" height={320}>
+        <ResponsiveContainer width="100%" height={420}>
           <BarChart
             data={topProductsData}
             layout="vertical"
@@ -169,8 +169,8 @@ export default function AnalyticsCharts({
             <YAxis
               type="category"
               dataKey="name"
-              width={120}
-              tick={{ fill: "#f3f4f6", fontSize: 12 }}
+              width={40}
+              tick={{ fill: "#f3f4f6", fontSize: 14 }}
               axisLine={{ stroke: "#4b5563" }}
               tickLine={{ stroke: "#4b5563" }}
             />
@@ -209,7 +209,7 @@ export default function AnalyticsCharts({
             Paid Sales: M-Pesa vs Cash on Delivery
           </p>
         </div>
-        <ResponsiveContainer width="100%" height={320}>
+        <ResponsiveContainer width="100%" height={420}>
           <PieChart>
             <Pie
               data={paymentSplitData}
@@ -267,7 +267,7 @@ export default function AnalyticsCharts({
             orders)
           </p>
         </div>
-        <ResponsiveContainer width="100%" height={320}>
+        <ResponsiveContainer width="100%" height={420}>
           <LineChart data={hourlyDistribution} margin={{ right: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis
@@ -318,11 +318,11 @@ export default function AnalyticsCharts({
             Geographic distribution of paid transactions
           </p>
         </div>
-        <ResponsiveContainer width="100%" height={320}>
+        <ResponsiveContainer width="100%" height={420}>
           <BarChart
             data={topCitiesData}
             layout="vertical"
-            margin={{ left: 100 }}
+            margin={{ left: 50, right:50 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
@@ -338,7 +338,7 @@ export default function AnalyticsCharts({
             <YAxis
               type="category"
               dataKey="name"
-              width={90}
+              width={40}
               tick={{ fill: "#f3f4f6" }}
               axisLine={{ stroke: "#4b5563" }}
               tickLine={{ stroke: "#4b5563" }}

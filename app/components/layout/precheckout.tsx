@@ -101,10 +101,10 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
       
       {/* Drawer from right */}
       <div 
-        className="fixed top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-white shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
+        className="fixed top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-white  shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
       >
         {/* Header - Improved */}
-        <div className="flex justify-between items-center p-5 border-b border-gray-100 sticky top-0 z-10 bg-white">
+        <div className="flex justify-between items-center p-5 border-b border-gray-100 sticky top-0 z-10 bg-white bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto]">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full" style={{ backgroundColor: `${shop?.secondaryColor}10` }}>
               <ShoppingBag className="w-5 h-5" style={{ color: shop?.secondaryColor }} />

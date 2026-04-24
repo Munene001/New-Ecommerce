@@ -78,7 +78,7 @@ export default function OrderSummary({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6 sticky top-6">
-      <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4">
+      <div className="flex items-center justify-between border-b border-gray-200 bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto] pb-4 mb-4">
         <h2 className="text-xl font-semibold text-black flex items-center gap-2">
           <ShoppingBag className="w-5 h-5" style={{ color: secondaryColor }} />
           Order Summary

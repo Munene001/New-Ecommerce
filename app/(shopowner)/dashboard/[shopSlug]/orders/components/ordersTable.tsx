@@ -139,7 +139,7 @@ export default function OrdersTable({
   return (
     <div className="w-full relative">
       <div className="w-full overflow-x-auto">
-        <div className="w-full">
+        <div className="min-w-[1000px] md:min-w-0">
           {/* Table header */}
           <div className="flex flex-row border-b border-gray-400 h-[52px] items-center text-gray-700 font-semibold text-sm bg-gray-100 w-full">
             <div className="w-[18%] px-4">Order #</div>
@@ -185,7 +185,7 @@ export default function OrdersTable({
                   </div>
 
                   <div className="w-[15%] px-4">
-                    <div className="text-black text-sm">
+                    <div className="text-black font-medium text-sm">
                       {order.customer_phone}
                     </div>
                     <div className="text-gray-700 text-xs">
@@ -237,7 +237,7 @@ export default function OrdersTable({
                   </div>
 
                   <div className="w-[10%] px-4">
-                    <div className="text-gray-600 text-sm">
+                    <div className="text-black text-sm">
                       {formatDate(order.created_at)}
                     </div>
                   </div>
