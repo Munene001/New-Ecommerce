@@ -98,7 +98,7 @@ export default function Filter({
   return (
     <div className="bg-white bg-[url('/assets/maze-special.svg')]  bg-repeat bg-[length:400px_auto] p-4 rounded-lg border border-gray-200 sticky top-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-semibold text-lg flex items-center gap-2">
+        <h2 className="font-semibold text-lg text-black flex items-center gap-2">
           <ListFilterPlus size={20} style={{ color: shopData.secondaryColor }} />
           <span>Filter</span>
         </h2>
@@ -198,7 +198,7 @@ export default function Filter({
                   onChange={() => handleSetSortBy(option.value)}
                   className="hidden"
                 />
-                <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                <span className="text-sm text-gray-900 group-hover:text-gray-900">
                   {option.label}
                 </span>
               </label>
@@ -236,7 +236,7 @@ export default function Filter({
                   onChange={() => handleToggleCategory(String(cat.id))}
                   className="hidden"
                 />
-                <span className="text-sm text-gray-600 group-hover:text-gray-900">
+                <span className="text-sm text-gray-900 group-hover:text-gray-900">
                   {cat.name}
                 </span>
               </label>

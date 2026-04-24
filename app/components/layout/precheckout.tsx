@@ -203,7 +203,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                       <div className="flex items-center gap-2 mt-3 text-black">
                         <button
                           onClick={() => handleQuantityChange(item.product_id, item.quantity, -1)}
-                          className="w-7 h-7 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-7 h-7 rounded-lg border border-gray-600 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={item.quantity <= 1}
                         >
                           <Minus className="w-3.5 h-3.5" />

@@ -70,7 +70,7 @@ export default function MobileProductBar({
 
   return (
     <div className="fixed bottom-18 left-0 p-2 flex flex-row gap-1 right-0 bg-white z-40 md:hidden">
-      <div className="flex items-center border text-black border-gray-300">
+      <div className="flex items-center border text-black border-gray-700">
         <button
           onClick={handleDecrement}
           className="px-3 py-2 hover:bg-gray-100"

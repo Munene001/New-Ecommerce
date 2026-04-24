@@ -414,10 +414,10 @@ export default function ProductSidebar({
             <div className="grid grid-cols-2 gap-y-3 text-sm">
               {attributeEntries.map((attr) => (
                 <div key={attr.key} className="flex flex-col">
-                  <span className="text-gray-900 text-sm uppercase tracking-wide">
+                  <span className="text-gray-900 text-[16px] uppercase tracking-wide">
                     {attr.label}
                   </span>
-                  <span className="text-black font-semibold">
+                  <span className="text-black text-[16px] font-semibold">
                     {renderAttributeValue(attr.value)}
                   </span>
                 </div>

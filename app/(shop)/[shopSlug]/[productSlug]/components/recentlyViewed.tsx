@@ -66,7 +66,7 @@ export default function RecentlyViewed({ currentProductId, secondaryColor, varia
               href={`/${shop?.shopSlug}/${item.product_slug}`}
               className="flex-shrink-0 w-36 md:w-44"
             >
-              <div className="bg-white rounded-lg border hover:shadow transition p-2">
+              <div className="bg-white rounded-lg border border-black hover:shadow transition p-2">
                 <Image
                   src={`/api/shopowner/products/${item.product_id}/images/primary?w=200`}
                   alt={item.product_name}
@@ -79,11 +79,11 @@ export default function RecentlyViewed({ currentProductId, secondaryColor, varia
                 <div className="flex items-center gap-1 mt-1">
                   {item.discount_price ? (
                     <>
-                      <span className="text-gray-900 text-sm">KSh {item.discount_price}</span>
-                      <span className="text-gray-400 line-through text-xs">KSh {item.price}</span>
+                      <span className="text-black  font-medium text-sm">KSh {item.discount_price}</span>
+                      <span className="text-gray-600 line-through text-xs">KSh {item.price}</span>
                     </>
                   ) : (
-                    <span className="text-gray-900 text-sm">KSh {item.price}</span>
+                    <span className="text-black font-medium text-sm">KSh {item.price}</span>
                   )}
                 </div>
               </div>

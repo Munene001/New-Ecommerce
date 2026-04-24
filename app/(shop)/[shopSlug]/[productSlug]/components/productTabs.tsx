@@ -301,7 +301,7 @@ export default function ProductTabs({
             onClick={() => setActiveTab(tab as TabType)}
             className={`pb-3 text-sm font-medium capitalize transition ${
               activeTab === tab
-                ? "border-b-2 text-gray-900"
+                ? "border-b-4 text-gray-900"
                 : "text-gray-600 hover:text-gray-700"
             }`}
             style={
