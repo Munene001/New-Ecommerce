@@ -237,10 +237,10 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Top Strip - Payment Info */}
-      <div className=" border-b border-gray-200 shadow-sm" style={{ 
-        backgroundColor: `${shop?.secondaryColor}20`
+      <div className=" border-b border-gray-200 shadow-sm bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto]" 
       
-      }}>
+      
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Left: Back and Title */}

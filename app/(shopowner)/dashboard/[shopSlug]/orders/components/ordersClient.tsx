@@ -152,7 +152,7 @@ export default function OrdersClient({
             placeholder="Search by order # or customer..."
             value={searchInput}
             onChange={handleSearch}
-            className="w-full border border-gray-300 px-4 h-[50px] pl-12 rounded-lg bg-white text-black"
+            className="w-full border border-gray-300 px-4 h-[50px] pl-12 rounded-lg bg-white text-black placeholder:to-black"
           />
           <Icon
             icon="mdi:magnify"

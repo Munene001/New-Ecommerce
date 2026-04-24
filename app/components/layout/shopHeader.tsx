@@ -143,7 +143,7 @@ export default function ShopHeader() {
 
   return (
     <>
-      <header className="bg-white">
+      <header className="bg-white bg-[url('/assets/maze-special.svg')]">
         <HeaderMessage
           message={shop?.headerMessage || ""}
           secondaryColor={shop?.secondaryColor || "#000"}
@@ -300,8 +300,8 @@ export default function ShopHeader() {
               className="fixed inset-0 bg-black/50 z-40 md:hidden"
               onClick={() => setIsMobileMenuOpen(false)}
             />
-            <div className="fixed inset-y-0 left-0 w-[85%] bg-white z-50 md:hidden shadow-2xl animate-slide-right">
-              <div className="flex flex-col h-full">
+            <div className="fixed inset-y-0 left-0 w-[85%] bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto]  bg-white z-50 md:hidden shadow-2xl animate-slide-right">
+              <div className="flex flex-col h-full ">
                 <div className="flex justify-end p-6">
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -313,8 +313,8 @@ export default function ShopHeader() {
                     />
                   </button>
                 </div>
-                <nav className="flex-1 px-6">
-                  <div className="space-y-6">
+                <nav className="flex-1 px-6 ">
+                  <div className="space-y-6 ">
                     <NavIcon
                       href={`/${shop?.shopSlug}`}
                       icon={<ShoppingCart className="w-6 h-6" />}

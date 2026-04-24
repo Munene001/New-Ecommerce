@@ -187,7 +187,7 @@ export default function IndividualOrder({ params }: PageProps) {
   return (
     <div className="md:p-6 px-4 py-6 font-[Poppins] max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex gap-6 items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.back()}
@@ -197,7 +197,7 @@ export default function IndividualOrder({ params }: PageProps) {
           </button>
           <div>
             <h1 className="text-2xl font-semibold text-gray-800">Order #{order.order_number}</h1>
-            <p className="text-gray-500 text-sm mt-1">Placed on {formatDate(order.created_at)}</p>
+            <p className="text-gray-800 text-sm mt-1">Placed on {formatDate(order.created_at)}</p>
           </div>
         </div>
         
@@ -300,24 +300,24 @@ export default function IndividualOrder({ params }: PageProps) {
             </div>
             <div className="px-6 py-4 space-y-3">
               <div>
-                <p className="text-sm text-gray-600">Name</p>
-                <p className="font-medium text-gray-800">{order.customer_name}</p>
+                <p className="text-sm text-gray-800">Name</p>
+                <p className="font-medium text-black">{order.customer_name}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Email</p>
-                <p className="text-gray-700">{order.customer_email}</p>
+                <p className="text-sm text-gray-800">Email</p>
+                <p className="text-black">{order.customer_email}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Phone</p>
-                <p className="text-gray-700">{order.customer_phone}</p>
+                <p className="text-sm text-gray-800">Phone</p>
+                <p className="text-black">{order.customer_phone}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600 flex items-center gap-1">
                   <MapPin size={14} />
                   Address
                 </p>
-                <p className="text-gray-700">{order.customer_address}</p>
-                <p className="text-gray-500 text-sm">{order.customer_city}</p>
+                <p className="text-black">{order.customer_address}</p>
+                <p className="text-black text-sm">{order.customer_city}</p>
               </div>
             </div>
           </div>
