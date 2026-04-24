@@ -109,7 +109,7 @@ export default function ShopProductsClient() {
         className="lg:hidden px-4 py-4 font-[Poppins] cursor-pointer"
         onClick={() => setIsFilterOpen(true)}
       >
-        <div className="flex flex-row gap-2">
+        <div className="flex flex-row gap-2 text-black">
           <ListFilterPlus />
           <span className="md:text-[16px] text-[18px] font-semibold">
             Filter
