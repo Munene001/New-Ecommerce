@@ -124,7 +124,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
             href={`/${shopSlug}/${product.product_slug}`}
             className="no-underline text-inherit"
           >
-            <h3 className="text-[15px] line-clamp-2 font-[Poppins] hover:underline">
+            <h3 className="text-[15px] text-black line-clamp-2 font-[Poppins] hover:underline">
               {product.product_name}
             </h3>
           </Link>

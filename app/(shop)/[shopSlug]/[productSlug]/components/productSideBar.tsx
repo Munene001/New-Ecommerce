@@ -286,7 +286,7 @@ export default function ProductSidebar({
             title={isShopOwner ? "Shop owners cannot add items to wishlist" : undefined}
           >
             {HeartIcon}
-            <span>Wishlist</span>
+            <span >Wishlist</span>
           </button>
           <ShareButton
             title={product.product_name}
@@ -304,7 +304,7 @@ export default function ProductSidebar({
         </div>
 
         {/* Description */}
-        <p className="text-black">{product.description}</p>
+        <p className="text-black font-medium">{product.description}</p>
 
         {/* Attributes */}
         {attributeEntries.length > 0 && (

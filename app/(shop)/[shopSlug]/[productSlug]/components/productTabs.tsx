@@ -409,7 +409,7 @@ export default function ProductTabs({
                     </div>
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-sm">
+                        <span className="font-medium text-black text-sm">
                           {review.user_name}
                         </span>
                         {review.is_owner_reply && (

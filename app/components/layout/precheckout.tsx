@@ -130,7 +130,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
         <div className="flex-1 overflow-y-auto p-5 pb-32 md:pb-32 bg-gray-50">
           {items.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-gray-300 mb-4">
+              <div className="text-gray-500 mb-4">
                 <ShoppingBag className="w-16 h-16 mx-auto" strokeWidth={1.5} />
               </div>
               <p className="text-gray-500 mb-4">Your cart is empty</p>
@@ -200,7 +200,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                       </div>
                       
                       {/* Quantity Controls - Improved styling */}
-                      <div className="flex items-center gap-2 mt-3">
+                      <div className="flex items-center gap-2 mt-3 text-black">
                         <button
                           onClick={() => handleQuantityChange(item.product_id, item.quantity, -1)}
                           className="w-7 h-7 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -268,16 +268,12 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
               </button>
               <button
                 onClick={onClose}
-                className="w-full mt-3 py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors"
+                className="w-full mt-3 py-2 text-gray-700 hover:text-gray-700 text-sm transition-colors"
               >
                 Continue Shopping
               </button>
               
-              {/* Secure Notice */}
-              <p className="text-xs text-gray-800 text-center mt-4 flex items-center justify-center gap-1">
-                <Lock className="w-3 h-3" />
-                Your information is secure
-              </p>
+           
             </div>
           </div>
         )}

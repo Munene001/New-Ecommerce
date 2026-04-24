@@ -75,7 +75,7 @@ export default function RecentlyViewed({ currentProductId, secondaryColor, varia
                   width={100}
                   height={32}
                 />
-                <p className="text-sm font-medium mt-2 line-clamp-2">{item.product_name}</p>
+                <p className="text-sm font-medium text-black mt-2 line-clamp-2">{item.product_name}</p>
                 <div className="flex items-center gap-1 mt-1">
                   {item.discount_price ? (
                     <>

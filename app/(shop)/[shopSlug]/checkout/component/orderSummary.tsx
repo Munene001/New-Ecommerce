@@ -141,7 +141,7 @@ export default function OrderSummary({
                 </div>
                 
                 {/* Quantity Controls - Same as precheckout */}
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2 text-black">
                   <button
                     onClick={() => handleQuantityChange(item.product_id, item.quantity, -1)}
                     className="w-7 h-7 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -196,7 +196,7 @@ export default function OrderSummary({
             <span>Total</span>
             <span style={{ color: secondaryColor }}>KSh {subtotal.toLocaleString()}</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1 text-center">
+          <p className="text-xs text-gray-800 mt-1 text-center">
             * Delivery fee will be confirmed by seller after order
           </p>
         </div>

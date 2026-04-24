@@ -346,7 +346,7 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
                 I've Completed Payment
               </button>
 
-              <div className="mt-4 flex items-center justify-center gap-1 text-xs text-gray-400">
+              <div className="mt-4 flex items-center justify-center gap-1 text-xs text-gray-800">
                 <Clock className="w-3 h-3" />
                 <span>Click only after payment is complete</span>
               </div>
@@ -354,8 +354,8 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
 
             {/* Order Number Reference */}
             <div className="mt-4 bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
-              <p className="text-xs text-gray-500">Having trouble?</p>
-              <p className="text-xs text-gray-600 mt-1">Contact support with your order number</p>
+              <p className="text-xs text-gray-800">Having trouble?</p>
+              <p className="text-xs text-gray-800 mt-1">Contact support with your order number</p>
               <p className="font-mono text-sm font-bold text-gray-900 mt-2">{safeOrderNumber}</p>
             </div>
           </div>

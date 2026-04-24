@@ -64,7 +64,7 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(({
             onChange={onChange}
             onFocus={handleFocus}
             placeholder={placeholder}
-            className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-opacity-50 transition-all"
+            className="w-full pl-11 pr-11 text-black py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 transition-all placeholder:text-gray-700"
             style={
               {
                 focusRingColor: secondaryColor,
@@ -77,13 +77,13 @@ const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(({
             <button
               type="button"
               onClick={onClear}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-gray-600"
             >
               <X className="w-4 h-4" />
             </button>
           )}
           {loading && (
-            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-700" />
           )}
         </div>
       </form>
