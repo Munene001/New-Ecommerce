@@ -301,8 +301,8 @@ export default function ProductTabs({
             onClick={() => setActiveTab(tab as TabType)}
             className={`pb-3 text-sm font-medium capitalize transition ${
               activeTab === tab
-                ? "border-b-2 text-gray-900"
-                : "text-gray-400 hover:text-gray-600"
+                ? "border-b-4 text-gray-900"
+                : "text-gray-600 hover:text-gray-700"
             }`}
             style={
               activeTab === tab ? { borderBottomColor: secondaryColor } : {}
@@ -409,7 +409,7 @@ export default function ProductTabs({
                     </div>
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-sm">
+                        <span className="font-medium text-black text-sm">
                           {review.user_name}
                         </span>
                         {review.is_owner_reply && (
@@ -488,7 +488,7 @@ export default function ProductTabs({
                           </div>
                           <div className="flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium text-xs">
+                              <span className="font-medium text-xs text-black">
                                 {reply.user_name}
                               </span>
                               {reply.is_owner_reply && (
@@ -496,7 +496,7 @@ export default function ProductTabs({
                                   <ShieldCheck size={10} /> Owner
                                 </span>
                               )}
-                              <span className="text-xs text-gray-400">
+                              <span className="text-xs text-gray-600">
                                 {formatDate(reply.created_at)}
                               </span>
                             </div>

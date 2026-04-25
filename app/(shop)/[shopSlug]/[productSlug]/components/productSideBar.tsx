@@ -201,7 +201,7 @@ export default function ProductSidebar({
     <Heart className="w-5 h-5" />
   );
   const heartButtonClasses = `flex items-center gap-1 transition-colors ${
-    isInWishlist ? 'text-red-500' : 'text-gray-600 hover:text-red-500'
+    isInWishlist ? 'text-red-500' : 'text-gray-900 hover:text-red-900'
   } ${isShopOwner ? 'opacity-50 cursor-not-allowed' : ''}`;
 
   return (
@@ -279,14 +279,14 @@ export default function ProductSidebar({
 
         {/* Wishlist & Share */}
         <div className="flex gap-4">
-          <button
+          <button 
             onClick={handleToggleWishlist}
             disabled={isTogglingWishlist || isShopOwner}
             className={heartButtonClasses}
             title={isShopOwner ? "Shop owners cannot add items to wishlist" : undefined}
           >
             {HeartIcon}
-            <span>Wishlist</span>
+            <span className="text-gray-900" >Wishlist</span>
           </button>
           <ShareButton
             title={product.product_name}
@@ -304,7 +304,7 @@ export default function ProductSidebar({
         </div>
 
         {/* Description */}
-        <p className="text-black">{product.description}</p>
+        <p className="text-black text-[16px] font-medium">{product.description}</p>
 
         {/* Attributes */}
         {attributeEntries.length > 0 && (
@@ -313,7 +313,7 @@ export default function ProductSidebar({
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
               {attributeEntries.map((attr) => (
                 <div key={attr.key} className="flex flex-col">
-                  <span className="font-normal capitalize text-gray-800">
+                  <span className="font-normal capitalize text-gray-900">
                     {attr.label}
                   </span>
                   <span className="font-bold">
@@ -400,7 +400,7 @@ export default function ProductSidebar({
         </div>
 
         {/* Description */}
-        <p className="text-black text-sm leading-relaxed">
+        <p className="text-black text-[16px] leading-relaxed">
           {product.description}
         </p>
 
@@ -414,10 +414,10 @@ export default function ProductSidebar({
             <div className="grid grid-cols-2 gap-y-3 text-sm">
               {attributeEntries.map((attr) => (
                 <div key={attr.key} className="flex flex-col">
-                  <span className="text-gray-800 text-xs uppercase tracking-wide">
+                  <span className="text-gray-900 text-[16px] uppercase tracking-wide">
                     {attr.label}
                   </span>
-                  <span className="text-black font-semibold">
+                  <span className="text-black text-[16px] font-semibold">
                     {renderAttributeValue(attr.value)}
                   </span>
                 </div>

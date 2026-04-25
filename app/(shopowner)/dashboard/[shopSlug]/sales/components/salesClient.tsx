@@ -165,7 +165,7 @@ export default function SalesClient({
               className={`flex-1 text-center px-2 py-3 text-[18px] md:text-base font-[500] transition-colors font-[Poppins] ${
                 index === activeIndex
                   ? "text-black"
-                  : "text-gray-400 hover:text-gray-600"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
               style={{ width: `${100 / sections.length}%` }}
             >
@@ -215,7 +215,7 @@ export default function SalesClient({
         <select
           value={statusFilter}
           onChange={handleStatusFilter}
-          className="w-48 border border-gray-300 h-[50px] px-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-magenta-dark"
+          className="w-48 border border-gray-600 text-black h-[50px] px-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-magenta-dark"
         >
           <option value="">All Status</option>
           <option value="pending">Pending</option>
@@ -231,14 +231,14 @@ export default function SalesClient({
             type="date"
             value={dateFrom}
             onChange={handleDateFromChange}
-            className="w-32 h-full focus:outline-none text-sm"
+            className="w-32 h-full focus:outline-none text-sm placeholder:text-gray-700 text-black"
           />
           <span className="text-gray-400">—</span>
           <input
             type="date"
             value={dateTo}
             onChange={handleDateToChange}
-            className="w-32 h-full focus:outline-none text-sm"
+            className="w-32  h-full focus:outline-none text-sm placeholder:text-gray-700 text-black"
           />
         </div>
 

@@ -215,7 +215,7 @@ export default function ShopLayoutClient({
             initialSortBy={initialSortBy}
             initialInStock={initialInStock}
           >
-            <div className="min-h-screen flex flex-col">
+            <div className="min-h-screen flex flex-col bg-[url('/assets/maze-special.svg')]  bg-repeat bg-[length:500px_auto]">
               <ShopHeader />
 
               {/* No inline banner - removed */}

@@ -58,9 +58,9 @@ export default function ShopHeader() {
 
   // Function to scroll to footer
   const scrollToFooter = () => {
-    const footer = document.querySelector('footer');
+    const footer = document.querySelector("footer");
     if (footer) {
-      footer.scrollIntoView({ behavior: 'smooth' });
+      footer.scrollIntoView({ behavior: "smooth" });
     }
     setIsMobileMenuOpen(false);
   };
@@ -70,7 +70,7 @@ export default function ShopHeader() {
 
   // For pages without context, we use local state and handle URL navigation
   const [localSearchInput, setLocalSearchInput] = useState(
-    searchParams.get("search") || ""
+    searchParams.get("search") || "",
   );
   const debouncedLocalSearch = useDebounce(localSearchInput, 500);
 
@@ -108,7 +108,11 @@ export default function ShopHeader() {
     if (hasContext) return;
 
     const urlSearch = searchParams.get("search") || "";
-    if (!isUserTyping.current && !hasInitializedRef.current && localSearchInput !== urlSearch) {
+    if (
+      !isUserTyping.current &&
+      !hasInitializedRef.current &&
+      localSearchInput !== urlSearch
+    ) {
       hasInitializedRef.current = true;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalSearchInput(urlSearch);
@@ -143,7 +147,7 @@ export default function ShopHeader() {
 
   return (
     <>
-      <header className="bg-white">
+      <header className="bg-white bg-[url('/assets/maze-special.svg')]">
         <HeaderMessage
           message={shop?.headerMessage || ""}
           secondaryColor={shop?.secondaryColor || "#000"}
@@ -217,7 +221,7 @@ export default function ShopHeader() {
                     style={{ color: shop?.primaryColor }}
                   />
                 </button>
-                <button 
+                <button
                   className="relative hover:opacity-70 transition"
                   onClick={handleCartClick}
                 >
@@ -226,7 +230,10 @@ export default function ShopHeader() {
                   </span>
                   <span
                     className="absolute -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
-                    style={{ backgroundColor: shop?.secondaryColor || "var(--secondary)" }}
+                    style={{
+                      backgroundColor:
+                        shop?.secondaryColor || "var(--secondary)",
+                    }}
                   >
                     {totalItems}
                   </span>
@@ -247,11 +254,7 @@ export default function ShopHeader() {
                   label="Blog"
                 />
                 <div onClick={scrollToFooter}>
-                  <NavIcon
-                    href="#"
-                    icon={<PhoneForwarded />}
-                    label="Contact"
-                  />
+                  <NavIcon href="#" icon={<PhoneForwarded />} label="Contact" />
                 </div>
               </nav>
             </div>
@@ -259,13 +262,16 @@ export default function ShopHeader() {
 
           {/* Mobile Layout - NO SEARCH BAR HERE */}
           <div className="flex md:hidden flex-col gap-4 py-2">
-            {/* Top row: menu, shop name, cart */}
+            {/* Top row: menu, shop name */}
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 -ml-2"
               >
-                <Menu className="w-7 h-7" style={{ color: shop?.primaryColor }} />
+                <Menu
+                  className="w-7 h-7"
+                  style={{ color: shop?.primaryColor }}
+                />
               </button>
 
               <span
@@ -275,20 +281,8 @@ export default function ShopHeader() {
                 {shop?.shopName}
               </span>
 
-              <button 
-                className="relative hover:opacity-70 transition"
-                onClick={handleCartClick}
-              >
-                <span style={{ color: shop?.primaryColor }}>
-                  <CartIcon cartIcon={shop?.cartIcon} />
-                </span>
-                <span
-                  className="absolute -top-2 -right-2 text-white text-sm rounded-full h-5 w-5 flex items-center justify-center"
-                  style={{ backgroundColor: shop?.secondaryColor || "var(--secondary)" }}
-                >
-                  {totalItems}
-                </span>
-              </button>
+              {/* Empty div to maintain spacing */}
+              <div className="w-1 h-7"></div>
             </div>
           </div>
         </div>
@@ -300,8 +294,8 @@ export default function ShopHeader() {
               className="fixed inset-0 bg-black/50 z-40 md:hidden"
               onClick={() => setIsMobileMenuOpen(false)}
             />
-            <div className="fixed inset-y-0 left-0 w-[85%] bg-white z-50 md:hidden shadow-2xl animate-slide-right">
-              <div className="flex flex-col h-full">
+            <div className="fixed inset-y-0 left-0 w-[85%] bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto]  bg-white z-50 md:hidden shadow-2xl animate-slide-right">
+              <div className="flex flex-col h-full ">
                 <div className="flex justify-end p-6">
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -313,8 +307,8 @@ export default function ShopHeader() {
                     />
                   </button>
                 </div>
-                <nav className="flex-1 px-6">
-                  <div className="space-y-6">
+                <nav className="flex-1 px-6 ">
+                  <div className="space-y-6 ">
                     <NavIcon
                       href={`/${shop?.shopSlug}`}
                       icon={<ShoppingCart className="w-6 h-6" />}
@@ -360,7 +354,7 @@ export default function ShopHeader() {
       </header>
 
       {/* Pre-Checkout Modal */}
-      <PreCheckoutModal 
+      <PreCheckoutModal
         isOpen={isPreCheckoutOpen}
         onClose={() => setIsPreCheckoutOpen(false)}
       />

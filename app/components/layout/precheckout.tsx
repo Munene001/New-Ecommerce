@@ -101,10 +101,10 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
       
       {/* Drawer from right */}
       <div 
-        className="fixed top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-white shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
+        className="fixed top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-white  shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
       >
         {/* Header - Improved */}
-        <div className="flex justify-between items-center p-5 border-b border-gray-100 sticky top-0 z-10 bg-white">
+        <div className="flex justify-between items-center p-5 border-b border-gray-100 sticky top-0 z-10 bg-white bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto]">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full" style={{ backgroundColor: `${shop?.secondaryColor}10` }}>
               <ShoppingBag className="w-5 h-5" style={{ color: shop?.secondaryColor }} />
@@ -130,7 +130,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
         <div className="flex-1 overflow-y-auto p-5 pb-32 md:pb-32 bg-gray-50">
           {items.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-gray-300 mb-4">
+              <div className="text-gray-500 mb-4">
                 <ShoppingBag className="w-16 h-16 mx-auto" strokeWidth={1.5} />
               </div>
               <p className="text-gray-500 mb-4">Your cart is empty</p>
@@ -200,10 +200,10 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                       </div>
                       
                       {/* Quantity Controls - Improved styling */}
-                      <div className="flex items-center gap-2 mt-3">
+                      <div className="flex items-center gap-2 mt-3 text-black">
                         <button
                           onClick={() => handleQuantityChange(item.product_id, item.quantity, -1)}
-                          className="w-7 h-7 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-7 h-7 rounded-lg border border-gray-600 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={item.quantity <= 1}
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -268,16 +268,12 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
               </button>
               <button
                 onClick={onClose}
-                className="w-full mt-3 py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors"
+                className="w-full mt-3 py-2 text-gray-700 hover:text-gray-700 text-sm transition-colors"
               >
                 Continue Shopping
               </button>
               
-              {/* Secure Notice */}
-              <p className="text-xs text-gray-800 text-center mt-4 flex items-center justify-center gap-1">
-                <Lock className="w-3 h-3" />
-                Your information is secure
-              </p>
+           
             </div>
           </div>
         )}

@@ -109,7 +109,7 @@ export default function CheckoutForm({
               value={phoneValue}
               onChange={handlePhoneChange}
               placeholder="Enter phone number"
-              className="w-full"
+              className="w-full text-black"
             />
             <style jsx global>{`
               .PhoneInput {

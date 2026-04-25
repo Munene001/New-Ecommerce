@@ -199,7 +199,7 @@ export default function ProductsClient({
         <select
           value={categorySelect}
           onChange={handleCategoryChange}
-          className="w-48 md:w-64 border h-[59px] px-4 rounded focus:outline-none focus:ring-1 focus:ring-magenta-dark flex-shrink-0"
+          className="w-48 md:w-64 border border-black h-[59px] text-black px-4 rounded focus:outline-none focus:ring-1 focus:ring-magenta-dark flex-shrink-0"
         >
           <option value="">All Categories</option>
           {categories.map((cat) => (

@@ -77,7 +77,7 @@ export default function PaymentPage() {
     if (order?.payment_method === "mpesa" && shop?.shopId) {
       const fetchPaymentSettings = async () => {
         try {
-          const response = await fetch(`/api/shopowner/payments?shop_id=${shop?.shopId}`);
+          const response = await fetch(`/api/shops/payments?shop_id=${shop?.shopId}`);
           const result = await response.json();
           if (result.success) {
             setPaymentConfig(result.data);

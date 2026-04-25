@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #000000;
 }
 
 @theme inline {
@@ -67,7 +67,6 @@
     color: var(--foreground);
     font-family: var(--font-poppins), Arial, Helvetica, sans-serif;  
     margin: 0;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  
   }
 }
