@@ -44,7 +44,7 @@ export default function CheckoutPage() {
 
       try {
         const response = await fetch(
-          `/api/shopowner/payments?shop_id=${shop.shopId}`,
+          `/api/shops/payments?shop_id=${shop.shopId}`,
         );
         const result = await response.json();
 

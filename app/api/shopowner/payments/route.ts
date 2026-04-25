@@ -1,5 +1,4 @@
 // api/shopowner/payments/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
@@ -39,26 +38,18 @@ async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise
   return rows.length > 0;
 }
 
-// Helper to get or create payment settings for a shop
-async function getOrCreatePaymentSettings(shopId: number): Promise<number> {
-  const [existing] = await pool.query<PaymentSettingsRow[]>(
-    `SELECT payment_setting_id FROM shop_payment_settings WHERE shop_id = ?`,
+// Helper to get payment settings for a shop
+async function getPaymentSettings(shopId: number): Promise<PaymentSettingsRow | null> {
+  const [rows] = await pool.query<PaymentSettingsRow[]>(
+    `SELECT payment_setting_id, shop_id, cod_enabled, active_payment_type 
+     FROM shop_payment_settings 
+     WHERE shop_id = ?`,
     [shopId]
   );
-  
-  if (existing.length > 0) {
-    return existing[0].payment_setting_id;
-  }
-  
-  const [result] = await pool.query<ResultSetHeader>(
-    `INSERT INTO shop_payment_settings (shop_id, cod_enabled, active_payment_type) VALUES (?, TRUE, NULL)`,
-    [shopId]
-  );
-  
-  return result.insertId;
+  return rows.length ? rows[0] : null;
 }
 
-// GET /api/shopowner/payments?shop_id=1
+// SHOPOWNER ONLY - GET payment settings for management
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -82,33 +73,38 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get or create payment settings
-    const paymentSettingId = await getOrCreatePaymentSettings(parseInt(shopId));
+    // Get payment settings
+    const settings = await getPaymentSettings(parseInt(shopId));
     
-    // Fetch payment settings
-    const [settings] = await pool.query<PaymentSettingsRow[]>(
-      `SELECT payment_setting_id, shop_id, cod_enabled, active_payment_type
-       FROM shop_payment_settings
-       WHERE shop_id = ?`,
-      [shopId]
-    );
+    if (!settings) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          cod_enabled: true,
+          has_direct_mpesa: false,
+          has_stk_push: false,
+          has_any_mpesa_config: false,
+          active_payment_type: null,
+          direct_mpesa: null,
+          stk_push: null
+        }
+      });
+    }
     
-    const setting = settings[0];
-    const codEnabled = setting.cod_enabled === 1;
-    const activePaymentType = setting.active_payment_type;
+    const codEnabled = settings.cod_enabled === 1;
+    const activePaymentType = settings.active_payment_type;
     
     // Fetch direct mpesa if exists
     const [directMpesa] = await pool.query<DirectMpesaRow[]>(
       `SELECT direct_mpesa_id, type, business_number, account_number, till_number, phone_number
        FROM shop_direct_mpesa
        WHERE payment_setting_id = ?`,
-      [paymentSettingId]
+      [settings.payment_setting_id]
     );
     
     const hasDirectMpesa = directMpesa.length > 0;
-    const hasStkPush = false; // TODO: Check shop_stk_push table when implemented
+    const hasStkPush = false; // TODO: Check when implemented
     const hasAnyMpesaConfig = hasDirectMpesa || hasStkPush;
-    const canDisableCod = hasAnyMpesaConfig;
     
     return NextResponse.json({
       success: true,
@@ -117,7 +113,7 @@ export async function GET(req: NextRequest) {
         has_direct_mpesa: hasDirectMpesa,
         has_stk_push: hasStkPush,
         has_any_mpesa_config: hasAnyMpesaConfig,
-        can_disable_cod: canDisableCod,
+        can_disable_cod: hasAnyMpesaConfig,
         active_payment_type: activePaymentType,
         direct_mpesa: hasDirectMpesa ? {
           type: directMpesa[0].type,
@@ -126,7 +122,7 @@ export async function GET(req: NextRequest) {
           till_number: directMpesa[0].till_number,
           phone_number: directMpesa[0].phone_number
         } : null,
-        stk_push: null // TODO: Add when implemented
+        stk_push: null
       }
     });
   } catch (error) {
@@ -135,7 +131,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT /api/shopowner/payments?shop_id=1 - Update COD status
+//  Update COD status
 export async function PUT(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -168,27 +164,30 @@ export async function PUT(req: NextRequest) {
 
     // If disabling COD, check that another payment method exists
     if (cod_enabled === false) {
-      const paymentSettingId = await getOrCreatePaymentSettings(parseInt(shopId));
+      const settings = await getPaymentSettings(parseInt(shopId));
       
-      const [directMpesa] = await pool.query<DirectMpesaRow[]>(
-        `SELECT 1 FROM shop_direct_mpesa WHERE payment_setting_id = ?`,
-        [paymentSettingId]
-      );
-      
-      // TODO: Check STK Push when implemented
-      const hasOtherPayment = directMpesa.length > 0;
-      
-      if (!hasOtherPayment) {
-        return NextResponse.json({ 
-          error: 'Cannot disable COD. Please configure Direct M-Pesa or STK Push first' 
-        }, { status: 400 });
+      if (settings) {
+        const [directMpesa] = await pool.query<DirectMpesaRow[]>(
+          `SELECT 1 FROM shop_direct_mpesa WHERE payment_setting_id = ?`,
+          [settings.payment_setting_id]
+        );
+        
+        const hasOtherPayment = directMpesa.length > 0;
+        
+        if (!hasOtherPayment) {
+          return NextResponse.json({ 
+            error: 'Cannot disable COD. Please configure M-Pesa first' 
+          }, { status: 400 });
+        }
       }
     }
     
-    // Update COD status
+    // Create settings if not exists
     await pool.query(
-      `UPDATE shop_payment_settings SET cod_enabled = ? WHERE shop_id = ?`,
-      [cod_enabled ? 1 : 0, shopId]
+      `INSERT INTO shop_payment_settings (shop_id, cod_enabled) 
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE cod_enabled = VALUES(cod_enabled)`,
+      [shopId, cod_enabled ? 1 : 0]
     );
     
     return NextResponse.json({
@@ -201,7 +200,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// POST /api/shopowner/payments?shop_id=1 - Save Direct M-Pesa
+// Save Direct M-Pesa
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -223,18 +222,7 @@ export async function POST(req: NextRequest) {
     const { type, business_number, account_number, till_number, phone_number } = body;
     
     if (!type || !['paybill', 'till', 'pochi', 'send_money'].includes(type)) {
-      return NextResponse.json({ error: 'Valid type required (paybill, till, pochi, send_money)' }, { status: 400 });
-    }
-    
-    // Validate required fields based on type
-    if (type === 'paybill' && !business_number) {
-      return NextResponse.json({ error: 'business_number required for paybill' }, { status: 400 });
-    }
-    if ((type === 'till' || type === 'pochi') && !till_number) {
-      return NextResponse.json({ error: 'till_number required for till/pochi' }, { status: 400 });
-    }
-    if (type === 'send_money' && !phone_number) {
-      return NextResponse.json({ error: 'phone_number required for send_money' }, { status: 400 });
+      return NextResponse.json({ error: 'Valid type required' }, { status: 400 });
     }
 
     // Verify ownership
@@ -243,8 +231,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
-    // Get or create payment settings
-    const paymentSettingId = await getOrCreatePaymentSettings(parseInt(shopId));
+    // Create payment settings if not exists
+    const [settingsResult] = await pool.query<ResultSetHeader>(
+      `INSERT INTO shop_payment_settings (shop_id, cod_enabled) 
+       VALUES (?, 1)
+       ON DUPLICATE KEY UPDATE payment_setting_id = LAST_INSERT_ID(payment_setting_id)`,
+      [shopId]
+    );
+    
+    const paymentSettingId = settingsResult.insertId;
     
     // Upsert direct mpesa configuration
     await pool.query(
@@ -259,7 +254,7 @@ export async function POST(req: NextRequest) {
       [paymentSettingId, type, business_number || null, account_number || null, till_number || null, phone_number || null]
     );
     
-    // Update active_payment_type to direct_mpesa
+    // Update active_payment_type
     await pool.query(
       `UPDATE shop_payment_settings SET active_payment_type = 'direct_mpesa' WHERE shop_id = ?`,
       [shopId]
@@ -275,7 +270,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/shopowner/payments?shop_id=1 - Remove Direct M-Pesa
+//  Remove Direct M-Pesa
 export async function DELETE(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -296,7 +291,6 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json();
     const { action } = body;
     
-    // Only handle direct-mpesa deletion for now
     if (action !== 'direct-mpesa') {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
@@ -307,37 +301,20 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
-    // Get payment setting id
-    const paymentSettingId = await getOrCreatePaymentSettings(parseInt(shopId));
+    const settings = await getPaymentSettings(parseInt(shopId));
     
-    // Delete direct mpesa configuration
-    await pool.query(
-      `DELETE FROM shop_direct_mpesa WHERE payment_setting_id = ?`,
-      [paymentSettingId]
-    );
-    
-    // Check if STK Push exists (TODO when implemented)
-    const hasStkPush = false;
-    
-    // Update active_payment_type to NULL if no other payment method
-    if (!hasStkPush) {
+    if (settings) {
+      // Delete direct mpesa configuration
+      await pool.query(
+        `DELETE FROM shop_direct_mpesa WHERE payment_setting_id = ?`,
+        [settings.payment_setting_id]
+      );
+      
+      // Update active_payment_type
       await pool.query(
         `UPDATE shop_payment_settings SET active_payment_type = NULL WHERE shop_id = ?`,
         [shopId]
       );
-      
-      // If COD is disabled, enable it
-      const [settings] = await pool.query<PaymentSettingsRow[]>(
-        `SELECT cod_enabled FROM shop_payment_settings WHERE shop_id = ?`,
-        [shopId]
-      );
-      
-      if (settings[0] && settings[0].cod_enabled === 0) {
-        await pool.query(
-          `UPDATE shop_payment_settings SET cod_enabled = 1 WHERE shop_id = ?`,
-          [shopId]
-        );
-      }
     }
     
     return NextResponse.json({
