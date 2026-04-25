@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { sendBuyerOrderEmail, sendSellerOrderEmail } from '@/lib/email/ordermail';
 
 // Interfaces
 interface OrderItem {
@@ -32,6 +33,9 @@ interface ProductRow extends RowDataPacket {
 
 interface ShopRow extends RowDataPacket {
   shop_id: number;
+  shop_name: string;
+  contact_email: string;
+  contact_phone: string;
 }
 
 interface UserRow extends RowDataPacket {
@@ -82,13 +86,13 @@ async function validateProducts(shopId: number, items: OrderItem[]): Promise<{ v
   return { valid: true, products };
 }
 
-// Helper to validate shop exists
-async function validateShop(shopId: number): Promise<boolean> {
+// Helper to get shop details including contact_email
+async function getShopDetails(shopId: number): Promise<{ shop_name: string; contact_email: string; contact_phone: string } | null> {
   const [rows] = await pool.query<ShopRow[]>(
-    'SELECT shop_id FROM shops WHERE shop_id = ?',
+    'SELECT shop_id, shop_name, contact_email, contact_phone FROM shops WHERE shop_id = ?',
     [shopId]
   );
-  return rows.length > 0;
+  return rows.length ? rows[0] : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -150,9 +154,9 @@ export async function POST(request: NextRequest) {
     await connection.beginTransaction();
 
     try {
-      // Validate shop exists
-      const shopExists = await validateShop(shop_id);
-      if (!shopExists) {
+      // Validate shop exists and get shop details
+      const shopDetails = await getShopDetails(shop_id);
+      if (!shopDetails) {
         await connection.rollback();
         connection.release();
         return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
@@ -177,6 +181,7 @@ export async function POST(request: NextRequest) {
           : product?.price || 0;
         return {
           ...item,
+          product_id: item.product_id,
           product_name: product?.product_name || '',
           price_at_time: priceAtTime
         };
@@ -212,13 +217,73 @@ export async function POST(request: NextRequest) {
       await connection.commit();
       connection.release();
 
-      // Return success response WITH total_amount
+      // Prepare email data
+      const emailData = {
+        orderId,
+        orderNumber,
+        subtotal,
+        customer_name,
+        customer_email,
+        customer_phone,
+        customer_address: `${customer_address}, ${customer_city}`,
+        special_instructions: body.special_instructions,
+        payment_method,
+        items: orderItemsWithPrice.map(item => ({
+          product_name: item.product_name,
+          quantity: item.quantity,
+          price_at_time: item.price_at_time
+        })),
+        seller_name: shopDetails.shop_name,
+        seller_email: shopDetails.contact_email,
+        seller_phone: shopDetails.contact_phone
+      };
+
+      // Send emails asynchronously (non-blocking)
+      // Don't await - let it run in background
+      (async () => {
+        try {
+          // Send email to buyer
+          await sendBuyerOrderEmail({
+            to: customer_email,
+            customer_name: customer_name,
+            order_number: orderNumber,
+            items: emailData.items,
+            subtotal: subtotal,
+            seller_name: shopDetails.shop_name,
+            seller_email: shopDetails.contact_email,
+            seller_phone: shopDetails.contact_phone,
+          });
+          
+          // Send email to seller (if contact_email exists)
+          if (shopDetails.contact_email) {
+            await sendSellerOrderEmail({
+              to: shopDetails.contact_email,
+              customer_name: customer_name,
+              customer_email: customer_email,
+              customer_phone: customer_phone,
+              customer_address: `${customer_address}, ${customer_city}`,
+              order_number: orderNumber,
+              items: emailData.items,
+              subtotal: subtotal,
+              special_instructions: body.special_instructions,
+              payment_method: payment_method,
+            });
+          }
+          
+          console.log('✅ Emails sent successfully for order:', orderNumber);
+        } catch (emailError) {
+          // Email fails - only log error, order is already successful
+          console.error('❌ Email sending failed for order:', orderNumber, emailError);
+        }
+      })();
+
+      // Return success response immediately (don't wait for emails)
       return NextResponse.json({
         success: true,
         data: {
           order_id: orderId,
           order_number: orderNumber,
-          total_amount: subtotal,  // ← ADDED THIS LINE
+          total_amount: subtotal,
           message: payment_method === 'cash_on_delivery' 
             ? 'Order placed successfully' 
             : 'Order created. Complete payment to confirm your order.'
