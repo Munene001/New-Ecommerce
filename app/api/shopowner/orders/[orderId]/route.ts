@@ -277,3 +277,4 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });
   }
 }
+

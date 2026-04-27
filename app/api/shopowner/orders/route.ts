@@ -22,10 +22,22 @@ interface OrderRow extends RowDataPacket {
   order_status: string;
   created_at: string;
   updated_at: string;
+  viewed_by_seller: number;
 }
 
 interface CountResult extends RowDataPacket {
   total: number;
+}
+
+interface StatsResult extends RowDataPacket {
+  totalOrders: number;
+  pendingOrders: number;
+  processingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalRevenue: number;
+  paidOrders: number;
+  pendingPayment: number;
 }
 
 // Helper to verify that the user owns the shop
@@ -114,12 +126,51 @@ export async function GET(req: NextRequest) {
     );
     const totalCount = countResult[0].total;
 
-    // Get orders
+    // Get aggregated stats
+    const [statsResult] = await pool.query<StatsResult[]>(
+      `SELECT 
+        COUNT(*) as totalOrders,
+        SUM(CASE WHEN order_status = 'pending' THEN 1 ELSE 0 END) as pendingOrders,
+        SUM(CASE WHEN order_status = 'processing' THEN 1 ELSE 0 END) as processingOrders,
+        SUM(CASE WHEN order_status = 'delivered' THEN 1 ELSE 0 END) as completedOrders,
+        SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) as cancelledOrders,
+        SUM(CASE WHEN payment_status = 'paid' THEN subtotal ELSE 0 END) as totalRevenue,
+        SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) as paidOrders,
+        SUM(CASE WHEN payment_status = 'pending' THEN 1 ELSE 0 END) as pendingPayment
+      FROM orders 
+      ${whereClause}`,
+      queryParams
+    );
+
+    // Get unviewed count (global, not affected by filters except shop_id)
+    let unviewedWhereClause = 'WHERE shop_id = ?';
+    const unviewedParams: (string | number)[] = [shopId];
+    
+    // Optional: Apply date filters to unviewed count if needed
+    if (dateFrom) {
+      unviewedWhereClause += ' AND DATE(created_at) >= ?';
+      unviewedParams.push(dateFrom);
+    }
+    if (dateTo) {
+      unviewedWhereClause += ' AND DATE(created_at) <= ?';
+      unviewedParams.push(dateTo);
+    }
+    
+    const [unviewedResult] = await pool.query<CountResult[]>(
+      `SELECT COUNT(*) as total 
+       FROM orders 
+       ${unviewedWhereClause} AND viewed_by_seller = 0`,
+      unviewedParams
+    );
+    const unviewedCount = unviewedResult[0]?.total || 0;
+
+    // Get paginated orders
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         order_id, order_number, customer_name, customer_email, customer_phone,
         customer_city, customer_address, special_instructions, subtotal,
-        payment_method, payment_status, order_status, created_at, updated_at
+        payment_method, payment_status, order_status, created_at, updated_at,
+        viewed_by_seller
        FROM orders
        ${whereClause}
        ORDER BY created_at DESC
@@ -130,6 +181,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       orders,
+      stats: statsResult[0],
+      unviewedCount,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),

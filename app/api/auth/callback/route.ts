@@ -16,8 +16,7 @@ interface ShopRow extends RowDataPacket {
   shop_id: number;
 }
 
-// Gets the base URL dynamically from the request - NO HARDCODING
-// Works for localhost, staging, and production automatically
+
 function getBaseUrl(request: NextRequest): string {
   const host = request.headers.get('host') || 'localhost:3000';
   const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     if (accessToken) {
       return NextResponse.redirect(`${baseUrl}/auth/resetpassword?access_token=${accessToken}`);
     }
-    return NextResponse.redirect(`${baseUrl}/login`)
+    return NextResponse.redirect(`${baseUrl}/auth/login`)
   }
   
   try {

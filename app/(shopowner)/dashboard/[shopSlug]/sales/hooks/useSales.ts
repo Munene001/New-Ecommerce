@@ -1,4 +1,3 @@
-// app/(dashboard)/[shopSlug]/hooks/useSales.ts
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
@@ -62,6 +61,12 @@ interface UseSalesReturn {
 
 export function useSales(shopId: string): UseSalesReturn {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [metrics, setMetrics] = useState<SalesMetrics>({
+    totalRevenue: 0,
+    totalOrders: 0,
+    pendingDelivery: 0,
+    averageOrderValue: 0,
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -84,28 +89,6 @@ export function useSales(shopId: string): UseSalesReturn {
     }
     return 0;
   };
-
-  // Calculate sales metrics from orders (only paid orders)
-  const metrics = useMemo((): SalesMetrics => {
-    // Only consider paid orders for sales metrics
-    const paidOrders = orders.filter(o => o.payment_status === 'paid');
-    
-    const totalRevenue = paidOrders.reduce((sum, o) => {
-      const amount = parseSubtotal(o.subtotal);
-      return sum + amount;
-    }, 0);
-    
-    const totalOrders = paidOrders.length;
-    const pendingDelivery = paidOrders.filter(o => o.order_status !== 'delivered').length;
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-    
-    return {
-      totalRevenue,
-      totalOrders,
-      pendingDelivery,
-      averageOrderValue,
-    };
-  }, [orders]);
 
   const fetchOrders = useCallback(async (
     page: number,
@@ -145,6 +128,19 @@ export function useSales(shopId: string): UseSalesReturn {
 
       const newOrders = append ? [...orders, ...ordersData] : ordersData;
       setOrders(newOrders);
+      
+      // USE API STATS for metrics
+      if (data.stats) {
+        setMetrics({
+          totalRevenue: data.stats.totalRevenue || 0,
+          totalOrders: data.stats.paidOrders || 0, // Use paidOrders from stats
+          pendingDelivery: data.stats.processingOrders || 0, // Orders that are paid but not delivered
+          averageOrderValue: data.stats.paidOrders > 0 
+            ? (data.stats.totalRevenue / data.stats.paidOrders) 
+            : 0,
+        });
+      }
+      
       setCurrentPage(data.pagination?.currentPage || 1);
       setTotalPages(data.pagination?.totalPages || 1);
       setTotalCount(data.pagination?.totalCount || 0);
@@ -160,9 +156,31 @@ export function useSales(shopId: string): UseSalesReturn {
   useEffect(() => {
     if (!initialFetchDone.current && shopId) {
       initialFetchDone.current = true;
-      fetchOrders(1, 'paid', '', currentDateFrom, currentDateTo, currentSearch, false);
+      fetchOrders(1, 'paid', currentOrderStatus, currentDateFrom, currentDateTo, currentSearch, false);
     }
-  }, [fetchOrders, shopId, currentDateFrom, currentDateTo, currentSearch]);
+  }, [fetchOrders, shopId, currentDateFrom, currentDateTo, currentSearch, currentOrderStatus]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!shopId) return;
+    
+    const interval = setInterval(() => {
+      refreshSales();
+    }, 30000);
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSales();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [shopId]);
 
   const hasMore = currentPage < totalPages;
 
@@ -240,7 +258,6 @@ export function useSales(shopId: string): UseSalesReturn {
     }
   };
 
-  // New: Get single sale with its items
   const getSaleWithItems = async (orderId: number): Promise<OrderWithItems | null> => {
     try {
       const res = await fetch(`/api/shopowner/orders/${orderId}`);

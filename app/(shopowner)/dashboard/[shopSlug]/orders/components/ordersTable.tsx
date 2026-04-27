@@ -16,6 +16,7 @@ interface Order {
   payment_status: string;
   order_status: string;
   created_at: string;
+  viewed_by_seller: number; // ADDED
 }
 
 interface OrdersTableProps {
@@ -170,8 +171,15 @@ export default function OrdersTable({
                   className="flex flex-row border-b border-gray-300 min-h-[72px] items-center hover:bg-gray-100 transition-colors cursor-pointer w-full"
                 >
                   <div className="w-[18%] px-4">
-                    <div className="font-semibold text-gray-800 text-sm">
-                      {order.order_number}
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-800 text-sm">
+                        {order.order_number}
+                      </span>
+                      {order.viewed_by_seller === 0 && (
+                        <span className="bg-magenta text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                          NEW
+                        </span>
+                      )}
                     </div>
                   </div>
 
