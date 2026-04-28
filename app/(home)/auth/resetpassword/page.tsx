@@ -19,55 +19,53 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
 
-  // Create the browser client once per component (re‑creation is cheap)
   const supabase = createSupabaseBrowserClient();
 
-  // Check for recovery token in URL
   useEffect(() => {
-    const checkRecoverySession = async () => {
-      const hash = window.location.hash;
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash;
+    const hasRecoveryParam = params.get("type") === "recovery" || 
+                             hash.includes("type=recovery") ||
+                             params.get("code");
+    
+    if (hasRecoveryParam) {
+      setIsRecoveryFlow(true);
+    }
 
-      const params = new URLSearchParams(window.location.search);
-      if (
-        params.get("access_token") ||
-        (hash && hash.includes("type=recovery"))
-      ) {
-        setIsLoading(true);
-        setError("");
-
-        try {
-          // Wait a moment for Supabase to process the token
-          await new Promise((resolve) => setTimeout(resolve, 500));
-
-          const {
-            data: { session },
-            error: sessionError,
-          } = await supabase.auth.getSession();
-
-          if (sessionError) {
-            throw new Error("Invalid or expired reset link");
-          }
-
-          if (session?.user) {
-            setEmail(session.user.email || "");
-            setStep("new-password");
-            setSuccess("Please set your new password");
-            window.history.replaceState({}, document.title, "/resetpassword");
-          } else {
-            throw new Error("Invalid reset token");
-          }
-        } catch {
-          setError("Failed to process reset link");
-          setStep("request");
-        } finally {
-          setIsLoading(false);
-        }
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session && hasRecoveryParam) {
+        setStep("new-password");
+        setEmail(session.user.email || "");
+        setSuccess("Please set your new password");
+      } else if (session && !hasRecoveryParam) {
+        await supabase.auth.signOut();
+        setStep("request");
       }
     };
 
-    checkRecoverySession();
-  }, [supabase]); // Include supabase in dependencies
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const isRecovery = event === "PASSWORD_RECOVERY" || 
+                         session?.user?.recovery_sent_at !== undefined;
+      
+      if (isRecovery && session) {
+        setIsRecoveryFlow(true);
+        setStep("new-password");
+        setEmail(session.user.email || "");
+        setSuccess("Please set your new password");
+        window.history.replaceState({}, document.title, "/auth/resetpassword");
+      }
+    });
+
+    checkExistingSession();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const handleSendEmail = async (email: string) => {
     setIsLoading(true);
@@ -81,8 +79,8 @@ export default function ResetPasswordPage() {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
         {
-          redirectTo: `${window.location.origin}/api/auth/callback?next=/auth/resetpassword`,
-        },
+          redirectTo: `${window.location.origin}/auth/resetpassword`,
+        }
       );
 
       if (resetError) throw new Error(resetError.message);
@@ -90,8 +88,8 @@ export default function ResetPasswordPage() {
       setEmail(email);
       setStep("email-sent");
       setSuccess(`Reset link sent to ${email}`);
-    } catch {
-      setError("Failed to send reset email");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send reset email");
     } finally {
       setIsLoading(false);
     }
@@ -115,9 +113,9 @@ export default function ResetPasswordPage() {
 
       if (updateError) throw new Error(updateError.message);
 
-      // Sign out to clear any session
       await supabase.auth.signOut();
-
+      setIsRecoveryFlow(false);
+      
       setStep("success");
       setSuccess("Password reset successfully! You can now login.");
     } catch (err) {

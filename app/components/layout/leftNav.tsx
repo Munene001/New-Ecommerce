@@ -9,9 +9,10 @@ import { useRouter } from "next/navigation";
 interface BaseLeftMenuProps {
   onMenuClicked: (bool: boolean) => void;
   shopSlug: string;
+  unviewedCount: number; 
 }
 
-export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuProps) {
+export default function BaseLeftMenu({ onMenuClicked, shopSlug, unviewedCount }: BaseLeftMenuProps) {
   const { logout } = useAuth();
   const router = useRouter();
 
@@ -51,7 +52,6 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuPr
       title: "Settings",
       icon: Settings
     },
-    // View Shop removed from here
   ];
 
   const handleLogout = () => {
@@ -62,17 +62,27 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug }: BaseLeftMenuPr
   return (
     <nav className="space-y-3">
       <div>
-        {navItems.map((item) => (
-          <div key={item.href}>
-            <NavLink
-              href={item.href}
-              title={item.title}
-              icon={item.icon}
-              className=""
-              onMenuClicked={() => onMenuClicked(false)}
-            />
-          </div>
-        ))}
+        {navItems.map((item) => {
+          // Check if this is the Orders item
+          const isOrders = item.title === "Orders";
+          
+          return (
+            <div key={item.href} className="relative">
+              <NavLink
+                href={item.href}
+                title={item.title}
+                icon={item.icon}
+                className=""
+                onMenuClicked={() => onMenuClicked(false)}
+              />
+              {isOrders && unviewedCount > 0 && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-magenta text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unviewedCount}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         <div>
           <div className="w-full">

@@ -15,6 +15,13 @@ interface CountResult extends RowDataPacket {
   total: number;
 }
 
+interface StatsResult extends RowDataPacket {
+  totalProducts: number;
+  totalDiscounted: number;
+  totalInstock: number;
+  totalOutOfStock: number;
+}
+
 interface ProductImage {
   image_id: number;
   image_path: string;
@@ -159,14 +166,26 @@ export async function GET(req: NextRequest) {
         break;
     }
 
-    // Total count
+    // Get aggregated stats (apply filters except pagination)
+    const [statsResult] = await pool.query<StatsResult[]>(
+      `SELECT 
+        COUNT(*) as totalProducts,
+        SUM(CASE WHEN p.discount_price IS NOT NULL AND p.discount_price > 0 THEN 1 ELSE 0 END) as totalDiscounted,
+        SUM(CASE WHEN p.in_stock > 0 THEN 1 ELSE 0 END) as totalInstock,
+        SUM(CASE WHEN p.in_stock = 0 THEN 1 ELSE 0 END) as totalOutOfStock
+      FROM products p
+      ${whereClause}`,
+      queryParams
+    );
+
+    // Total count for pagination
     const [countResult] = await pool.query<CountResult[]>(
       `SELECT COUNT(*) as total FROM products p ${whereClause}`,
       queryParams
     );
     const totalCount = countResult[0].total;
 
-    // Products with images
+    // Products with images (paginated)
     const [products] = await pool.query<ProductRow[]>(`
       SELECT 
         p.product_id,
@@ -200,7 +219,9 @@ export async function GET(req: NextRequest) {
     `, [...queryParams, limit, offset]);
 
     return NextResponse.json({
+      success: true,
       products,
+      stats: statsResult[0], // ADD STATS TO RESPONSE
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),

@@ -17,6 +17,7 @@ interface Order {
   order_status: string;
   created_at: string;
   updated_at: string;
+  viewed_by_seller: number; // 0 = unviewed (new), 1 = viewed
 }
 
 interface OrderItem {
@@ -51,6 +52,7 @@ interface UseDashboardOrdersReturn {
   totalPages: number;
   totalCount: number;
   hasMore: boolean;
+  unviewedCount: number;
   filterByStatus: (status: string) => Promise<void>;
   filterByDateRange: (from: string, to: string) => Promise<void>;
   searchOrders: (term: string) => Promise<void>;
@@ -64,6 +66,7 @@ interface UseDashboardOrdersReturn {
   deleteOrder: (orderId: number) => Promise<boolean>;
   getOrderWithItems: (orderId: number) => Promise<OrderWithItems | null>;
   getOrderItems: (orderId: number) => Promise<OrderItem[]>;
+  markOrderAsViewed: (orderId: number) => Promise<boolean>;
 }
 
 export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
@@ -82,6 +85,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [unviewedCount, setUnviewedCount] = useState<number>(0); // ADDED
   
   // Filter states
   const [currentStatus, setCurrentStatus] = useState<string>('');
@@ -90,31 +94,6 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
   const [currentSearch, setCurrentSearch] = useState<string>('');
 
   const initialFetchDone = useRef(false);
-
-  // Calculate stats from orders array
-  const calculateStats = useCallback((ordersList: Order[]): DashboardStats => {
-    const totalOrders = ordersList.length;
-    const pendingOrders = ordersList.filter(o => o.order_status === 'pending').length;
-    const processingOrders = ordersList.filter(o => o.order_status === 'processing').length;
-    const completedOrders = ordersList.filter(o => o.order_status === 'delivered').length;
-    const cancelledOrders = ordersList.filter(o => o.order_status === 'cancelled').length;
-    const paidOrders = ordersList.filter(o => o.payment_status === 'paid').length;
-    const pendingPayment = ordersList.filter(o => o.payment_status === 'pending').length;
-    const totalRevenue = ordersList
-      .filter(o => o.payment_status === 'paid')
-      .reduce((sum, o) => sum + o.subtotal, 0);
-
-    return {
-      totalOrders,
-      pendingOrders,
-      processingOrders,
-      completedOrders,
-      cancelledOrders,
-      totalRevenue,
-      paidOrders,
-      pendingPayment,
-    };
-  }, []);
 
   const fetchOrders = useCallback(async (
     page: number,
@@ -147,7 +126,8 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
 
       const newOrders = append ? [...orders, ...data.orders] : data.orders;
       setOrders(newOrders);
-      setStats(calculateStats(newOrders));
+      setStats(data.stats); // USE API STATS
+      setUnviewedCount(data.unviewedCount); // USE API UNVIEWED COUNT
       setCurrentPage(data.pagination.currentPage);
       setTotalPages(data.pagination.totalPages);
       setTotalCount(data.pagination.totalCount);
@@ -157,7 +137,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     } finally {
       setLoading(false);
     }
-  }, [shopId, orders, calculateStats]);
+  }, [shopId, orders]);
 
   // Initial fetch
   useEffect(() => {
@@ -166,6 +146,28 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
       fetchOrders(1, currentStatus, currentDateFrom, currentDateTo, currentSearch, false);
     }
   }, [fetchOrders, shopId, currentStatus, currentDateFrom, currentDateTo, currentSearch]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!shopId) return;
+    
+    const interval = setInterval(() => {
+      refreshOrders();
+    }, 30000);
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshOrders();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [shopId]);
 
   const hasMore = currentPage < totalPages;
 
@@ -289,9 +291,35 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     }
   };
 
-  // New: Get single order with its items
-  const getOrderWithItems = async (orderId: number): Promise<OrderWithItems | null> => {
+  const markOrderAsViewed = useCallback(async (orderId: number): Promise<boolean> => {
     try {
+      const res = await fetch(`/api/shopowner/orders/${orderId}/views`, {
+        method: 'POST',
+      });
+      
+      if (res.ok) {
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.order_id === orderId 
+              ? { ...order, viewed_by_seller: 1 }
+              : order
+          )
+        );
+        // Refresh to update unviewedCount from API
+        await refreshOrders();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to mark order as viewed:', error);
+      return false;
+    }
+  }, [refreshOrders]);
+
+  const getOrderWithItems = useCallback(async (orderId: number): Promise<OrderWithItems | null> => {
+    try {
+      markOrderAsViewed(orderId).catch(console.error);
+      
       const res = await fetch(`/api/shopowner/orders/${orderId}`);
       
       if (!res.ok) {
@@ -311,10 +339,9 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
       console.error('Failed to fetch order with items:', error);
       return null;
     }
-  };
+  }, [markOrderAsViewed]);
 
-  // New: Get only order items
-  const getOrderItems = async (orderId: number): Promise<OrderItem[]> => {
+  const getOrderItems = useCallback(async (orderId: number): Promise<OrderItem[]> => {
     try {
       const res = await fetch(`/api/shopowner/orders/${orderId}/items`);
       
@@ -332,7 +359,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
       console.error('Failed to fetch order items:', error);
       return [];
     }
-  };
+  }, []);
 
   return {
     orders,
@@ -342,6 +369,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     totalPages,
     totalCount,
     hasMore,
+    unviewedCount, // RETURN THE STATE, NOT CALCULATED
     filterByStatus,
     filterByDateRange,
     searchOrders,
@@ -355,5 +383,6 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     deleteOrder,
     getOrderWithItems,
     getOrderItems,
+    markOrderAsViewed,
   };
 }

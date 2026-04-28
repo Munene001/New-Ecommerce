@@ -47,36 +47,6 @@ export function useDashboardProducts(
 
   const initialFetchDone = useRef(false);
 
-  // Calculate stats from products array
-  const calculateStats = useCallback((productsList: Product[]): DashboardStats => {
-    const totalProducts = productsList.length;
-    const totalDiscounted = productsList.filter(p => p.discount_price !== null && p.discount_price > 0).length;
-    
-    // Fix: Handle both boolean and number cases for in_stock
-    const totalInstock = productsList.filter(p => {
-      if (typeof p.in_stock === 'boolean') {
-        return p.in_stock === true;  // If boolean, true means in stock
-      } else {
-        return p.in_stock > 0;  // If number, greater than 0 means in stock
-      }
-    }).length;
-    
-    const totalOutOfStock = productsList.filter(p => {
-      if (typeof p.in_stock === 'boolean') {
-        return p.in_stock === false;  // If boolean, false means out of stock
-      } else {
-        return p.in_stock === 0;  // If number, 0 means out of stock
-      }
-    }).length;
-
-    return {
-      totalProducts,
-      totalDiscounted,
-      totalInstock,
-      totalOutOfStock,
-    };
-  }, []);
-
   const fetchProducts = useCallback(async (
     page: number,
     search?: string,
@@ -103,7 +73,12 @@ export function useDashboardProducts(
 
       const newProducts = append ? [...products, ...data.products] : data.products;
       setProducts(newProducts);
-      setStats(calculateStats(newProducts));
+      
+      // USE API STATS instead of calculating
+      if (data.stats) {
+        setStats(data.stats);
+      }
+      
       setCurrentPage(data.pagination.currentPage);
       setTotalPages(data.pagination.totalPages);
       setTotalCount(data.pagination.totalCount);
@@ -113,15 +88,37 @@ export function useDashboardProducts(
     } finally {
       setLoading(false);
     }
-  }, [shopId, products, calculateStats]);
+  }, [shopId, products]);
 
   // Initial fetch
   useEffect(() => {
-    if (!initialFetchDone.current) {
+    if (!initialFetchDone.current && shopId) {
       initialFetchDone.current = true;
       fetchProducts(1, currentSearch, currentCategory, false);
     }
-  }, [fetchProducts, currentSearch, currentCategory]);
+  }, [fetchProducts, shopId, currentSearch, currentCategory]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!shopId) return;
+    
+    const interval = setInterval(() => {
+      refreshProducts();
+    }, 30000);
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshProducts();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [shopId]);
 
   const hasMore = currentPage < totalPages;
 
