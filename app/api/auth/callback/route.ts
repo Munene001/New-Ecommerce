@@ -16,7 +16,6 @@ interface ShopRow extends RowDataPacket {
   shop_id: number;
 }
 
-
 function getBaseUrl(request: NextRequest): string {
   const host = request.headers.get('host') || 'localhost:3000';
   const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
@@ -26,21 +25,11 @@ function getBaseUrl(request: NextRequest): string {
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const type = requestUrl.searchParams.get('type')
-  const accessToken = requestUrl.searchParams.get('access_token')
   const next = requestUrl.searchParams.get('next')
   const redirectParam = requestUrl.searchParams.get('redirect') || ''
   const baseUrl = getBaseUrl(request)
   
-  // Handle password reset flow
-  if (type === 'recovery' && accessToken) {
-    return NextResponse.redirect(`${baseUrl}/auth/resetpassword?access_token=${accessToken}`);
-  }
-  
   if (!code) {
-    if (accessToken) {
-      return NextResponse.redirect(`${baseUrl}/auth/resetpassword?access_token=${accessToken}`);
-    }
     return NextResponse.redirect(`${baseUrl}/auth/login`)
   }
   
@@ -59,11 +48,6 @@ export async function GET(request: NextRequest) {
     if (role !== 'shop_owner' && role !== 'customer') {
       console.error('Invalid role:', role)
       return NextResponse.redirect(`${baseUrl}/errors/emailverification`)
-    }
-    
-    // Redirect to password reset page if that's the intent
-    if (next === '/auth/resetpassword') {
-      return NextResponse.redirect(`${baseUrl}/auth/resetpassword`);
     }
     
     // Check if user already exists in MySQL
@@ -144,9 +128,13 @@ export async function GET(request: NextRequest) {
         if (conn) conn.release();
       }
     } 
-    else { // role === 'customer'
+    else {
+      let conn;
       try {
-        await pool.execute(
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        await conn.execute(
           `INSERT INTO users (supabase_uid, full_name, email, phone, role) 
            VALUES (?, ?, ?, ?, 'customer')`,
           [
@@ -157,15 +145,21 @@ export async function GET(request: NextRequest) {
           ]
         );
 
+        await conn.commit();
+
         const loginUrl = new URL(`${baseUrl}/auth/login`);
         loginUrl.searchParams.set('verified', 'true');
         if (redirectParam) {
           loginUrl.searchParams.set('redirect', redirectParam);
         }
         return NextResponse.redirect(loginUrl);
+        
       } catch (dbError) {
+        if (conn) await conn.rollback();
         console.error('Customer insert error:', dbError);
         return NextResponse.redirect(`${baseUrl}/errors/emailverification`);
+      } finally {
+        if (conn) conn.release();
       }
     }
     
