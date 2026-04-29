@@ -7,6 +7,11 @@ import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  storeRedirect,
+  getAndClearRedirect,
+  getRedirect,
+} from "@/lib/redirect/helper";
 
 // Component that uses useSearchParams
 function LoginFormContent() {
@@ -34,34 +39,32 @@ function LoginFormContent() {
     }
 
     if (redirect) {
-      sessionStorage.setItem("loginRedirect", redirect);
+      storeRedirect(redirect);
     }
   }, [searchParams]);
 
   useEffect(() => {
     // Don't redirect while loading
     if (loading) return;
-    
+
     // Only redirect if we're actually on the login page
     const currentPath = window.location.pathname;
-    if (!currentPath.includes('/auth/login')) return;
-    
+    if (!currentPath.includes("/auth/login")) return;
+
     if (isAuthenticated && profile) {
-      // First check for stored redirect (from previous page)
-      const storedRedirect = sessionStorage.getItem("loginRedirect");
+      const storedRedirect = getAndClearRedirect();
       if (storedRedirect) {
-        sessionStorage.removeItem("loginRedirect");
         router.replace(storedRedirect);
         return;
       }
-      
+
       // Then check for redirect in URL params
       const redirectParam = searchParams.get("redirect");
       if (redirectParam) {
         router.replace(redirectParam);
         return;
       }
-  
+
       // Only use role-based fallback if no redirect was stored
       if (profile.role === "shop_owner") {
         if (profile.onboardingComplete && profile.shopSlug) {
@@ -70,7 +73,6 @@ function LoginFormContent() {
           router.replace("/shopType");
         }
       } else if (profile.role === "customer") {
-        
         const currentShopSlug = sessionStorage.getItem("currentShopSlug");
         if (currentShopSlug) {
           router.replace(`/${currentShopSlug}`);
@@ -107,17 +109,18 @@ function LoginFormContent() {
     try {
       const supabase = createSupabaseBrowserClient();
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (signInError) throw new Error(signInError.message);
       if (!data.user) throw new Error("Login failed");
 
       const userInfoResponse = await fetch("/api/auth/user-info", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
 
       const userInfo = await userInfoResponse.json();
@@ -134,9 +137,9 @@ function LoginFormContent() {
       };
 
       setUserProfile(profileData);
-
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Invalid email or password";
+      const errorMessage =
+        err instanceof Error ? err.message : "Invalid email or password";
       setError(errorMessage);
       setFieldErrors({ email: true, password: true });
     } finally {
@@ -145,12 +148,12 @@ function LoginFormContent() {
   };
 
   const context = searchParams.get("context");
+  const redirectParam = searchParams.get("redirect");
+
   const signupHref =
     context === "customer"
       ? `/auth/customer/signup${
-          searchParams.get("redirect")
-            ? `?redirect=${encodeURIComponent(searchParams.get("redirect")!)}`
-            : ""
+          redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ""
         }`
       : "/auth/shopowner/signup";
 
@@ -243,13 +246,15 @@ function LoginFormContent() {
 // Main page component with Suspense boundary
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex md:min-h-screen font-[Plus_Jakarta_Sans] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
-        <div className="w-full max-w-md p-8 border border-gray-100/30 rounded-xl md:bg-black/60 bg-black/20 shadow-md md:mt-0 mt-[80px]">
-          <div className="text-center text-white">Loading...</div>
+    <Suspense
+      fallback={
+        <div className="flex md:min-h-screen font-[Plus_Jakarta_Sans] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
+          <div className="w-full max-w-md p-8 border border-gray-100/30 rounded-xl md:bg-black/60 bg-black/20 shadow-md md:mt-0 mt-[80px]">
+            <div className="text-center text-white">Loading...</div>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <LoginFormContent />
     </Suspense>
   );

@@ -23,7 +23,7 @@ export default function ShopTypeSelection() {
   
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push('/auth/login?redirect=/onboardfully');
+      router.push('/auth/login?redirect=/shopType');
     }
   }, [isAuthenticated, router]);
 
@@ -71,7 +71,7 @@ export default function ShopTypeSelection() {
         // If 401, token may be invalid – logout and redirect to login
         if (response.status === 401) {
           logout();
-          router.push('/auth/login?redirect=/onboardfully');
+          router.push('/auth/login?redirect=/shopType');
         } else {
           setError(data.error || 'Failed to complete onboarding');
         }
