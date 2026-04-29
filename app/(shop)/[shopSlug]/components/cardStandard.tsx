@@ -124,18 +124,18 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
             href={`/${shopSlug}/${product.product_slug}`}
             className="no-underline text-inherit"
           >
-            <h3 className="text-[15px] text-black font-medium line-clamp-2 font-[Poppins] hover:underline">
+            <h3 className="text-[15px] text-black  line-clamp-2 font-[Poppins] hover:underline">
               {product.product_name}
             </h3>
           </Link>
 
-          <div className="flex flex-row mt-2 text-[16px] items-center gap-2 font-[Poppins] font-medium text-[#0F1F0F]">
+          <div className="flex flex-row mt-1 text-[16px] items-center gap-2 font-[Poppins] font-medium text-[#0F1F0F]">
             {product.discount_price ? (
               <>
                 <span className="text-base">
                   <span className="">ksh</span> {formatPrice(product.discount_price)}
                 </span>
-                <span className="italic line-through font-medium text-sm">
+                <span className="italic line-through  text-sm">
                   {formatPrice(product.price)}
                 </span>
               </>
@@ -148,7 +148,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
         </div>
 
         {/* Cart button - fixed at bottom */}
-        <div className="flex justify-center mt-8 mb-1 px-1">
+        <div className="flex justify-center mt-4 mb-1 px-1">
           <ButtonCart
             onClick={handleAddToCart}
             className="flex flex-row gap-[6px] justify-between text-white items-center justify-center py-1 text-[14px]"
