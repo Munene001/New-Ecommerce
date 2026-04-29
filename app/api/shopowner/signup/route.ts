@@ -9,6 +9,7 @@ interface SignupBody {
   business_name: string;
   business_town: string;
   business_address: string;
+  slug: string; // Add this
 }
 
 export async function POST(request: NextRequest) {
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
           business_name: body.business_name,
           business_town: body.business_town,
           business_address: body.business_address,
+          slug: body.slug, // Add this
           role: 'shop_owner'
         }
       }

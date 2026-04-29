@@ -23,6 +23,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
     business_name: "",
     business_town: "",
     business_address: "",
+    slug: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [phoneValue, setPhoneValue] = useState<string | undefined>("");
@@ -30,6 +31,13 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Generate slug when business name changes
+    if (name === "business_name" && value) {
+      const slug = `${value.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+      setFormData((prev) => ({ ...prev, slug }));
+    }
+    
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -82,6 +90,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
           business_name: formData.business_name,
           business_town: formData.business_town,
           business_address: formData.business_address,
+          slug: formData.slug,
         }),
       });
 
@@ -95,6 +104,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
           business_name: formData.business_name,
           business_town: formData.business_town,
           business_address: formData.business_address,
+          slug: formData.slug,
         });
       } else {
         setMessage({ text: data.error || "Signup failed", type: "error" });
