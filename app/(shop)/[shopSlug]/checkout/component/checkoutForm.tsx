@@ -253,7 +253,7 @@ export default function CheckoutForm({
       <div className="mt-5 p-4 bg-yellow-50 rounded-lg border-l-4" style={{ borderLeftColor: secondaryColor }}>
         <div className="flex gap-3">
           <Truck className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-          <p className="text-sm text-yellow-700">
+          <p className="text-sm text-black">
             <strong>Delivery Fee:</strong> Not included in total. The seller will contact you after 
             order placement to confirm delivery fee based on your location and package size.
           </p>
