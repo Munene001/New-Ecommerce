@@ -1,11 +1,12 @@
 // app/(shop)/[shopSlug]/checkout/payment/components/CODPayment.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/authcontext";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { CheckCircle, Phone, Gift, ShoppingBag, PartyPopper, Package, Truck } from "lucide-react";
+import { storeRedirect } from "@/lib/redirect/helper";
 
 interface CODPaymentProps {
   orderId: string | null;
@@ -14,14 +15,19 @@ interface CODPaymentProps {
 
 export function CODPayment({ orderId, orderNumber }: CODPaymentProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { shop } = useShop();
   const { isAuthenticated } = useAuth();
+
+  // Build the full current URL with query params for redirect
+  const currentFullPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
 
   const TrackOrderButton = () => {
     if (isAuthenticated) {
       return (
         <button
-          onClick={() => router.push(`/${shop?.shopSlug}/orders/${orderId}`)}
+          onClick={() => router.push(`/${shop?.shopSlug}/profile`)}
           className="w-full py-3 px-4 rounded-xl text-white font-semibold transition-all duration-200 transform hover:scale-[1.02]"
           style={{ backgroundColor: shop?.secondaryColor }}
         >
@@ -30,15 +36,21 @@ export function CODPayment({ orderId, orderNumber }: CODPaymentProps) {
       );
     }
     
+    const handleSignInClick = () => {
+      // Store the full current path before navigating to login
+      storeRedirect(currentFullPath);
+      router.push('/auth/login');
+    };
+    
     return (
       <div className="space-y-3">
-        <Link
-          href={`/auth/login?redirect=/${shop?.shopSlug}/orders/${orderId}`}
+        <button
+          onClick={handleSignInClick}
           className="w-full py-3 px-4 rounded-xl text-white font-semibold transition-all duration-200 transform hover:scale-[1.02] text-center block"
           style={{ backgroundColor: shop?.secondaryColor }}
         >
           Sign in to Track Order
-        </Link>
+        </button>
         <p className="text-xs text-gray-500 text-center">
           Sign in to view your order history and track deliveries
         </p>
@@ -95,7 +107,6 @@ export function CODPayment({ orderId, orderNumber }: CODPaymentProps) {
               <p className="text-gray-700 font-medium">
                 We're preparing your order!
               </p>
-             
             </div>
 
             {/* Action Buttons */}
