@@ -6,6 +6,7 @@ import { useAuth } from "@/context/authcontext";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { LogOut, Package, Clock, ChevronRight, ShoppingBag, User, Mail, Phone, Heart } from "lucide-react";
 import Link from "next/link";
+import PageBar from "@/app/components/layout/pageBar";
 
 type Order = {
   order_id: number;
@@ -177,8 +178,13 @@ export default function Profile() {
   }
 
   return (
+    
     <div className="min-h-screen">
-      {/* Sticky Header */}
+    <PageBar 
+  breadcrumb="My Profile"
+  itemCount={orders.length}
+  itemName="Orders"
+/>
      
 
     
