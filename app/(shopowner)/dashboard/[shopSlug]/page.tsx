@@ -106,14 +106,14 @@ export default function Dashboard() {
               target="_blank"
               className="text-white hover:underline font-medium text-sm sm:text-base break-all"
             >
-              thamanitech.com/{shopSlug}
+              Paziatech.co.ke/{shopSlug}
             </Link>
 
             {/* Share Button */}
             <ShareButton
               title="My Shop"
               text="Check out my shop"
-              url={`https://thamanitech.com/${shopSlug}`}
+              url={`https://paziatech.co.ke/${shopSlug}`}
               variant="primary"
               showLabel
             />

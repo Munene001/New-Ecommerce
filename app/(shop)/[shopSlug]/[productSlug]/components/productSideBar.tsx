@@ -1,6 +1,13 @@
-'use client';
+"use client";
 
-import { Heart, ShoppingCart, ShoppingBag, ShoppingBasket, Minus, Plus } from "lucide-react";
+import {
+  Heart,
+  ShoppingCart,
+  ShoppingBag,
+  ShoppingBasket,
+  Minus,
+  Plus,
+} from "lucide-react";
 import Button from "@/app/components/ui/button";
 import { useCart } from "@/context/shopCartContext";
 import ShareButton from "@/app/components/ui/shareButton";
@@ -35,9 +42,9 @@ interface CartIconProps {
 // Move CartIcon component outside
 const CartIcon = ({ cartIcon }: CartIconProps) => {
   switch (cartIcon) {
-    case 'bag':
+    case "bag":
       return <ShoppingBag className="w-6 h-6 mr-2" />;
-    case 'basket':
+    case "basket":
       return <ShoppingBasket className="w-6 h-6 mr-2" />;
     default:
       return <ShoppingCart className="w-6 h-6 mr-2" />;
@@ -67,7 +74,7 @@ export default function ProductSidebar({
 
   const discountPercentage = product.discount_price
     ? Math.round(
-        ((product.price - product.discount_price) / product.price) * 100
+        ((product.price - product.discount_price) / product.price) * 100,
       )
     : 0;
 
@@ -89,7 +96,7 @@ export default function ProductSidebar({
           price: product.price,
           discount_price: product.discount_price,
         },
-        1
+        1,
       );
     }
   };
@@ -117,13 +124,13 @@ export default function ProductSidebar({
 
     setIsTogglingWishlist(true);
     try {
-      const res = await fetch('/api/shops/actions', {
-        method: 'POST',
+      const res = await fetch("/api/shops/actions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          action: 'toggleWishlist',
+          action: "toggleWishlist",
           productId: product.product_id,
           shopSlug,
           productSlug: product.product_slug,
@@ -134,10 +141,14 @@ export default function ProductSidebar({
       if (!res.ok) throw new Error(data.error);
 
       setIsInWishlist(!isInWishlist);
-      showToast(isInWishlist ? 'Removed from wishlist' : 'Added to wishlist', 'success');
+      showToast(
+        isInWishlist ? "Removed from wishlist" : "Added to wishlist",
+        "success",
+      );
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update wishlist';
-      showToast(errorMessage, 'error');
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to update wishlist";
+      showToast(errorMessage, "error");
     } finally {
       setIsTogglingWishlist(false);
     }
@@ -189,10 +200,8 @@ export default function ProductSidebar({
     }));
 
   // Construct share URL (client-side only)
-  const shareUrl =
-    typeof window !== "undefined"
-      ? window.location.href
-      : `/${shopSlug}/${product.product_slug}`;
+  const shareUrl = `/${shopSlug}/${product.product_slug}`;
+ 
 
   // Heart icon and style based on wishlist status and owner restriction
   const HeartIcon = isInWishlist ? (
@@ -201,8 +210,8 @@ export default function ProductSidebar({
     <Heart className="w-5 h-5" />
   );
   const heartButtonClasses = `flex items-center gap-1 transition-colors ${
-    isInWishlist ? 'text-red-500' : 'text-gray-900 hover:text-red-900'
-  } ${isShopOwner ? 'opacity-50 cursor-not-allowed' : ''}`;
+    isInWishlist ? "text-red-500" : "text-gray-900 hover:text-red-900"
+  } ${isShopOwner ? "opacity-50 cursor-not-allowed" : ""}`;
 
   return (
     <>
@@ -279,21 +288,24 @@ export default function ProductSidebar({
 
         {/* Wishlist & Share */}
         <div className="flex gap-4">
-          <button 
+          <button
             onClick={handleToggleWishlist}
             disabled={isTogglingWishlist || isShopOwner}
             className={heartButtonClasses}
-            title={isShopOwner ? "Shop owners cannot add items to wishlist" : undefined}
+            title={
+              isShopOwner
+                ? "Shop owners cannot add items to wishlist"
+                : undefined
+            }
           >
             {HeartIcon}
-            <span className="text-gray-900" >Wishlist</span>
+            <span className="text-gray-900">Wishlist</span>
           </button>
           <ShareButton
             title={product.product_name}
-            text={`Check out ${product.product_name} on ${
-              shop?.shopName || "our store"
-            }`}
+            text={`Check out ${product.product_name} on ${shop?.shopName || "our store"}`}
             url={shareUrl}
+            
             color={secondaryColor}
             showLabel
             iconClassName="w-5 h-5"
@@ -304,7 +316,9 @@ export default function ProductSidebar({
         </div>
 
         {/* Description */}
-        <p className="text-black text-[16px] font-medium">{product.description}</p>
+        <p className="text-black text-[16px] font-medium">
+          {product.description}
+        </p>
 
         {/* Attributes */}
         {attributeEntries.length > 0 && (
@@ -378,18 +392,21 @@ export default function ProductSidebar({
             onClick={handleToggleWishlist}
             disabled={isTogglingWishlist || isShopOwner}
             className={heartButtonClasses}
-            title={isShopOwner ? "Shop owners cannot add items to wishlist" : undefined}
+            title={
+              isShopOwner
+                ? "Shop owners cannot add items to wishlist"
+                : undefined
+            }
           >
             {HeartIcon}
             <span>Wishlist</span>
           </button>
-
+          v
           <ShareButton
             title={product.product_name}
-            text={`Check out ${product.product_name} on ${
-              shop?.shopName || "our store"
-            }`}
+            text={`Check out ${product.product_name} on ${shop?.shopName || "our store"}`}
             url={shareUrl}
+            
             color={secondaryColor}
             showLabel
             iconClassName="w-5 h-5"

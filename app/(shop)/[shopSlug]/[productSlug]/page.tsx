@@ -1,5 +1,8 @@
+// app/[shopSlug]/[productSlug]/page.tsx
+
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { notFound } from "next/navigation";
+import { Metadata } from 'next';
 import pool from "@/lib/db";
 import ProductGallery from "./components/productGallery";
 import ProductSidebar from "./components/productSideBar";
@@ -65,6 +68,70 @@ interface RelatedProduct {
   product_slug: string;
   price: number;
   discount_price: number | null;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { shopSlug, productSlug } = await params;
+
+  // Get shopId directly from database
+  const [shopRows] = await pool.query(
+    `SELECT shop_id FROM shops WHERE shop_slug = ?`,
+    [shopSlug]
+  );
+  
+  if (!shopRows || (shopRows as unknown[]).length === 0) {
+    return {
+      title: 'Product Not Found',
+      description: 'The requested product could not be found.',
+    };
+  }
+  
+  const shopId = (shopRows as unknown[])[0] as { shop_id: number };
+
+  // Fetch product data
+  const [productRows] = await pool.query(
+    `SELECT 
+        p.product_name,
+        p.description,
+        p.product_id
+     FROM products p
+     WHERE p.product_slug = ? AND p.shop_id = ?`,
+    [productSlug, shopId.shop_id]
+  );
+  
+  if (!productRows || (productRows as unknown[]).length === 0) {
+    return {
+      title: 'Product Not Found',
+      description: 'The requested product could not be found.',
+    };
+  }
+  
+  const product = (productRows as unknown[])[0] as {
+    product_name: string;
+    description: string;
+    product_id: number;
+  };
+
+  const imageUrl = `/api/shopowner/products/${product.product_id}/images/primary?w=600`;
+  const productUrl = `/${shopSlug}/${productSlug}`;
+
+  return {
+    title: product.product_name,
+    description: product.description,
+    openGraph: {
+      title: product.product_name,
+      description: product.description,
+      images: [imageUrl],
+      url: productUrl,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: product.product_name,
+      description: product.description,
+      images: [imageUrl],
+    },
+  };
 }
 
 export default async function ProductPage({ params }: PageProps) {

@@ -60,8 +60,8 @@ export default function MobileBottomNav() {
             onClick={handleCartClick}
             className="flex flex-col items-center p-2 flex-1 relative"
           >
-            <div className="relative">
-              <CartIcon cartIcon={shop?.cartIcon} />
+            <div className="relative text-black">
+              <CartIcon cartIcon={shop?.cartIcon}/>
               {totalItems > 0 && (
                 <span 
                   className="absolute -top-2 -right-3 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"

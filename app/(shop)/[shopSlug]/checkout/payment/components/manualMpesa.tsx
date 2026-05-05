@@ -1,12 +1,11 @@
-// app/(shop)/[shopSlug]/checkout/payment/components/DirectMpesaPayment.tsx
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Copy, Check, CreditCard, Smartphone, Building, Send, PartyPopper, ShoppingBag, Package, Clock, Shield, Wallet, ArrowLeft } from "lucide-react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Copy, Check, CreditCard, Smartphone, Building, Send, PartyPopper, ShoppingBag, Package, Clock, Shield, Wallet } from "lucide-react";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useAuth } from "@/context/authcontext";
+import { storeRedirect } from "@/lib/redirect/helper";
 
 interface DirectMpesaPaymentProps {
   orderId: string | null;
@@ -23,10 +22,15 @@ interface DirectMpesaPaymentProps {
 
 export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInfo }: DirectMpesaPaymentProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { shop } = useShop();
   const { isAuthenticated } = useAuth();
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [orderComplete, setOrderComplete] = useState(false);
+  
+  // Check if we're in success state from URL
+  const isSuccessState = searchParams.get('status') === 'success';
+  const [orderComplete, setOrderComplete] = useState(isSuccessState);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -40,6 +44,10 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
 
   const handleOrderComplete = () => {
     setOrderComplete(true);
+    // Update URL to include success status
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set('status', 'success');
+    router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
   };
 
   const formatAmount = (amount: number) => {
@@ -50,28 +58,6 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
       maximumFractionDigits: 0,
     }).format(amount);
   };
-
-  const InfoRow = ({ label, value, copyKey }: { label: string; value: string | null; copyKey: string }) => (
-    <div className="flex items-center justify-between py-3 border-b border-gray-200">
-      <span className="text-gray-700 text-sm font-medium">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="font-mono font-semibold text-gray-900 text-sm">{value || "N/A"}</span>
-        {value && (
-          <button
-            onClick={() => copyToClipboard(value, copyKey)}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
-            type="button"
-          >
-            {copiedField === copyKey ? (
-              <Check className="w-3.5 h-3.5 text-green-600" />
-            ) : (
-              <Copy className="w-3.5 h-3.5 text-gray-500" />
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  );
 
   const getPaymentDetails = () => {
     switch (mpesaInfo.type) {
@@ -163,13 +149,12 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
     );
   }
 
-  // Order Complete State
   if (orderComplete) {
     const TrackOrderButton = () => {
-      if (isAuthenticated && safeOrderId) {
+      if (isAuthenticated) {
         return (
           <button
-            onClick={() => router.push(`/${shop?.shopSlug}/orders/${safeOrderId}`)}
+            onClick={() => router.push(`/${shop?.shopSlug}/profile`)}
             className="w-full py-3 px-4 rounded-lg text-white font-medium transition-all"
             style={{ backgroundColor: shop?.secondaryColor }}
           >
@@ -178,15 +163,22 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
         );
       }
       
+      const handleSignInClick = () => {
+        // Build current URL with success state
+        const currentFullPath = `${pathname}?order_id=${safeOrderId}&status=success`;
+        storeRedirect(currentFullPath);
+        router.push('/auth/login');
+      };
+      
       return (
         <div className="space-y-2">
-          <Link
-            href={`/auth/login?redirect=/${shop?.shopSlug}/orders/${safeOrderId}`}
+          <button
+            onClick={handleSignInClick}
             className="w-full py-3 px-4 rounded-lg text-white font-medium text-center block"
             style={{ backgroundColor: shop?.secondaryColor }}
           >
             Sign in to Track Order
-          </Link>
+          </button>
           <p className="text-xs text-gray-500 text-center">
             Sign in to view your order history
           </p>
@@ -233,19 +225,12 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
     );
   }
 
-  // Full Width Payment State
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Strip - Payment Info */}
-      <div className=" border-b border-gray-200 shadow-sm bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto]" 
-      
-      
-      >
+      <div className="border-b border-gray-200 shadow-sm bg-[url('/assets/maze-speciallll.svg')] bg-repeat bg-[length:400px_auto]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            {/* Left: Back and Title */}
-            <div className="flex items-center  gap-4">
-             
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg" style={{ backgroundColor: `${shop?.secondaryColor}10` }}>
                   {paymentDetails.icon}
@@ -257,7 +242,6 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
               </div>
             </div>
 
-            {/* Right: Till/Payment Details - Clearly Defined */}
             <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
               {paymentDetails.copyItems.map((item, idx) => (
                 <div key={idx} className="flex-1 lg:flex-none bg-gray-50 rounded-lg px-4 py-2 min-w-[180px]">
@@ -280,7 +264,6 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
                   </div>
                 </div>
               ))}
-              {/* Total Amount */}
               <div className="bg-green-50 rounded-lg px-4 py-2 min-w-[140px] border border-green-200">
                 <p className="text-xs text-green-700 font-medium">Total Amount</p>
                 <p className="font-bold text-gray-900 text-lg">{formatAmount(safeTotalAmount)}</p>
@@ -290,12 +273,9 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
         </div>
       </div>
 
-      {/* Content - Two Column Layout */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Instructions (2/3 width) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Order Summary Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
                 <Smartphone className="w-5 h-5" style={{ color: shop?.secondaryColor }} />
@@ -313,7 +293,6 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
               </div>
             </div>
 
-            {/* Security Note */}
             <div className="bg-green-50 rounded-xl p-4 border border-green-200">
               <div className="flex gap-3">
                 <Shield className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -324,7 +303,6 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
             </div>
           </div>
 
-          {/* Right Column - Action (1/3 width) */}
           <div className="lg:sticky lg:top-8 h-fit">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="text-center mb-6">
@@ -352,7 +330,6 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
               </div>
             </div>
 
-            {/* Order Number Reference */}
             <div className="mt-4 bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
               <p className="text-xs text-gray-800">Having trouble?</p>
               <p className="text-xs text-gray-800 mt-1">Contact support with your order number</p>
