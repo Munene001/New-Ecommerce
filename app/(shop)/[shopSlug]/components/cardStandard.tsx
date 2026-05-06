@@ -124,34 +124,34 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
             href={`/${shopSlug}/${product.product_slug}`}
             className="no-underline text-inherit"
           >
-            <h3 className="text-[15px] text-black  line-clamp-2 font-[Poppins] hover:underline">
+            <h3 className="text-[15px] text-black line-clamp-2 font-medium font-[Poppins] hover:underline">
               {product.product_name}
             </h3>
           </Link>
 
-          <div className="flex flex-row mt-1 text-[16px] items-center gap-2 font-[Poppins] font-medium text-[#0F1F0F]">
+          <div className="flex flex-row mt-1 text-[14px] items-center gap-2 font-[inter] font-semibold text-[#034810]">
             {product.discount_price ? (
               <>
                 <span className="text-base">
                   <span className="">ksh</span> {formatPrice(product.discount_price)}
                 </span>
-                <span className="italic line-through  text-sm">
+                <span className="italic line-through text-sm">
                   {formatPrice(product.price)}
                 </span>
               </>
             ) : (
-              <span className="text-base">
+              <span className="text-base text-[#034810] font-semibold">
                 <span className="">ksh</span> {formatPrice(product.price)}
               </span>
             )}
           </div>
         </div>
 
-        {/* Cart button - fixed at bottom */}
-        <div className="flex justify-center mt-4 mb-1 px-1">
+        {/* Cart button - fixed at bottom, full width on mobile, 80% width and centered on md+ */}
+        <div className="mt-4 mb-1 w-full md:flex md:justify-center text-white">
           <ButtonCart
             onClick={handleAddToCart}
-            className="flex flex-row gap-[6px] justify-between text-white items-center justify-center py-1 text-[14px]"
+            className="flex flex-row gap-[6px] justify-center items-center py-1 text-[14px] w-full md:w-[80%]"
             style={{ backgroundColor: "var(--secondary)" }}
             disabled={!product.in_stock}
           >
