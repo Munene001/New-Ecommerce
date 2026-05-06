@@ -26,7 +26,7 @@ export default function HomeHeader() {
 
   <Link href="/" className="inline-block rounded-lg leading-none">
   <Image
-    src="/logo.webp"
+    src="/logo.png"
     alt="Logo"
     width={80}
     height={40}
