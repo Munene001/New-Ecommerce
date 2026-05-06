@@ -13,43 +13,44 @@ export default function Home() {
 
   return (
     <div className="text-secondaryText font-[Plus_Jakarta_Sans]">
-      <div className="md:grid grid-cols-[60%_40%] md:h-auto h-fit mb-4 p-4">
-        <div className="flex flex-col justify-between">
+      <div className="md:grid grid-cols-[60%_40%] md:h-auto h-fit   mb-4 p-4">
+        <div className="flex flex-col gap-4 md:gap-0 justify-between">
           <div className="text-[18px] md:text-[22px] w-fit p-2 bg-gray-900/10 border text-primary-text border-white rounded-3xl mb-2">
-            Launch an online shop 
+          Add products, Accept payments
           </div>
 
-          <div className="md:text-[65px] text-[45px] leading-[65px] font-[Poppins] text-primary-text mb-5 flex flex-col">
+          <div className="md:text-[65px] text-[45px] leading-[55px] md:leading-[65px] font-[Poppins] text-primary-text mb-5 flex flex-col">
             
-             <span>Add products,</span> <span>Accept payments</span>
+             <span>Launch your online </span> <span>  Store in minutes </span>
           </div>
 
           <div className="text-[20px] md:block leading-[30px] mb-6 text-primary-text">
 
-          Designed for businesses that want to start selling fast with 
+         Sell products, accept M-Pesa payments, and manage everything from one simple dashboard. Built for Kenyan businesses that want to start fast and scale.
             
            {" "} <span className="font-semibold text-three">
               MPesa-powered checkout
             </span>{" "}
-            — all from one simple dashboard.
+            
           </div>
 
           <Button
             onClick={() => router.push("auth/shopowner/signup")} variant="secondary"
             className="font-semibold text-[22px] flex flex-row mt-2 mb-2 gap-2 items-center"
           >
-            <span>Start Free Trial</span>
+            <span>Start Selling Now</span>
             <MoveRight color="white" size={22} />
           </Button>
         </div>
 
-        <div className="md:flex md:flex-row hidden justify-center gap-4">
+        <div className="md:flex md:flex-row hidden w-full justify-center gap-4">
           <Image
-            src="/assets/Home/s-left.webp"
+            src="/images/home/left.png"
             alt="sample app"
-            className="md:h-[70vh] h-[20vh] animate-glide-in"
-            width={100}
-            height={70}
+            className="  w-full object-contain h-[70vh]"
+            width={1200}   // ← use actual image dimensions or larger
+  height={800}
+            
           />
         </div>
       </div>

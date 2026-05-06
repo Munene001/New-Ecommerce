@@ -4,7 +4,7 @@ import { useShopFilter } from "@/context/shopFilterContext";
 import { useShop } from "../ShopContext";
 import ProductCardStandard from "./components/cardStandard";
 import PageBar from "@/app/components/layout/pageBar";
-import { ListFilterPlus, X } from "lucide-react";
+import {  ArrowLeftRight , X } from "lucide-react";
 import Button from "@/app/components/ui/button";
 import Filter from "./components/filter";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -109,12 +109,13 @@ export default function ShopProductsClient() {
         className="lg:hidden px-4 py-4 font-[Poppins] cursor-pointer"
         onClick={() => setIsFilterOpen(true)}
       >
-        <div className="flex flex-row gap-2 text-black">
-          <ListFilterPlus />
-          <span className="md:text-[16px] text-[18px] font-semibold">
+        <div className="flex justify-self-start gap-2 text-black rounded-sm border border-gray-500 p-2">
+          <ArrowLeftRight  className="text-[15px]"/>
+          <span className="md:text-[15px] text-[15px] font-medium ">
             Filter
           </span>
         </div>
+        <div></div>
       </div>
       
       {showMobileSearch && (
