@@ -1,6 +1,6 @@
 "use client";
 
-import { ListFilterPlus, Check, X } from "lucide-react";
+import { ArrowLeftRight, Check, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Range } from "react-range";
 
@@ -98,8 +98,8 @@ export default function Filter({
   return (
     <div className="bg-white bg-[url('/assets/maze-special.svg')]  bg-repeat bg-[length:400px_auto] p-4 rounded-lg border border-gray-200 sticky top-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-semibold text-lg text-black flex items-center gap-2">
-          <ListFilterPlus size={20} style={{ color: shopData.secondaryColor }} />
+        <h2 className="font-semibold text-lg rounded-sm text-black border border-gray-700 p-2 flex items-center gap-2">
+          <ArrowLeftRight size={20} style={{ color: shopData.secondaryColor }} />
           <span>Filter</span>
         </h2>
       

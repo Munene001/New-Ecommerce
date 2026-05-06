@@ -6,7 +6,7 @@ export default function FourStepProcess() {
       {/* Step 1 */}
       <Step
         stepNumber={1}
-        imageSrc="/images/home/signup.svg"
+        imageSrc="/images/home/left.png"
         imageAlt="Register your business"
         headline="Register Your Shop"
         description="Sign up quickly and create your online shop in minutes. No design skills needed."
