@@ -1,6 +1,8 @@
 
 import HomeHeader from "../components/layout/homeHeader";
 
+
+
 export default function HomeLayout({
   children,
 }: Readonly<{
@@ -14,7 +16,10 @@ export default function HomeLayout({
         bg-repeat
         min-h-screen">
         {children}
+       
       </main>
+      
+
     </>
   );
 }

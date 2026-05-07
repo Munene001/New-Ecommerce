@@ -1,27 +1,15 @@
 // app/components/common/FloatingWhatsApp.tsx
 "use client";
 
-import { useShop } from "@/app/(shop)/ShopContext";
 import { Icon } from "@iconify/react";
 
-export default function FloatingWhatsApp() {
-  const { shop } = useShop();
-
+export default function HomeWhatsApp() {
   const handleWhatsAppClick = () => {
-    if (!shop?.contactPhone) return;
-    
-    // Format: if starts with 0, replace with +254
-    let phoneNumber = shop.contactPhone;
-    if (phoneNumber.startsWith('0')) {
-      phoneNumber = '+254' + phoneNumber.substring(1);
-    }
-    
-    // Open WhatsApp
-    window.open(`https://wa.me/${phoneNumber}`, '_blank');
+    window.open(`https://wa.me/254715067768`, '_blank');
   };
 
   return (
-    <div className="fixed bottom-20 right-6   animate-pulse z-40 md:bottom-6">
+    <div className="fixed bottom-15 md:bottom-6 right-3 animate-pulse  right-6 z-40">
       <button
         onClick={handleWhatsAppClick}
         className="flex items-center justify-center w-14 h-14 bg-green-500 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 hover:scale-110 active:scale-95"

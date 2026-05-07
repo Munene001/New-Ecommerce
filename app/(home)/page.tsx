@@ -6,6 +6,8 @@ import { MoveRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import TrustSection from "./components/Trust/page";
 import FeaturesSection from "./components/Features/page";
+import SimpleFooter from "./components/footer";
+import HomeWhatsApp from "./components/homeWhatsapp";
 
 import Phase2 from "./components/phase2";
 import Image, { StaticImageData } from "next/image";
@@ -113,7 +115,10 @@ export default function Home() {
     
 
         <Phase2 />
-      
+        
+      <SimpleFooter/>
+      <HomeWhatsApp/>
     </div>
+    
   );
 }

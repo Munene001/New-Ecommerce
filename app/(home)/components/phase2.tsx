@@ -103,7 +103,7 @@ const Phase2 = () => {
                   {activeStep === index ? (
                     <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-white" />
                   ) : (
-                    <step.icon className="w-4 h-4 md:w-5 md:h-5 text-gray-600" strokeWidth={1.5} />
+                    <step.icon className="w-4 h-4 md:w-5 md:h-5 text-black" strokeWidth={1.5} />
                   )}
                 </div>
               </div>
@@ -123,7 +123,7 @@ const Phase2 = () => {
                       className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
                         activeStep === index
                           ? "bg-orange-200 text-orange-800"
-                          : "bg-gray-200 text-gray-700"
+                          : "bg-gray-200 text-black"
                       }`}
                     >
                       Step {index + 1}
