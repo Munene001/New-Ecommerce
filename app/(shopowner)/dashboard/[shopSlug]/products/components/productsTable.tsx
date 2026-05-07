@@ -224,7 +224,7 @@ export default function ProductsTable({
                   </div>
 
                   <div className="w-[21%] pr-4">
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium overflow-auto text-gray-900">
                       {product.product_name}
                     </div>
                   </div>
