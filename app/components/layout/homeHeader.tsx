@@ -32,7 +32,7 @@ export default function HomeHeader() {
   const navItems = [
     { title: "Home", href: "/", icon: Home },
     { title: "Contact Us", href: "/contact", icon: Phone },
-    { title: "Help", href: "/help", icon: HelpCircle },
+    { title: "Help", href: "/contact#faq", icon: HelpCircle },
   ];
 
   return (
@@ -50,7 +50,7 @@ export default function HomeHeader() {
           />
         </Link>
 
-        {/* Desktop Navigation - with icons */}
+       
         <div className="flex items-center gap-8">
           {navItems.map((item) => {
             const Icon = item.icon;
