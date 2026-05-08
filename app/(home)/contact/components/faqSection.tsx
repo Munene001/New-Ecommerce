@@ -104,7 +104,7 @@ export default function FAQSection() {
           <h2 className="text-3xl md:text-4xl font-bold text-black mb-4">
             Frequently Asked Questions
           </h2>
-          <p className="text-gray-900 text-lg max-w-2xl mx-auto">
+          <p className="text-gray-900 text-base max-w-2xl mx-auto">
            Most asked questions about Pazia Tech.
           </p>
         </div>
