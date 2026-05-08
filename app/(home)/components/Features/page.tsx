@@ -34,13 +34,16 @@ const FeaturesSection = () => {
 
   return (
     <section className="py-16 md:py-20 px-4 max-w-7xl mx-auto">
-      {/* Section Header - White text for black background */}
-      <div className="text-center mb-12 md:mb-16">
-        <h2 className="text-3xl md:text-4xl font-bold text-white font-[Poppins] mb-3">
-          Everything you need to run your online store
+      {/* About Section - Title + Paragraph */}
+      <div className="text-center max-w-3xl mx-auto mb-12 md:mb-16">
+        <h2 className="text-3xl md:text-4xl font-bold text-white font-[Poppins] mb-4">
+          About Pazia Tech
         </h2>
-        <p className="text-gray-200 text-base md:text-lg max-w-2xl mx-auto">
-          From adding products to managing orders — all in one simple dashboard.
+        <p className="text-gray-200 text-base md:text-lg leading-relaxed">
+          Pazia Tech helps Kenyan entrepreneurs launch and grow their online stores individually.
+          No coding, no complexity, no expensive developers. Just a simple platform 
+          that works. Whether you're selling handmade crafts, electronics, or fashion — 
+          Pazia Tech gives you the tools to succeed.
         </p>
       </div>
 
@@ -57,15 +60,14 @@ const FeaturesSection = () => {
       </div>
 
       {/* Dashboard Screenshot */}
-      <div className="rounded-2xl overflow-hidden   max-w-4xl mx-auto">
+      <div className="rounded-2xl overflow-hidden max-w-4xl mx-auto">
         <Image
           src="/images/home/cover3.webp"
           alt="Seller dashboard showing orders, products, and analytics"
           width={1200}
           height={800}
-          className="w-full h-auto "
+          className="w-full h-auto"
         />
-        
       </div>
     </section>
   );
