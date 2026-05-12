@@ -26,6 +26,42 @@ export function ShopProvider({
   const { user, profile, isAuthenticated } = useAuth();
   const router = useRouter();
 
+  // Single fetch function to avoid code duplication
+  const fetchShopData = async () => {
+    try {
+      const res = await fetch(`/api/shops/${shopSlug}`);
+      
+      if (!res.ok) {
+        throw new Error('Shop not found');
+      }
+      
+      const data = await res.json();
+      
+      // Check if user owns this shop
+      if (!data.isOwner) {
+        console.log('User does not own this shop, redirecting...');
+        if (profile?.shopSlug) {
+          router.replace(`/dashboard/${profile.shopSlug}`);
+        } else {
+          router.replace('/profile');
+        }
+        return;
+      }
+      
+      // User owns this shop - allow access
+      setShopData({
+        shopId: data.shopId,
+        shopType: data.shopType,
+        shopSlug: shopSlug
+      });
+    } catch (error) {
+      console.error("Failed to fetch shop:", error);
+      setShopData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Wait for auth to load
     if (isAuthenticated === undefined) return;
@@ -35,28 +71,10 @@ export function ShopProvider({
       setInitialized(true);
     }
 
-    // If already on dashboard, don't redirect
+    // If already on dashboard
     const currentPath = window.location.pathname;
     if (currentPath.includes('/dashboard')) {
-      // Still need to fetch shop data if not loaded
       if (!shopData && shopSlug && isAuthenticated && profile?.role === 'shop_owner') {
-        const fetchShopData = async () => {
-          try {
-            const res = await fetch(`/api/shops/${shopSlug}`);
-            if (!res.ok) throw new Error('Shop not found');
-            const data = await res.json();
-            setShopData({
-              shopId: data.shopId,
-              shopType: data.shopType,
-              shopSlug: shopSlug
-            });
-          } catch (error) {
-            console.error("Failed to fetch shop:", error);
-            setShopData(null);
-          } finally {
-            setLoading(false);
-          }
-        };
         fetchShopData();
       } else {
         setLoading(false);
@@ -87,31 +105,9 @@ export function ShopProvider({
       return;
     }
 
-    // Fetch shop data
-    const fetchShopData = async () => {
-      try {
-        const res = await fetch(`/api/shops/${shopSlug}`);
-        
-        if (!res.ok) {
-          throw new Error('Shop not found');
-        }
-        
-        const data = await res.json();
-        setShopData({
-          shopId: data.shopId,
-          shopType: data.shopType,
-          shopSlug: shopSlug
-        });
-      } catch (error) {
-        console.error("Failed to fetch shop:", error);
-        setShopData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    // Fetch shop data with ownership verification
     fetchShopData();
-  }, [shopSlug, isAuthenticated, user, profile, router, initialized, shopData]);
+  }, [shopSlug, isAuthenticated, profile, router, initialized, shopData]);
 
   // Show loading while checking auth or fetching shop
   if ((!initialized && isAuthenticated === undefined) || loading || !profile) {
