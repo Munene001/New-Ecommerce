@@ -133,11 +133,11 @@ export default function Profile() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    const currentShopSlug = sessionStorage.getItem("currentShopSlug") || shop?.shopSlug || "my-awesome-shop-1770384778711";
-    router.push(`/${currentShopSlug}`);
-  };
+const handleLogout = async () => {
+  const currentShopSlug = sessionStorage.getItem("currentShopSlug") || shop?.shopSlug;
+  router.push(`/${currentShopSlug}`);
+  setTimeout(() => logout(), 100);
+};
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-KE", {
