@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { RowDataPacket } from "mysql2";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 interface Category {
   id: string;
@@ -45,6 +46,10 @@ export async function GET(
   if (!shopSlug || shopSlug === "undefined") {
     return NextResponse.json({ error: "Invalid shop slug" }, { status: 400 });
   }
+
+ 
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   try {
     const query = `
@@ -98,20 +103,33 @@ export async function GET(
         WHERE sb.shop_id = s.shop_id
           AND sb.is_active = 1
         LIMIT 1
-      ) as active_banner
+      ) as active_banner,
+      
+      -- ✅ ADD OWNERSHIP CHECK
+      EXISTS (
+        SELECT 1 
+        FROM tenant t
+        JOIN users u ON t.user_id = u.user_id
+        WHERE t.tenant_id = s.tenant_id 
+        AND u.supabase_uid = ?
+      ) as is_owner
       
     FROM shops s
     LEFT JOIN shop_settings ss ON s.shop_id = ss.shop_id
     WHERE s.shop_slug = ?
     `;
 
-    const [rows] = await pool.query<ShopRow[]>(query, [shopSlug]);
+    const [rows] = await pool.query<ShopRow[]>(query, [user?.id || null, shopSlug]);
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "Shop not found" }, { status: 404 });
     }
 
     const shop = rows[0];
+    
+   
+    const isAuthenticated = !!user && !authError;
+    const isOwner = shop.is_owner === 1;
 
     // Parse JSON strings
     const banner = shop.active_banner
@@ -126,7 +144,7 @@ export async function GET(
         : shop.categories
       : [];
 
-    // Return complete shop data
+    // Return complete shop data with ownership info
     return NextResponse.json({
       shopId: shop.shop_id,
       shopName: shop.shop_name,
@@ -147,7 +165,11 @@ export async function GET(
       cartIcon: shop.cart_icon || "cart",
       maxPrice: shop.max_price || 150000,
       categories,
-      banner, 
+      banner,
+      
+     
+      isAuthenticated,
+      isOwner,
     });
   } catch (error) {
     console.error("Database error:", error);
