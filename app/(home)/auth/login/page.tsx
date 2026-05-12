@@ -44,7 +44,7 @@ function LoginFormContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    // Don't redirect while loading
+    
     if (loading) return;
 
     // Only redirect if we're actually on the login page
@@ -52,9 +52,27 @@ function LoginFormContent() {
     if (!currentPath.includes("/auth/login")) return;
 
     if (isAuthenticated && profile) {
-      const storedRedirect = getAndClearRedirect();
-      if (storedRedirect) {
-        router.replace(storedRedirect);
+      // ✅ Check stored redirect WITHOUT clearing it first
+      const storedRedirect = getRedirect();
+      
+      // ✅ If shop owner and redirect is to /profile, skip it
+      if (profile.role === "shop_owner" && storedRedirect === "/profile") {
+        
+        getAndClearRedirect();
+        
+        // Send to dashboard instead
+        if (profile.onboardingComplete && profile.shopSlug) {
+          router.replace(`/dashboard/${profile.shopSlug}`);
+        } else {
+          router.replace("/shopType");
+        }
+        return;
+      }
+      
+      // ✅ For all other cases, proceed normally
+      const finalRedirect = getAndClearRedirect();
+      if (finalRedirect) {
+        router.replace(finalRedirect);
         return;
       }
 
