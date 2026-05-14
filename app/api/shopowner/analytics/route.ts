@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
-import { RowDataPacket } from 'mysql2';
 
 interface AnalyticsResult {
   summary: {
@@ -28,7 +27,7 @@ interface AnalyticsResult {
   bestSeller: {
     product_name: string;
     revenue: number;
-  } | null;
+  };
   paymentSplit: {
     mpesa: number;
     cod: number;
@@ -58,7 +57,10 @@ export async function GET(req: NextRequest) {
 
     // Verify access (auth + role + ownership)
     const access = await verifyShopAccess(req, parseInt(shopId));
-    if (!access.authorized) return access.response;
+    if (!access.authorized) {
+      // Ensure we always return a NextResponse, never null
+      return access.response || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     // 1. SUMMARY METRICS
     const [summaryResult] = await pool.query<any[]>(
@@ -79,7 +81,7 @@ export async function GET(req: NextRequest) {
 
     // 2. AVG ITEMS PER ORDER (from paid orders only)
     const [avgItemsResult] = await pool.query<any[]>(
-      `SELECT AVG(item_count) as avg_items
+      `SELECT COALESCE(AVG(item_count), 0) as avg_items
        FROM (
          SELECT oi.order_id, COUNT(*) as item_count
          FROM order_items oi
@@ -94,8 +96,8 @@ export async function GET(req: NextRequest) {
     // 3. RETURNING CUSTOMERS RATE (from paid orders only)
     const [returningResult] = await pool.query<any[]>(
       `SELECT 
-        COUNT(DISTINCT CASE WHEN order_count > 1 THEN customer_email END) as returning_customers,
-        COUNT(DISTINCT customer_email) as total_customers
+        COALESCE(COUNT(DISTINCT CASE WHEN order_count > 1 THEN customer_email END), 0) as returning_customers,
+        COALESCE(COUNT(DISTINCT customer_email), 0) as total_customers
        FROM (
          SELECT customer_email, COUNT(*) as order_count
          FROM orders
@@ -111,8 +113,8 @@ export async function GET(req: NextRequest) {
     // 4. WEEKEND VS WEEKDAY (from paid orders only)
     const [weekendResult] = await pool.query<any[]>(
       `SELECT 
-        SUM(CASE WHEN DAYOFWEEK(created_at) IN (1, 7) THEN 1 ELSE 0 END) as weekend_orders,
-        SUM(CASE WHEN DAYOFWEEK(created_at) BETWEEN 2 AND 6 THEN 1 ELSE 0 END) as weekday_orders
+        COALESCE(SUM(CASE WHEN DAYOFWEEK(created_at) IN (1, 7) THEN 1 ELSE 0 END), 0) as weekend_orders,
+        COALESCE(SUM(CASE WHEN DAYOFWEEK(created_at) BETWEEN 2 AND 6 THEN 1 ELSE 0 END), 0) as weekday_orders
        FROM orders
        WHERE shop_id = ? AND payment_status = 'paid'`,
       [access.shopId]
@@ -126,8 +128,8 @@ export async function GET(req: NextRequest) {
     const [topProducts] = await pool.query<any[]>(
       `SELECT 
         oi.product_name,
-        SUM(oi.quantity) as quantity_sold,
-        SUM(oi.quantity * oi.price_at_time) as revenue
+        COALESCE(SUM(oi.quantity), 0) as quantity_sold,
+        COALESCE(SUM(oi.quantity * oi.price_at_time), 0) as revenue
        FROM order_items oi
        INNER JOIN orders o ON oi.order_id = o.order_id
        WHERE o.shop_id = ? AND o.payment_status = 'paid'
@@ -137,11 +139,11 @@ export async function GET(req: NextRequest) {
       [access.shopId]
     );
 
-    // 6. BEST SELLER (highest revenue from paid orders)
+    // 6. BEST SELLER (highest revenue from paid orders) - ALWAYS provide a value
     const [bestSellerResult] = await pool.query<any[]>(
       `SELECT 
         oi.product_name,
-        SUM(oi.quantity * oi.price_at_time) as revenue
+        COALESCE(SUM(oi.quantity * oi.price_at_time), 0) as revenue
        FROM order_items oi
        INNER JOIN orders o ON oi.order_id = o.order_id
        WHERE o.shop_id = ? AND o.payment_status = 'paid'
@@ -151,10 +153,14 @@ export async function GET(req: NextRequest) {
       [access.shopId]
     );
 
+    // Always provide a bestSeller object, never undefined or null
     const bestSeller = bestSellerResult.length > 0 ? {
       product_name: bestSellerResult[0].product_name,
       revenue: parseFloat(bestSellerResult[0].revenue) || 0
-    } : null;
+    } : {
+      product_name: 'No products sold yet',
+      revenue: 0
+    };
 
     // 7. PAYMENT SPLIT (from paid orders only)
     const [paymentSplit] = await pool.query<any[]>(
@@ -206,11 +212,11 @@ export async function GET(req: NextRequest) {
     // 9. ORDERS BY CITY (from paid orders only)
     const [ordersByCity] = await pool.query<any[]>(
       `SELECT 
-        customer_city as city,
+        COALESCE(customer_city, 'Unknown') as city,
         COUNT(*) as order_count,
         COALESCE(SUM(subtotal), 0) as revenue
        FROM orders
-       WHERE shop_id = ? AND payment_status = 'paid' AND customer_city IS NOT NULL AND customer_city != ''
+       WHERE shop_id = ? AND payment_status = 'paid'
        GROUP BY customer_city
        ORDER BY order_count DESC`,
       [access.shopId]
@@ -234,15 +240,15 @@ export async function GET(req: NextRequest) {
       },
       topProducts: topProducts.map(p => ({
         product_name: p.product_name,
-        quantity_sold: p.quantity_sold,
+        quantity_sold: parseInt(p.quantity_sold) || 0,
         revenue: parseFloat(p.revenue) || 0,
       })),
       bestSeller,
       paymentSplit: paymentSplitResult,
       hourlyDistribution: hourlyArray,
       ordersByCity: ordersByCity.map(c => ({
-        city: c.city,
-        order_count: c.order_count,
+        city: c.city || 'Unknown',
+        order_count: c.order_count || 0,
         revenue: parseFloat(c.revenue) || 0,
       })),
     };
