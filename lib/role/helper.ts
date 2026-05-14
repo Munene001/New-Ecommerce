@@ -87,7 +87,7 @@ export async function verifyShopAccess(request: Request, shopId: number) {
   // All checks passed
   return { 
     authorized: true, 
-    response: null,
+    response: undefined,
     shopId: shopId,
     user: user,
     role: userRole 
