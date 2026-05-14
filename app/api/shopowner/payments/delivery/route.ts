@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
@@ -12,45 +12,26 @@ interface DeliveryTierRow extends RowDataPacket {
   updated_at: string;
 }
 
-interface OwnerCheckRow extends RowDataPacket {
-  '1': number;
-}
-
-// Helper to verify that the user owns the shop
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 // GET /api/payments/delivery?shop_id=1
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shop_id');
+    const shopIdParam = searchParams.get('shop_id');
     
-    if (!shopId) {
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Fetch all delivery tiers for this shop
@@ -75,14 +56,6 @@ export async function GET(req: NextRequest) {
 // POST /api/payments/delivery - Create a new delivery tier
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const body = await req.json();
     const { shop_id, tier_name, fee } = body;
 
@@ -90,6 +63,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         error: 'Missing required fields: shop_id, tier_name, fee' 
       }, { status: 400 });
+    }
+
+    const shopId = parseInt(shop_id, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
     if (fee < 0) {
@@ -100,17 +78,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tier name must be less than 100 characters' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shop_id), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Insert new delivery tier
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO delivery_tiers (shop_id, tier_name, fee)
        VALUES (?, ?, ?)`,
-      [shop_id, tier_name, fee]
+      [shopId, tier_name, fee]
     );
 
     return NextResponse.json({
@@ -118,7 +97,7 @@ export async function POST(req: NextRequest) {
       message: 'Delivery tier created successfully',
       data: {
         tier_id: result.insertId,
-        shop_id,
+        shop_id: shopId,
         tier_name,
         fee
       }

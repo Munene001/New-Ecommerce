@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-
-interface OwnerCheckRow extends RowDataPacket {
-  '1': number;
-}
 
 interface OrderRow extends RowDataPacket {
   order_id: number;
@@ -34,19 +30,6 @@ interface OrderItemRow extends RowDataPacket {
   price_at_time: number;
 }
 
-// Helper to verify that the user owns the shop
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 // Helper to get shop_id from order
 async function getShopIdFromOrder(orderId: number): Promise<number | null> {
   const [rows] = await pool.query<OrderRow[]>(
@@ -62,16 +45,9 @@ export async function GET(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { orderId: orderIdParam } = await params;
     const orderId = parseInt(orderIdParam);
+    
     if (isNaN(orderId)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
@@ -82,10 +58,11 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Get order details
@@ -127,16 +104,9 @@ export async function PUT(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { orderId: orderIdParam } = await params;
     const orderId = parseInt(orderIdParam);
+    
     if (isNaN(orderId)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
@@ -147,10 +117,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     const body = await req.json();
@@ -216,16 +187,9 @@ export async function DELETE(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { orderId: orderIdParam } = await params;
     const orderId = parseInt(orderIdParam);
+    
     if (isNaN(orderId)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
@@ -236,10 +200,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Start a transaction
@@ -277,4 +242,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });
   }
 }
-

@@ -37,9 +37,12 @@ export function ShopProvider({
       
       const data = await res.json();
       
-      // Check if user owns this shop
-      if (!data.isOwner) {
-        console.log('User does not own this shop, redirecting...');
+      // Check if user owns this shop OR is super_admin
+      const isOwner = data.isOwner;
+      const isSuperAdmin = profile?.role === 'super_admin';
+      
+      if (!isOwner && !isSuperAdmin) {
+        console.log('User does not own this shop and is not super_admin, redirecting...');
         if (profile?.shopSlug) {
           router.replace(`/dashboard/${profile.shopSlug}`);
         } else {
@@ -48,7 +51,7 @@ export function ShopProvider({
         return;
       }
       
-      // User owns this shop - allow access
+      // Allow access - either owner or super_admin
       setShopData({
         shopId: data.shopId,
         shopType: data.shopType,
@@ -74,7 +77,10 @@ export function ShopProvider({
     // If already on dashboard
     const currentPath = window.location.pathname;
     if (currentPath.includes('/dashboard')) {
-      if (!shopData && shopSlug && isAuthenticated && profile?.role === 'shop_owner') {
+      const isSuperAdmin = profile?.role === 'super_admin';
+      const isShopOwner = profile?.role === 'shop_owner';
+      
+      if (!shopData && shopSlug && isAuthenticated && (isShopOwner || isSuperAdmin)) {
         fetchShopData();
       } else {
         setLoading(false);
@@ -93,8 +99,12 @@ export function ShopProvider({
       return;
     }
 
-    // Check if user is shop owner
-    if (profile.role !== 'shop_owner') {
+    // Check if user is shop owner or super_admin
+    const isShopOwner = profile.role === 'shop_owner';
+    const isSuperAdmin = profile.role === 'super_admin';
+    
+    if (!isShopOwner && !isSuperAdmin) {
+      // Regular customer trying to access dashboard - redirect to shop
       router.push(`/${shopSlug}`);
       return;
     }
@@ -114,8 +124,10 @@ export function ShopProvider({
     return <DashboardSkeleton />;
   }
 
-  // If not authenticated or not shop owner, don't render
-  if (!isAuthenticated || profile?.role !== 'shop_owner') {
+  // If not authenticated or not shop owner/super_admin, don't render
+  const isAuthorized = isAuthenticated && (profile?.role === 'shop_owner' || profile?.role === 'super_admin');
+  
+  if (!isAuthorized) {
     return <DashboardSkeleton />;
   }
 

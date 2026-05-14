@@ -24,7 +24,7 @@ interface Category {
 
 interface BannerManagerProps {
   shopId: number;
-  shopSlug: string;
+  shopSlug: string;  // Added back for image URLs only
   banners: Banner[];
   setBanners: (banners: Banner[]) => void;
   showWarning: (message: string, type: "success" | "error") => void;
@@ -32,7 +32,7 @@ interface BannerManagerProps {
 
 export default function BannerManager({
   shopId,
-  shopSlug,
+  shopSlug,  // Added back for image URLs
   banners,
   setBanners,
   showWarning,
@@ -82,7 +82,7 @@ export default function BannerManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           banner_id: bannerId,
-          shopSlug,
+          shopId,
           ...data,
           activate: true,
         }),
@@ -127,7 +127,7 @@ export default function BannerManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           banner_id: bannerId,
-          shopSlug,
+          shopId,
           ...data,
           activate: false,
         }),
@@ -162,7 +162,7 @@ export default function BannerManager({
 
     try {
       const res = await fetch(
-        `/api/shopowner/banners?banner_id=${bannerId}&shopSlug=${shopSlug}`,
+        `/api/shopowner/banners?banner_id=${bannerId}&shopId=${shopId}`,
         {
           method: "DELETE",
         },
@@ -195,7 +195,7 @@ export default function BannerManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           banner_id: activeBanner.banner_id,
-          shopSlug,
+          shopId,
           activate: false,
         }),
       });
@@ -254,7 +254,7 @@ export default function BannerManager({
       {/* Upload Form */}
       {showUploadForm && (
         <BannerUploader
-          shopSlug={shopSlug}
+          shopId={shopId}
           onUploadSuccess={handleUploadSuccess}
           onCancel={() => setShowUploadForm(false)}
           showWarning={showWarning}
@@ -280,7 +280,7 @@ export default function BannerManager({
               {/* Image - full width on mobile, fixed size on desktop */}
               <div className="relative w-full sm:w-24 h-40 sm:h-24 bg-gray-100 rounded overflow-hidden flex-shrink-0">
                 <Image
-                  src={`/api/shops/${shopSlug}/banner-image?bannerId=${banner.banner_id}&w=300`}
+                  src={`/api/shops/${shopSlug}/banner-image?bannerId=${banner.banner_id}&w=300`}  // Using shopSlug for image URL
                   alt="Banner preview"
                   fill
                   className="object-cover"

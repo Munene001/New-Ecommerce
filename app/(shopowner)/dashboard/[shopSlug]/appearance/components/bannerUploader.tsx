@@ -16,14 +16,14 @@ interface Banner {
 }
 
 interface BannerUploaderProps {
-  shopSlug: string;
+  shopId: number;  // Changed from shopSlug to shopId
   onUploadSuccess: (banners: Banner[]) => void;
   onCancel: () => void;
   showWarning: (message: string, type: "success" | "error") => void;
 }
 
 export default function BannerUploader({
-  shopSlug,
+  shopId,  // Changed from shopSlug to shopId
   onUploadSuccess,
   onCancel,
   showWarning,
@@ -64,7 +64,7 @@ export default function BannerUploader({
 
     for (const file of selectedFiles) {
       const formData = new FormData();
-      formData.append("shopSlug", shopSlug);
+      formData.append("shopId", shopId.toString());  // Changed from shopSlug to shopId
       formData.append("image", file);
 
       try {

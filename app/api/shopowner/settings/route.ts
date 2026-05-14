@@ -1,6 +1,6 @@
 // app/api/shopowner/settings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
@@ -8,12 +8,8 @@ interface ShopRow extends RowDataPacket {
   shop_id: number;
 }
 
-interface OwnerCheckRow extends RowDataPacket {
-  1: number;
-}
-
 interface UpdateBody {
-  shopSlug: string;
+  shopId: number;  // Changed from shopSlug to shopId
   shop_name?: string;
   description?: string;
   contact_email?: string;
@@ -23,35 +19,12 @@ interface UpdateBody {
   whatsapp_number?: string;
 }
 
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 export async function PUT(request: NextRequest) {
   try {
-    // 1. Get authenticated user from session cookie
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // 2. Parse request body
+    // 1. Parse request body
     const body: UpdateBody = await request.json();
     const { 
-      shopSlug, 
+      shopId,
       shop_name, 
       description, 
       contact_email, 
@@ -61,38 +34,21 @@ export async function PUT(request: NextRequest) {
       whatsapp_number 
     } = body;
 
-    if (!shopSlug) {
+    if (!shopId) {
       return NextResponse.json(
-        { success: false, error: 'shopSlug is required' },
+        { success: false, error: 'shopId is required' },
         { status: 400 }
       );
     }
 
-    // 3. Get shop_id from slug
-    const [shopRows] = await pool.query<ShopRow[]>(
-      'SELECT shop_id FROM shops WHERE shop_slug = ?',
-      [shopSlug]
-    );
+    // 2. Verify access using helper
+    const { authorized, response } = await verifyShopAccess(request, shopId);
     
-    if (shopRows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Shop not found' },
-        { status: 404 }
-      );
-    }
-    
-    const shopId = shopRows[0].shop_id;
-
-    // 4. Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, user.id);
-    if (!isOwner) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+    if (!authorized) {
+      return response;
     }
 
-    // 5. Update shops table
+    // 3. Update shops table
     const updateFields: string[] = [];
     const updateValues: (string | number)[] = [];
 
@@ -134,7 +90,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 6. Update shop_settings table (whatsapp_number)
+    // 4. Update shop_settings table (whatsapp_number)
     if (whatsapp_number !== undefined) {
       await pool.query<ResultSetHeader>(
         `UPDATE shop_settings SET whatsapp_number = ? WHERE shop_id = ?`,

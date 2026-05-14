@@ -1,20 +1,12 @@
 // app/api/shopowner/banners/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import path from 'path';
 import pool from '@/lib/db';
 import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-
-interface OwnerCheckRow extends RowDataPacket {
-  1: number;
-}
-
-interface ShopRow extends RowDataPacket {
-  shop_id: number;
-}
 
 interface CountRow extends RowDataPacket {
   count: number;
@@ -28,54 +20,29 @@ interface BannerInsertResult extends ResultSetHeader {
   insertId: number;
 }
 
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 // GET - Get all banners for a shop
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
-    const shopSlug = searchParams.get('shopSlug');
+    const shopIdParam = searchParams.get('shopId');
 
-    if (!shopSlug) {
-      return NextResponse.json({ error: 'shopSlug required' }, { status: 400 });
+    if (!shopIdParam) {
+      return NextResponse.json({ error: 'shopId required' }, { status: 400 });
     }
 
-    // Get shop_id from slug
-    const [shopRows] = await pool.query<ShopRow[]>(
-      'SELECT shop_id FROM shops WHERE shop_slug = ?',
-      [shopSlug]
-    );
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shopId' }, { status: 400 });
+    }
+
+    // Verify access using helper
+    const { authorized, response, user } = await verifyShopAccess(request, shopId);
     
-    if (shopRows.length === 0) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
-    }
-    
-    const shopId = shopRows[0].shop_id;
-
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, user.id);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!authorized) {
+      return response;
     }
 
-    // Get all banners for this shop (no date fields)
+    // Get all banners for this shop
     const [banners] = await pool.query<RowDataPacket[]>(
       `SELECT 
         banner_id,
@@ -100,37 +67,24 @@ export async function GET(request: NextRequest) {
 // POST - Upload new banner
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const formData = await request.formData();
-    const shopSlug = formData.get('shopSlug') as string;
+    const shopIdParam = formData.get('shopId') as string;
     const file = formData.get('image') as File;
 
-    if (!shopSlug || !file) {
-      return NextResponse.json({ error: 'shopSlug and image are required' }, { status: 400 });
+    if (!shopIdParam || !file) {
+      return NextResponse.json({ error: 'shopId and image are required' }, { status: 400 });
     }
 
-    // Get shop_id from slug
-    const [shopRows] = await pool.query<ShopRow[]>(
-      'SELECT shop_id FROM shops WHERE shop_slug = ?',
-      [shopSlug]
-    );
-    
-    if (shopRows.length === 0) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shopId' }, { status: 400 });
     }
-    
-    const shopId = shopRows[0].shop_id;
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, user.id);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response, user } = await verifyShopAccess(request, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Check banner count limit (max 6)
@@ -182,7 +136,7 @@ export async function POST(request: NextRequest) {
     await mkdir(path.dirname(fullPath), { recursive: true });
     await writeFile(fullPath, compressed);
 
-    // Insert banner record (no date fields)
+    // Insert banner record
     const [result] = await pool.query<BannerInsertResult>(
       `INSERT INTO shop_banners 
        (shop_id, banner_url, link_url, category_id, is_active) 
@@ -213,41 +167,23 @@ export async function POST(request: NextRequest) {
 // PUT - Update banner (link, category, activate)
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { 
       banner_id,
-      shopSlug,
+      shopId,
       link_url,
       category_id,
       activate
     } = await request.json();
 
-    if (!banner_id || !shopSlug) {
-      return NextResponse.json({ error: 'banner_id and shopSlug required' }, { status: 400 });
+    if (!banner_id || !shopId) {
+      return NextResponse.json({ error: 'banner_id and shopId required' }, { status: 400 });
     }
 
-    // Get shop_id from slug
-    const [shopRows] = await pool.query<ShopRow[]>(
-      'SELECT shop_id FROM shops WHERE shop_slug = ?',
-      [shopSlug]
-    );
+    // Verify access using helper
+    const { authorized, response, user } = await verifyShopAccess(request, shopId);
     
-    if (shopRows.length === 0) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
-    }
-    
-    const shopId = shopRows[0].shop_id;
-
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, user.id);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!authorized) {
+      return response;
     }
 
     // If activating, deactivate all other banners first
@@ -298,37 +234,24 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete banner
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const banner_id = searchParams.get('banner_id');
-    const shopSlug = searchParams.get('shopSlug');
+    const shopIdParam = searchParams.get('shopId');
 
-    if (!banner_id || !shopSlug) {
-      return NextResponse.json({ error: 'banner_id and shopSlug required' }, { status: 400 });
+    if (!banner_id || !shopIdParam) {
+      return NextResponse.json({ error: 'banner_id and shopId required' }, { status: 400 });
     }
 
-    // Get shop_id from slug
-    const [shopRows] = await pool.query<ShopRow[]>(
-      'SELECT shop_id FROM shops WHERE shop_slug = ?',
-      [shopSlug]
-    );
-    
-    if (shopRows.length === 0) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shopId' }, { status: 400 });
     }
-    
-    const shopId = shopRows[0].shop_id;
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, user.id);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response, user } = await verifyShopAccess(request, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Get banner URL before deleting
