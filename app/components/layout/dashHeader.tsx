@@ -7,7 +7,7 @@ import { Menu, X, Store } from "lucide-react";
 import Link from "next/link";
 
 interface DashHeaderProps {
-    shopSlug: string;
+    shopSlug?: string;
     title?: string;
     isMobile?: boolean;
     isMobileMenuOpen?: boolean;
@@ -62,7 +62,7 @@ export default function DashHeader({
       {/* Right side - View Shop & Auth buttons */}
       <div className="flex items-center gap-4">
         {/* View Shop Button - Always visible when authenticated */}
-        {isAuthenticated && (
+        {isAuthenticated && shopSlug && (
           <Link href={`/${shopSlug}`}>
             <Button variant="secondary" className="flex items-center gap-2">
               <Store size={18} />

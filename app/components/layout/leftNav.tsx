@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 interface BaseLeftMenuProps {
   onMenuClicked: (bool: boolean) => void;
-  shopSlug: string;
+  shopSlug?: string;
   unviewedCount: number; 
 }
 

@@ -1,6 +1,6 @@
 // api/shopowner/payments/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
@@ -21,23 +21,6 @@ interface DirectMpesaRow extends RowDataPacket {
   phone_number: string | null;
 }
 
-interface OwnerCheckRow extends RowDataPacket {
-  '1': number;
-}
-
-// Helper to verify that the user owns the shop
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 // Helper to get payment settings for a shop
 async function getPaymentSettings(shopId: number): Promise<PaymentSettingsRow | null> {
   const [rows] = await pool.query<PaymentSettingsRow[]>(
@@ -52,29 +35,27 @@ async function getPaymentSettings(shopId: number): Promise<PaymentSettingsRow | 
 // SHOPOWNER ONLY - GET payment settings for management
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shop_id');
+    const shopIdParam = searchParams.get('shop_id');
     
-    if (!shopId) {
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Get payment settings
-    const settings = await getPaymentSettings(parseInt(shopId));
+    const settings = await getPaymentSettings(shopId);
     
     if (!settings) {
       return NextResponse.json({
@@ -131,22 +112,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
-//  Update COD status
+// Update COD status
 export async function PUT(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shop_id');
+    const shopIdParam = searchParams.get('shop_id');
     
-    if (!shopId) {
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
+    }
+
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
     const body = await req.json();
@@ -156,15 +134,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'cod_enabled required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // If disabling COD, check that another payment method exists
     if (cod_enabled === false) {
-      const settings = await getPaymentSettings(parseInt(shopId));
+      const settings = await getPaymentSettings(shopId);
       
       if (settings) {
         const [directMpesa] = await pool.query<DirectMpesaRow[]>(
@@ -203,19 +182,16 @@ export async function PUT(req: NextRequest) {
 // Save Direct M-Pesa
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shop_id');
+    const shopIdParam = searchParams.get('shop_id');
     
-    if (!shopId) {
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
+    }
+
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
     const body = await req.json();
@@ -225,10 +201,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid type required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
     
     // Create payment settings if not exists
@@ -270,22 +247,19 @@ export async function POST(req: NextRequest) {
   }
 }
 
-//  Remove Direct M-Pesa
+// Remove Direct M-Pesa
 export async function DELETE(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shop_id');
+    const shopIdParam = searchParams.get('shop_id');
     
-    if (!shopId) {
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
+    }
+
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
     const body = await req.json();
@@ -295,13 +269,14 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
     
-    const settings = await getPaymentSettings(parseInt(shopId));
+    const settings = await getPaymentSettings(shopId);
     
     if (settings) {
       // Delete direct mpesa configuration

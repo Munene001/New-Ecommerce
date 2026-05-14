@@ -44,7 +44,6 @@ function LoginFormContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    
     if (loading) return;
 
     // Only redirect if we're actually on the login page
@@ -52,24 +51,24 @@ function LoginFormContent() {
     if (!currentPath.includes("/auth/login")) return;
 
     if (isAuthenticated && profile) {
-      // ✅ Check stored redirect WITHOUT clearing it first
+      // Check stored redirect WITHOUT clearing it first
       const storedRedirect = getRedirect();
-      
-      // ✅ If shop owner and redirect is to /profile, skip it
-      if (profile.role === "shop_owner" && storedRedirect === "/profile") {
-        
-        getAndClearRedirect();
-        
-        // Send to dashboard instead
-        if (profile.onboardingComplete && profile.shopSlug) {
-          router.replace(`/dashboard/${profile.shopSlug}`);
-        } else {
-          router.replace("/shopType");
+
+      if (profile.role === "shop_owner") {
+        const restrictedForShopOwner = ["/profile"];
+
+        if (storedRedirect && restrictedForShopOwner.includes(storedRedirect)) {
+          getAndClearRedirect();
+
+          return router.replace(
+            profile.onboardingComplete && profile.shopSlug
+              ? `/dashboard/${profile.shopSlug}` // Personal dashboard
+              : "/shopType",
+          );
         }
-        return;
       }
-      
-      // ✅ For all other cases, proceed normally
+
+      // For all other cases, proceed normally
       const finalRedirect = getAndClearRedirect();
       if (finalRedirect) {
         router.replace(finalRedirect);
@@ -97,6 +96,16 @@ function LoginFormContent() {
         } else {
           router.replace("/");
         }
+      } else if (profile.role === "super_admin") {
+        // Handle super_admin redirect
+        const finalRedirect = getAndClearRedirect();
+        if (finalRedirect) {
+          router.replace(finalRedirect);
+          return;
+        }
+
+        
+        router.replace("/view");
       } else {
         router.replace("/");
       }
