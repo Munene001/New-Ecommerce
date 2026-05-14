@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-
-interface OwnerCheckRow extends RowDataPacket {
-  1: number;
-}
 
 interface ShopRow extends RowDataPacket {
   shop_type: string;
@@ -53,41 +49,26 @@ interface ProductInsertResult extends ResultSetHeader {
   insertId: number;
 }
 
-// Helper to verify that the user owns the shop
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 // GET /api/shopowner/products?shopId=1&...
 export async function GET(req: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shopId');
-    if (!shopId) {
+    const shopIdParam = searchParams.get('shopId');
+    
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shopId required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shopId' }, { status: 400 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     const search = searchParams.get('search') || '';
@@ -221,7 +202,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       products,
-      stats: statsResult[0], // ADD STATS TO RESPONSE
+      stats: statsResult[0],
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
@@ -238,15 +219,6 @@ export async function GET(req: NextRequest) {
 // POST /api/shopowner/products - Create product
 export async function POST(req: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const body = await req.json();
     const { shopId, productName, productSlug, description, price, discountPrice, inStock, attributes } = body;
 
@@ -256,10 +228,11 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(shopId, supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Get shop type
@@ -311,19 +284,16 @@ export async function POST(req: NextRequest) {
 // DELETE /api/shopowner/products - Bulk delete
 export async function DELETE(req: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shopId');
-    if (!shopId) {
+    const shopIdParam = searchParams.get('shopId');
+    
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shopId required' }, { status: 400 });
+    }
+
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shopId' }, { status: 400 });
     }
 
     const { productIds } = await req.json();
@@ -331,10 +301,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Product IDs array required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // First, verify that all products belong to this shop

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
-
-interface OwnerCheckRow extends RowDataPacket {
-  '1': number;
-}
 
 interface OrderRow extends RowDataPacket {
   order_id: number;
@@ -40,41 +36,26 @@ interface StatsResult extends RowDataPacket {
   pendingPayment: number;
 }
 
-// Helper to verify that the user owns the shop
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 // GET /api/shopowner/orders?shop_id=1&page=1&limit=20&status=pending&date_from=2024-01-01&date_to=2024-12-31&search=ORD
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shop_id');
+    const shopIdParam = searchParams.get('shop_id');
     
-    if (!shopId) {
+    if (!shopIdParam) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const shopId = parseInt(shopIdParam, 10);
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Pagination

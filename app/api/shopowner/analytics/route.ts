@@ -1,12 +1,8 @@
 // app/api/shopowner/analytics/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
-
-interface OwnerCheckRow extends RowDataPacket {
-  '1': number;
-}
 
 interface AnalyticsResult {
   summary: {
@@ -50,30 +46,9 @@ interface AnalyticsResult {
   }>;
 }
 
-// Helper to verify shop ownership
-async function verifyShopOwnership(shopId: number, supabaseUid: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE s.shop_id = ? AND u.supabase_uid = ?`,
-    [shopId, supabaseUid]
-  );
-  return rows.length > 0;
-}
-
 // GET /api/shopowner/analytics?shop_id=123
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { searchParams } = new URL(req.url);
     const shopId = searchParams.get('shop_id');
     
@@ -81,11 +56,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const isOwner = await verifyShopOwnership(parseInt(shopId), supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    // Verify access (auth + role + ownership)
+    const access = await verifyShopAccess(req, parseInt(shopId));
+    if (!access.authorized) return access.response;
 
     // 1. SUMMARY METRICS
     const [summaryResult] = await pool.query<any[]>(
@@ -95,7 +68,7 @@ export async function GET(req: NextRequest) {
         COUNT(*) as total_all_orders
        FROM orders
        WHERE shop_id = ?`,
-      [shopId]
+      [access.shopId]
     );
 
     const totalRevenue = parseFloat(summaryResult[0].total_revenue) || 0;
@@ -114,7 +87,7 @@ export async function GET(req: NextRequest) {
          WHERE o.shop_id = ? AND o.payment_status = 'paid'
          GROUP BY oi.order_id
        ) as item_counts`,
-      [shopId]
+      [access.shopId]
     );
     const avgItemsPerOrder = parseFloat(avgItemsResult[0].avg_items) || 0;
 
@@ -129,7 +102,7 @@ export async function GET(req: NextRequest) {
          WHERE shop_id = ? AND payment_status = 'paid' AND customer_email IS NOT NULL AND customer_email != ''
          GROUP BY customer_email
        ) as customer_orders`,
-      [shopId]
+      [access.shopId]
     );
     const returningCustomers = returningResult[0].returning_customers || 0;
     const totalCustomers = returningResult[0].total_customers || 0;
@@ -142,7 +115,7 @@ export async function GET(req: NextRequest) {
         SUM(CASE WHEN DAYOFWEEK(created_at) BETWEEN 2 AND 6 THEN 1 ELSE 0 END) as weekday_orders
        FROM orders
        WHERE shop_id = ? AND payment_status = 'paid'`,
-      [shopId]
+      [access.shopId]
     );
     const weekendOrders = weekendResult[0].weekend_orders || 0;
     const weekdayOrders = weekendResult[0].weekday_orders || 0;
@@ -161,7 +134,7 @@ export async function GET(req: NextRequest) {
        GROUP BY oi.product_name
        ORDER BY quantity_sold DESC
        LIMIT 5`,
-      [shopId]
+      [access.shopId]
     );
 
     // 6. BEST SELLER (highest revenue from paid orders)
@@ -175,7 +148,7 @@ export async function GET(req: NextRequest) {
        GROUP BY oi.product_name
        ORDER BY revenue DESC
        LIMIT 1`,
-      [shopId]
+      [access.shopId]
     );
 
     const bestSeller = bestSellerResult.length > 0 ? {
@@ -191,7 +164,7 @@ export async function GET(req: NextRequest) {
        FROM orders
        WHERE shop_id = ? AND payment_status = 'paid'
        GROUP BY payment_method`,
-      [shopId]
+      [access.shopId]
     );
 
     let mpesaCount = 0;
@@ -221,7 +194,7 @@ export async function GET(req: NextRequest) {
        WHERE shop_id = ? AND payment_status = 'paid'
        GROUP BY HOUR(created_at)
        ORDER BY hour ASC`,
-      [shopId]
+      [access.shopId]
     );
 
     // Fill in all 24 hours (0-23)
@@ -240,7 +213,7 @@ export async function GET(req: NextRequest) {
        WHERE shop_id = ? AND payment_status = 'paid' AND customer_city IS NOT NULL AND customer_city != ''
        GROUP BY customer_city
        ORDER BY order_count DESC`,
-      [shopId]
+      [access.shopId]
     );
 
     const analyticsData: AnalyticsResult = {

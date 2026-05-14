@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-
-interface OwnerCheckRow extends RowDataPacket {
-  1: number;
-}
 
 interface CategoryRow extends RowDataPacket {
   category_id: number;
@@ -21,43 +17,28 @@ interface ShopIdRow extends RowDataPacket {
   shop_id: number;
 }
 
-// Helper to verify that the user owns the shop
-async function verifyShopOwnership(shopId: number, supabaseUserId: string): Promise<boolean> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM shops s
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     WHERE s.shop_id = ? AND t.user_id = (
-       SELECT user_id FROM users WHERE supabase_uid = ?
-     )`,
-    [shopId, supabaseUserId]
-  );
-  return rows.length > 0;
-}
-
 // GET /api/shopowner/categories?shopId=1
 export async function GET(req: NextRequest) {
-  // Create Supabase client and get authenticated user
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { searchParams } = new URL(req.url);
-  const shopId = searchParams.get('shopId');
+  const shopIdParam = searchParams.get('shopId');
 
-  if (!shopId) {
+  if (!shopIdParam) {
     return NextResponse.json({ error: 'shopId required' }, { status: 400 });
   }
 
-  try {
-    const isOwner = await verifyShopOwnership(Number(shopId), user.id);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+  const shopId = parseInt(shopIdParam, 10);
+  if (isNaN(shopId)) {
+    return NextResponse.json({ error: 'Invalid shopId' }, { status: 400 });
+  }
 
+  // Verify access using helper
+  const { authorized, response } = await verifyShopAccess(req, shopId);
+  
+  if (!authorized) {
+    return response;
+  }
+
+  try {
     const [rows] = await pool.query<CategoryRow[]>(
       'SELECT * FROM categories WHERE shop_id = ? ORDER BY category_name',
       [shopId]
@@ -72,14 +53,6 @@ export async function GET(req: NextRequest) {
 
 // POST /api/shopowner/categories
 export async function POST(req: NextRequest) {
-  // Create Supabase client and get authenticated user
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     const { shopId, categoryName } = await req.json();
 
@@ -87,9 +60,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'shopId and categoryName required' }, { status: 400 });
     }
 
-    const isOwner = await verifyShopOwnership(Number(shopId), user.id);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     const [result] = await pool.query<CategoryInsertResult>(
@@ -116,14 +91,6 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/shopowner/categories?id=1
 export async function DELETE(req: NextRequest) {
-  // Create Supabase client and get authenticated user
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { searchParams } = new URL(req.url);
   const categoryId = searchParams.get('id');
 
@@ -142,9 +109,11 @@ export async function DELETE(req: NextRequest) {
     }
     const shopId = catRows[0].shop_id;
 
-    const isOwner = await verifyShopOwnership(shopId, user.id);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     await pool.query<ResultSetHeader>('DELETE FROM categories WHERE category_id = ?', [categoryId]);

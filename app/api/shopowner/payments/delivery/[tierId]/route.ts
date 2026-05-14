@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
@@ -10,32 +10,13 @@ interface TierRow extends RowDataPacket {
   fee: number;
 }
 
-interface OwnerCheckRow extends RowDataPacket {
-  '1': number;
-}
-
-// Helper to verify that the user owns the shop associated with this tier
-async function verifyTierOwnership(tierId: number, supabaseUid: string): Promise<{ isOwner: boolean; shopId: number | null }> {
-  const [rows] = await pool.query<OwnerCheckRow[]>(
-    `SELECT 1
-     FROM delivery_tiers dt
-     JOIN shops s ON dt.shop_id = s.shop_id
-     JOIN tenant t ON s.tenant_id = t.tenant_id
-     JOIN users u ON t.user_id = u.user_id
-     WHERE dt.tier_id = ? AND u.supabase_uid = ?
-     LIMIT 1`,
-    [tierId, supabaseUid]
-  );
-  
-  const [tierRows] = await pool.query<TierRow[]>(
-    `SELECT shop_id FROM delivery_tiers WHERE tier_id = ?`,
+// Helper to get shop_id from tier
+async function getShopIdFromTier(tierId: number): Promise<number | null> {
+  const [rows] = await pool.query<TierRow[]>(
+    'SELECT shop_id FROM delivery_tiers WHERE tier_id = ?',
     [tierId]
   );
-  
-  return {
-    isOwner: rows.length > 0,
-    shopId: tierRows.length > 0 ? tierRows[0].shop_id : null
-  };
+  return rows.length > 0 ? rows[0].shop_id : null;
 }
 
 // GET /api/shopowner/payments/delivery/5 - Get single tier
@@ -44,23 +25,24 @@ export async function GET(
   { params }: { params: Promise<{ tierId: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { tierId } = await params;
     const tierIdNum = parseInt(tierId);
+    
     if (isNaN(tierIdNum)) {
       return NextResponse.json({ error: 'Invalid tier ID' }, { status: 400 });
     }
 
-    const { isOwner } = await verifyTierOwnership(tierIdNum, supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Get shop_id from tier
+    const shopId = await getShopIdFromTier(tierIdNum);
+    if (!shopId) {
+      return NextResponse.json({ error: 'Delivery tier not found' }, { status: 404 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     const [tiers] = await pool.query<TierRow[]>(
@@ -90,23 +72,24 @@ export async function PUT(
   { params }: { params: Promise<{ tierId: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { tierId } = await params;
     const tierIdNum = parseInt(tierId);
+    
     if (isNaN(tierIdNum)) {
       return NextResponse.json({ error: 'Invalid tier ID' }, { status: 400 });
     }
 
-    const { isOwner } = await verifyTierOwnership(tierIdNum, supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Get shop_id from tier
+    const shopId = await getShopIdFromTier(tierIdNum);
+    if (!shopId) {
+      return NextResponse.json({ error: 'Delivery tier not found' }, { status: 404 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     const body = await req.json();
@@ -171,23 +154,24 @@ export async function DELETE(
   { params }: { params: Promise<{ tierId: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const supabaseUid = user.id;
-
     const { tierId } = await params;
     const tierIdNum = parseInt(tierId);
+    
     if (isNaN(tierIdNum)) {
       return NextResponse.json({ error: 'Invalid tier ID' }, { status: 400 });
     }
 
-    const { isOwner } = await verifyTierOwnership(tierIdNum, supabaseUid);
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Get shop_id from tier
+    const shopId = await getShopIdFromTier(tierIdNum);
+    if (!shopId) {
+      return NextResponse.json({ error: 'Delivery tier not found' }, { status: 404 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     const [result] = await pool.query<ResultSetHeader>(

@@ -4,11 +4,11 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import pool from '@/lib/db';
 import { randomUUID } from 'crypto';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { verifyShopAccess } from '@/lib/role/helper';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
-interface ProductCheckRow extends RowDataPacket {
-  product_id: number;
+interface ProductRow extends RowDataPacket {
+  shop_id: number;
 }
 
 interface CountRow extends RowDataPacket {
@@ -19,39 +19,38 @@ interface ImageInsertResult extends ResultSetHeader {
   insertId: number;
 }
 
+// Helper to get shop_id from product
+async function getShopIdFromProduct(productId: number): Promise<number | null> {
+  const [rows] = await pool.query<ProductRow[]>(
+    'SELECT shop_id FROM products WHERE product_id = ?',
+    [productId]
+  );
+  return rows.length > 0 ? rows[0].shop_id : null;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  // Get authenticated user from session cookie
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { productId } = await params;
-  const productIdNum = parseInt(productId, 10);
-  if (isNaN(productIdNum)) {
-    return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
-  }
-
   try {
-    // Verify product ownership using user.id from Supabase
-    const [productRows] = await pool.query<ProductCheckRow[]>(
-      `SELECT p.product_id
-       FROM products p
-       JOIN shops s ON p.shop_id = s.shop_id
-       JOIN tenant t ON s.tenant_id = t.tenant_id
-       WHERE p.product_id = ? AND t.user_id = (
-         SELECT user_id FROM users WHERE supabase_uid = ?
-       )`,
-      [productId, user.id]
-    );
+    const { productId } = await params;
+    const productIdNum = parseInt(productId, 10);
     
-    if (productRows.length === 0) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (isNaN(productIdNum)) {
+      return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
+    }
+
+    // Get shop_id from product
+    const shopId = await getShopIdFromProduct(productIdNum);
+    if (!shopId) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    // Verify access using helper
+    const { authorized, response } = await verifyShopAccess(req, shopId);
+    
+    if (!authorized) {
+      return response;
     }
 
     // Process upload
@@ -71,7 +70,7 @@ export async function POST(
 
     const [countRows] = await pool.query<CountRow[]>(
       'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
-      [productId]
+      [productIdNum]
     );
     if (countRows[0].count >= 6) {
       return NextResponse.json({ error: 'Maximum 6 images per product' }, { status: 400 });
@@ -101,11 +100,11 @@ export async function POST(
       fileSizeKb = Math.round(compressed.length / 1024);
     }
 
-    console.log(`📸 Upload: ${originalSizeKb}KB → ${fileSizeKb}KB (q${quality})`);
+  
 
     const filename = `${Date.now()}-${randomUUID().split('-')[0]}.webp`;
-    const relativePath = `/${productId}/${filename}`;
-    const fullPath = path.join('/home/munene/storage/originals', productId, filename);
+    const relativePath = `/${productIdNum}/${filename}`;
+    const fullPath = path.join('/home/munene/storage/originals', productIdNum.toString(), filename);
 
     await mkdir(path.dirname(fullPath), { recursive: true });
     await writeFile(fullPath, compressed);
@@ -113,14 +112,14 @@ export async function POST(
     if (isPrimary) {
       await pool.query<ResultSetHeader>(
         'UPDATE product_images SET is_primary = FALSE WHERE product_id = ?',
-        [productId]
+        [productIdNum]
       );
     }
 
     const [result] = await pool.query<ImageInsertResult>(
       `INSERT INTO product_images (product_id, image_path, is_primary) 
        VALUES (?, ?, ?)`,
-      [productId, relativePath, isPrimary]
+      [productIdNum, relativePath, isPrimary]
     );
 
     const imageId = result.insertId;
@@ -129,7 +128,7 @@ export async function POST(
       success: true,
       image_id: imageId,
       image_path: relativePath,
-      url: `/api/shopowner/product/${productId}/images/${imageId}`,
+      url: `/api/shopowner/product/${productIdNum}/images/${imageId}`,
       is_primary: isPrimary,
       size_kb: fileSizeKb,
       quality_used: quality

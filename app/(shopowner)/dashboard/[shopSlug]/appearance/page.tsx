@@ -22,9 +22,9 @@ interface Banner {
 
 export default function AppearancePage() {
   const params = useParams();
-  const shopSlug = params?.shopSlug as string;
+  const shopSlug = params?.shopSlug as string; // Keep for UI/URLs only
   const { showToast } = useToast();
-  const { shopId } = useShop();
+  const { shopId } = useShop(); // Get ID from context
   
   const [activeIndex, setActiveIndex] = useState(0);
   const sections = ["Header & Cart", "Colors", "Banners"];
@@ -40,15 +40,18 @@ export default function AppearancePage() {
   // Fetch current appearance settings
   useEffect(() => {
     const fetchData = async () => {
+      if (!shopId) return; // Don't fetch without ID
+      
       try {
-        const res = await fetch(`/api/shops/${shopSlug}`);
+        // Change to use shopId
+        const res = await fetch(`/api/shops/${shopId}`);
         const data = await res.json();
         setHeaderMessage(data.headerMessage || "");
         setCartIcon(data.cartIcon || "cart");
         setSecondaryColor(data.secondaryColor || "#f54a00");
         
-        // Fetch banners for management
-        const bannerRes = await fetch(`/api/shopowner/banners?shopSlug=${shopSlug}`);
+        // Change to use shopId
+        const bannerRes = await fetch(`/api/shopowner/banners?shopId=${shopId}`);
         const bannerData = await bannerRes.json();
         if (bannerData.success) {
           setBanners(bannerData.banners);
@@ -60,7 +63,7 @@ export default function AppearancePage() {
       }
     };
     fetchData();
-  }, [shopSlug, showToast]);
+  }, [shopId, showToast]); // Changed dependency to shopId
 
   const showWarning = (message: string, type: 'success' | 'error' = 'error') => {
     setTabWarning({ text: message, type });
@@ -73,7 +76,7 @@ export default function AppearancePage() {
       const res = await fetch("/api/shopowner/appearance", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopSlug, ...data }),
+        body: JSON.stringify({ shopId, ...data }), // Send shopId instead of shopSlug
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
@@ -94,7 +97,7 @@ export default function AppearancePage() {
       const res = await fetch("/api/shopowner/appearance", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopSlug, ...data }),
+        body: JSON.stringify({ shopId, ...data }), // Send shopId instead of shopSlug
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
@@ -134,8 +137,8 @@ export default function AppearancePage() {
       case 2:
         return (
           <BannerManager
-            shopSlug={shopSlug}
             shopId={shopId}
+            shopSlug={shopSlug}  // Only pass shopId, remove shopSlug
             banners={banners}
             setBanners={setBanners}
             showWarning={showWarning}
@@ -152,9 +155,7 @@ export default function AppearancePage() {
   };
 
   if (loading) {
-    return (
-      <LoadingFix/>
-    );
+    return <LoadingFix/>;
   }
 
   return (
