@@ -5,21 +5,58 @@ import { AdminProvider, useAdmin } from "../adminContext";
 import { ToastProvider } from "@/context/toastContext";
 import * as React from 'react'
 import { useState, useEffect, useRef } from 'react'
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutDashboard, Users, Store, ChartNoAxesCombined, Settings, Shield, LogOut } from "lucide-react";
+
+// Admin nav items
+const adminNavItems = [
+  {
+    href: "/view",
+    title: "Dashboard",
+    icon: LayoutDashboard
+  },
+  {
+    href: "/view/tenants",
+    title: "Tenants",
+    icon: Users
+  },
+  {
+    href: "/view/shops",
+    title: "Shops",
+    icon: Store
+  },
+  {
+    href: "/view/analytics",
+    title: "Analytics",
+    icon: ChartNoAxesCombined
+  },
+  {
+    href: "/view/settings",
+    title: "Settings",
+    icon: Settings
+  },
+  {
+    href: "/view/permissions",
+    title: "Permissions",
+    icon: Shield
+  },
+];
 
 // Create a separate component for the content that needs admin data
 function AdminContent({ children }: { children: React.ReactNode }) {
-  const { isAdmin } = useAdmin();
+  const { isAdmin, adminLogout } = useAdmin(); // Add admin logout
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const previousPathnameRef = useRef("");
   const pathname = usePathname();
 
   const getPageTitle = (path: string) => {
-    if (path.includes('/users')) return 'Users';
+    if (path.includes('/tenants')) return 'Tenants';
     if (path.includes('/shops')) return 'Shops';
     if (path.includes('/analytics')) return 'Analytics';
     if (path.includes('/settings')) return 'Settings';
+    if (path.includes('/permissions')) return 'Permissions';
     return 'Admin Dashboard';
   };
 
@@ -48,6 +85,11 @@ function AdminContent({ children }: { children: React.ReactNode }) {
     if (isMobile) {
       setIsMobileMenuOpen(false);
     }
+  };
+
+  const handleAdminLogout = () => {
+    adminLogout(); 
+    router.push("/admin/login");
   };
 
   return (
@@ -88,7 +130,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         >
           <BaseLeftMenu 
             onMenuClicked={handleMenuClick}  
-            shopSlug={undefined}
+            navItems={adminNavItems}
             unviewedCount={0}
           />
         </aside>
