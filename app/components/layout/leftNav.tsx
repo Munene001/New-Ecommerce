@@ -6,53 +6,66 @@ import Link from "next/link";
 import { useAuth } from "@/context/authcontext";
 import { useRouter } from "next/navigation";
 
+interface NavItem {
+  href: string;
+  title: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  showBadge?: boolean;
+}
+
 interface BaseLeftMenuProps {
   onMenuClicked: (bool: boolean) => void;
   shopSlug?: string;
-  unviewedCount: number; 
+  unviewedCount: number;
+  navItems?: NavItem[]; // Optional custom nav items
 }
 
-export default function BaseLeftMenu({ onMenuClicked, shopSlug, unviewedCount }: BaseLeftMenuProps) {
+// Default shop owner nav items
+const getDefaultNavItems = (shopSlug?: string): NavItem[] => [
+  {
+    href: `/dashboard/${shopSlug}/`,
+    title: "Dashboard",
+    icon: LayoutDashboard
+  },
+  {
+    title: "Products",
+    icon: Package,
+    href: `/dashboard/${shopSlug}/products`,
+  },
+  {
+    title: "Orders",
+    icon: ShoppingCart,
+    href: `/dashboard/${shopSlug}/orders`,
+    showBadge: true,
+  },
+  {
+    href: `/dashboard/${shopSlug}/payments`,
+    title: "Payments",
+    icon: HandCoins
+  },
+  {
+    href: `/dashboard/${shopSlug}/sales`,
+    title: "Sales and Analytics",
+    icon: ChartNoAxesCombined
+  },
+  {
+    href: `/dashboard/${shopSlug}/appearance`,
+    title: "Appearance",
+    icon: SunMoon
+  },
+  {
+    href: `/dashboard/${shopSlug}/settings`,
+    title: "Settings",
+    icon: Settings
+  },
+];
+
+export default function BaseLeftMenu({ onMenuClicked, shopSlug, unviewedCount, navItems: customNavItems }: BaseLeftMenuProps) {
   const { logout } = useAuth();
   const router = useRouter();
 
-  const navItems = [
-    {
-      href: `/dashboard/${shopSlug}/`,
-      title: "Dashboard",
-      icon: LayoutDashboard
-    },
-    {
-      title: "Products",
-      icon: Package,
-      href: `/dashboard/${shopSlug}/products`,
-    },
-    {
-      title: "Orders",
-      icon: ShoppingCart,
-      href: `/dashboard/${shopSlug}/orders`,
-    },
-    {
-      href: `/dashboard/${shopSlug}/payments`,
-      title: "Payments",
-      icon: HandCoins
-    },
-    {
-      href: `/dashboard/${shopSlug}/sales`,
-      title: "Sales and Analytics",
-      icon: ChartNoAxesCombined
-    },
-    {
-      href: `/dashboard/${shopSlug}/appearance`,
-      title: "Appearance",
-      icon: SunMoon
-    },
-    {
-      href: `/dashboard/${shopSlug}/settings`,
-      title: "Settings",
-      icon: Settings
-    },
-  ];
+  // Use custom navItems if provided, otherwise fall back to default shop items
+  const navItems = customNavItems || getDefaultNavItems(shopSlug);
 
   const handleLogout = () => {
     logout();
@@ -63,8 +76,7 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug, unviewedCount }:
     <nav className="space-y-3">
       <div>
         {navItems.map((item) => {
-          // Check if this is the Orders item
-          const isOrders = item.title === "Orders";
+          const showBadge = item.showBadge && unviewedCount > 0;
           
           return (
             <div key={item.href} className="relative">
@@ -75,7 +87,7 @@ export default function BaseLeftMenu({ onMenuClicked, shopSlug, unviewedCount }:
                 className=""
                 onMenuClicked={() => onMenuClicked(false)}
               />
-              {isOrders && unviewedCount > 0 && (
+              {showBadge && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-magenta text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {unviewedCount}
                 </div>

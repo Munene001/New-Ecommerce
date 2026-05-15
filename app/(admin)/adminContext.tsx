@@ -2,18 +2,24 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/context/authcontext';
 import { useRouter } from 'next/navigation';
+import DashboardSkeleton from '../components/layout/skeletonDash';
 
 interface AdminContextType {
-  // Nothing complex yet - just basic admin info
   isAdmin: boolean;
+  adminLogout: () => void;
 }
 
 const AdminContext = createContext<AdminContextType | null>(null);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const { profile, isAuthenticated, loading } = useAuth();
+  const { profile, isAuthenticated, loading, logout } = useAuth();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const adminLogout = () => {
+    logout();
+    router.push('/');
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -34,9 +40,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin(true);
   }, [isAuthenticated, profile, loading, router]);
 
-  // Still loading
+  // Still loading - show skeleton
   if (loading) {
-    return <div>Loading...</div>;
+    return <DashboardSkeleton />;
   }
 
   // Not admin - don't render (will redirect)
@@ -45,7 +51,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AdminContext.Provider value={{ isAdmin }}>
+    <AdminContext.Provider value={{ isAdmin, adminLogout }}>
       {children}
     </AdminContext.Provider>
   );
