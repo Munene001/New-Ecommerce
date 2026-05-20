@@ -12,6 +12,7 @@ import MobileProductBar from "./components/mobileProductBar";
 import PageBar from "@/app/components/layout/pageBar";
 import TrackProductView from "./components/trackProduct";
 import RelatedProducts from "./components/relatedProducts";
+import { TrackProductAnalytics } from './components/trackProductView';
 
 interface PageProps {
   params: Promise<{
@@ -420,7 +421,8 @@ export default async function ProductPage({ params }: PageProps) {
         discountPrice={product.discount_price}
         secondaryColor={secondaryColor}
       />
-      <TrackProductView product={product} />
+     <TrackProductAnalytics productId={product.product_id} />
+      <TrackProductView product={product} /> 
     </>
   );
 }

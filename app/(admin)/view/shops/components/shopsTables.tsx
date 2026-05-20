@@ -61,8 +61,7 @@ const formatShopType = (type: string) => {
 };
 
 const getDashboardUrl = (shopSlug: string) => {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  return `${baseUrl}/dashboard/${shopSlug}`;
+  return `/dashboard/${shopSlug}`;
 };
 
 export default function ShopsTable({
@@ -91,7 +90,7 @@ export default function ShopsTable({
   );
 
   const handleRowClick = (shopId: number) => {
-    router.push(`/admin/shops/${shopId}`);
+    router.push(`/view/shops/${shopId}`);
   };
 
   return (

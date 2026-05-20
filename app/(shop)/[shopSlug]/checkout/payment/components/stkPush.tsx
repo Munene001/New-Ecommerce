@@ -1,7 +1,6 @@
-// app/(shop)/[shopSlug]/checkout/payment/components/STKPushPayment.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from "@/context/toastContext";
@@ -10,19 +9,34 @@ import { Smartphone, Clock } from "lucide-react";
 interface STKPushPaymentProps {
   orderId: string | null;
   orderNumber: string | null;
+  onPaymentSuccess?: () => void;
 }
 
-export function STKPushPayment({ orderId, orderNumber }: STKPushPaymentProps) {
+export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPushPaymentProps) {
   const router = useRouter();
-  const { shop } = useShop();
+  const { shop, trackEvent } = useShop();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
+
+  // Track payment page view
+  useEffect(() => {
+    if (!hasTrackedPageView) {
+      trackEvent('payment_page_view');
+      setHasTrackedPageView(true);
+    }
+  }, [hasTrackedPageView, trackEvent]);
 
   // Dummy STK Push handler (to be replaced with real implementation)
   const handleSTKPush = async () => {
     setLoading(true);
+    
     // Simulate API call delay
     setTimeout(() => {
+      // Track payment success
+      trackEvent('payment_success');
+      onPaymentSuccess?.();
+      
       showToast("STK Push sent to your phone! (Demo mode)", "success");
       setLoading(false);
       

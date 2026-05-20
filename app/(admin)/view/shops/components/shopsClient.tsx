@@ -30,7 +30,7 @@ interface ShopStats {
   most_popular_count: number;
   least_popular_type: string;
   least_popular_count: number;
-  empty_shops: number;
+  total_shops: number;
   recently_created: number;
 }
 
@@ -127,7 +127,7 @@ export default function ShopsClient({
         mostPopularCount={stats.most_popular_count}
         leastPopularType={stats.least_popular_type}
         leastPopularCount={stats.least_popular_count}
-        emptyShops={stats.empty_shops}
+        totalShops={stats.total_shops}
         recentlyCreated={stats.recently_created}
         currentShown={shops.length}
       />

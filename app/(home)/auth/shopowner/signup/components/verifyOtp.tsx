@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
+import { useShopOwnerTracking } from "@/lib/hooks/useShopOwnerTracking";
 
 interface VerifyOTPProps {
   savedFormData: any;
@@ -17,6 +18,7 @@ export default function VerifyOTP({
   userType = "shop_owner",
 }: VerifyOTPProps) {
   const router = useRouter();
+  const { track } = useShopOwnerTracking();
   const [loading, setLoading] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [message, setMessage] = useState<{ text: string; type: string } | null>(
@@ -62,6 +64,9 @@ export default function VerifyOTP({
       const data = await response.json();
 
       if (data.success) {
+        // Track successful verification
+        track("email_verification_success");
+        
         if (userType === "shop_owner") {
           router.push("/shopType");
         } else {

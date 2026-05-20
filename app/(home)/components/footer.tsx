@@ -11,10 +11,19 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useShopOwnerTracking } from "@/lib/hooks/useShopOwnerTracking";
 
 export default function SimpleFooter() {
+  const { track } = useShopOwnerTracking();
+  
   const handleWhatsAppClick = () => {
+    track("whatsapp_click");
     window.open(`https://wa.me/254715067768`, '_blank');
+  };
+
+  const handlePhoneClick = () => {
+    track("phone_click");
+    window.location.href = `tel:+254715067768`;
   };
 
   return (
@@ -39,13 +48,13 @@ export default function SimpleFooter() {
           
           {/* Contact Actions */}
           <div className="flex flex-col md:flex-row md:flex-wrap gap-4 w-full md:w-auto">
-            <a 
-              href="tel:+254715067768"
+            <button 
+              onClick={handlePhoneClick}
               className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-4 rounded-2xl transition-all group"
             >
               <Phone className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
               <span className="text-white font-medium">0715 067 768</span>
-            </a>
+            </button>
             <button 
               onClick={handleWhatsAppClick}
               className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 px-6 py-4 rounded-2xl transition-all group"
@@ -90,7 +99,7 @@ export default function SimpleFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/conatct" className="text-white/90 hover:text-white hover:translate-x-1 transition-all inline-block">
+                <Link href="/contact" className="text-white/90 hover:text-white hover:translate-x-1 transition-all inline-block">
                   Contact
                 </Link>
               </li>

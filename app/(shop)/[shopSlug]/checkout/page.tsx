@@ -18,7 +18,7 @@ export default function CheckoutPage() {
   const { showToast } = useToast();
   const { user, profile, isAuthenticated, loading: authLoading } = useAuth();
   const { items, subtotal, totalItems, clearCart } = useCart();
-  const { shop } = useShop();
+  const { shop, trackEvent } = useShop();
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -32,10 +32,19 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "cod">("mpesa");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [codEnabled, setCodEnabled] = useState(true);
-  const [mpesaEnabled, setMpesaEnabled] = useState(false); // Changed to false
+  const [mpesaEnabled, setMpesaEnabled] = useState(false);
+  const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
 
   // Flag to prevent redirect after order is placed
   const orderPlacedRef = useRef(false);
+
+  // Track checkout page view (when customer arrives)
+  useEffect(() => {
+    if (shop?.shopId && !hasTrackedPageView && items.length > 0) {
+      trackEvent('checkout_page_view');
+      setHasTrackedPageView(true);
+    }
+  }, [shop?.shopId, items.length, hasTrackedPageView, trackEvent]);
 
   // Fetch payment settings
   useEffect(() => {
@@ -50,10 +59,8 @@ export default function CheckoutPage() {
 
         if (result.success) {
           setCodEnabled(result.data.cod_enabled);
-          // Use has_any_mpesa_config from API response
           setMpesaEnabled(result.data.has_any_mpesa_config);
 
-          // Auto-select available payment method
           if (result.data.has_any_mpesa_config) {
             setPaymentMethod("mpesa");
           } else if (result.data.cod_enabled) {
@@ -106,6 +113,9 @@ export default function CheckoutPage() {
     }
 
     setIsSubmitting(true);
+
+    // Track order placed
+    trackEvent('order_placed');
 
     try {
       const orderData = {
