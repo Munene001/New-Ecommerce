@@ -3,12 +3,20 @@
 import { useState } from "react";
 import SignupForm from "./components/signUpForm";
 import VerifyOTP from "./components/verifyOtp";
+import { useShopOwnerTracking } from "@/lib/hooks/useShopOwnerTracking";
+import { useEffect } from "react";
 
 type Step = "form" | "verify";
 
 export default function ShopOwnerSignupPage() {
   const [step, setStep] = useState<Step>("form");
   const [savedFormData, setSavedFormData] = useState<any>(null);
+  const { track } = useShopOwnerTracking();
+  
+  useEffect(() => {
+    track("signup_email");
+  }, []);
+
 
   const handleSignupSuccess = (formData: any) => {
     setSavedFormData(formData);

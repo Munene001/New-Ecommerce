@@ -12,7 +12,7 @@ interface StatsRow extends RowDataPacket {
   most_popular_count: number;
   least_popular_type: string;
   least_popular_count: number;
-  empty_shops: number;
+  total_shops: number;
   recently_created: number;
 }
 
@@ -39,7 +39,7 @@ export default async function ShopsPage({ searchParams }: PageProps) {
     most_popular_count: 0,
     least_popular_type: 'N/A',
     least_popular_count: 0,
-    empty_shops: 0,
+    total_shops: 0,
     recently_created: 0
   };
   let error: string | null = null;
@@ -51,7 +51,7 @@ export default async function ShopsPage({ searchParams }: PageProps) {
         (SELECT COUNT(*) FROM shops GROUP BY shop_type ORDER BY COUNT(*) DESC LIMIT 1) as most_popular_count,
         (SELECT shop_type FROM shops GROUP BY shop_type ORDER BY COUNT(*) ASC LIMIT 1) as least_popular_type,
         (SELECT COUNT(*) FROM shops GROUP BY shop_type ORDER BY COUNT(*) ASC LIMIT 1) as least_popular_count,
-        SUM(CASE WHEN p.product_count = 0 THEN 1 ELSE 0 END) as empty_shops,
+        COUNT(*) as total_shops,
         SUM(CASE WHEN s.created_at > DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as recently_created
        FROM shops s
        LEFT JOIN (

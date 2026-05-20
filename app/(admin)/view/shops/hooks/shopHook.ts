@@ -20,7 +20,7 @@ interface ShopStats {
   most_popular_count: number;
   least_popular_type: string;
   least_popular_count: number;
-  empty_shops: number;
+  total_shops: number;
   recently_created: number;
 }
 

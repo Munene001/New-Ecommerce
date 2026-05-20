@@ -2,6 +2,7 @@
 "use client";
 import * as React from 'react'
 import { createContext, useContext, useState, useEffect } from "react";
+import { useLeadTracking } from '@/lib/hooks/useTracking';
 
 interface ShopData {
   shopId: number;
@@ -23,7 +24,6 @@ interface ShopData {
   maxPrice: number;
   categories: { id: string; name: string }[];
   
-  // Single active banner (no date fields)
   banner: {
     banner_id: number;
     banner_url: string;
@@ -37,6 +37,7 @@ interface ShopContextType {
   shop: ShopData | null;
   loading: boolean;
   error: string | null;
+  trackEvent: (eventType: string, metadata?: Record<string, any>) => void;
 }
 
 const ShopContext = createContext<ShopContextType | null>(null);
@@ -49,8 +50,24 @@ export function ShopProvider({
   initialShopData: ShopData;
 }) {
   const [shop, setShop] = useState<ShopData | null>(initialShopData);
-  const [loading ] = useState(false);
+  const [loading] = useState(false);
   const [error] = useState<string | null>(null);
+  
+  const { track } = useLeadTracking();
+
+  // Simple track function - just uses shopId from context
+  const trackEvent = (eventType: string, metadata: Record<string, any> = {}) => {
+    if (shop?.shopId) {
+      track(shop.shopId, eventType, metadata);
+    }
+  };
+
+  // Track shop view when page loads
+  useEffect(() => {
+    if (shop?.shopId) {
+      trackEvent('shop_view');
+    }
+  }, [shop?.shopId]);
 
   // Optional: Fetch updates if needed (e.g., every 5 minutes)
   useEffect(() => {
@@ -64,13 +81,13 @@ export function ShopProvider({
       } catch (error) {
         console.error('Failed to refresh shop data:', error);
       }
-    }, 300000); // 5 minutes
+    }, 300000);
     
     return () => clearInterval(interval);
   }, [initialShopData.shopSlug]);
 
   return (
-    <ShopContext.Provider value={{ shop, loading, error }}>
+    <ShopContext.Provider value={{ shop, loading, error, trackEvent }}>
       {children}
     </ShopContext.Provider>
   );
@@ -84,7 +101,6 @@ export function useShop() {
   return context;
 }
 
-// Helper hooks for specific needs
 export function useShopColors() {
   const { shop } = useShop();
   return {
@@ -93,13 +109,8 @@ export function useShopColors() {
   };
 }
 
-// Helper hook to get the active banner (no date checks)
 export function useActiveBanner() {
   const { shop } = useShop();
   const banner = shop?.banner;
-  
-  if (!banner) return null;
-  
-  // Only check if banner is active (no date conditions)
-  return banner.is_active ? banner : null;
+  return banner?.is_active ? banner : null;
 }

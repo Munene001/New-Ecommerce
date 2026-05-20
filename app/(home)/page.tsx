@@ -8,6 +8,7 @@ import TrustSection from "./components/Trust/page";
 import FeaturesSection from "./components/Features/page";
 import SimpleFooter from "./components/footer";
 import HomeWhatsApp from "./components/homeWhatsapp";
+import { useShopOwnerTracking } from "@/lib/hooks/useShopOwnerTracking";
 
 import Phase2 from "./components/phase2";
 import Image, { StaticImageData } from "next/image";
@@ -22,9 +23,16 @@ interface AnimatedImageProps {
 }
 
 // Animated Image Component
-const AnimatedImage = ({ src, alt, className = "", width, height }: AnimatedImageProps) => {
+const AnimatedImage = ({
+  src,
+  alt,
+  className = "",
+  width,
+  height,
+}: AnimatedImageProps) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const imageRef = useRef<HTMLDivElement>(null);
+ 
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -34,7 +42,7 @@ const AnimatedImage = ({ src, alt, className = "", width, height }: AnimatedImag
           observer.disconnect(); // Stop observing once animated
         }
       },
-      { threshold: 0.2, rootMargin: "50px" } // Trigger when 20% visible or 50px before
+      { threshold: 0.2, rootMargin: "50px" }, // Trigger when 20% visible or 50px before
     );
 
     if (imageRef.current) {
@@ -46,13 +54,24 @@ const AnimatedImage = ({ src, alt, className = "", width, height }: AnimatedImag
 
   return (
     <div ref={imageRef} className={isVisible ? "slide-in-right" : "opacity-0"}>
-      <Image src={src} alt={alt} className={className} width={width} height={height} />
+      <Image
+        src={src}
+        alt={alt}
+        className={className}
+        width={width}
+        height={height}
+      />
     </div>
   );
 };
 
 export default function Home() {
   const router = useRouter();
+   const { track } = useShopOwnerTracking();
+
+  useEffect(() => {
+    track("home");
+  }, []);
 
   return (
     <div className="text-secondaryText font-[Plus_Jakarta_Sans]">
@@ -63,7 +82,7 @@ export default function Home() {
           </div>
 
           <div className="md:text-[65px] text-[45px] leading-[55px] md:leading-[65px] font-[Poppins] text-primary-text mb-5 flex flex-col">
-            <span>Launch your online </span> 
+            <span>Launch your online </span>
             <span> Store in minutes </span>
           </div>
 
@@ -108,17 +127,14 @@ export default function Home() {
           />
         </div>
       </div>
-      <TrustSection/>
+      <TrustSection />
 
-      <FeaturesSection/>
+      <FeaturesSection />
 
-    
+      <Phase2 />
 
-        <Phase2 />
-        
-      <SimpleFooter/>
-      <HomeWhatsApp/>
+      <SimpleFooter />
+      <HomeWhatsApp />
     </div>
-    
   );
 }

@@ -18,7 +18,7 @@ interface CartContextType {
   addToCart: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   removeFromCart: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
-  clearCart: (silent?: boolean) => void; // ← Add optional silent parameter
+  clearCart: (silent?: boolean) => void;
   totalItems: number;
   subtotal: number;
 }
@@ -32,7 +32,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
-  const { shop } = useShop();
+  const { shop, trackEvent } = useShop(); // ← Added trackEvent
   const { showToast } = useToast();
   const shopId = shop?.shopId;
   const storageKey = shopId ? `cart-${shopId}` : null;
@@ -55,14 +55,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     if (stored) {
       try {
         const parsedItems = JSON.parse(stored);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setItems(parsedItems);
         hasLoadedRef.current = true;
       } catch (e) {
         console.error("Failed to parse cart", e);
       }
     } else {
-       
       setItems([]);
       hasLoadedRef.current = true;
     }
@@ -80,6 +78,11 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   }, 0);
 
   const addToCart = (item: Omit<CartItem, "quantity">, quantity: number = 1) => {
+    // Track add_to_cart event
+    trackEvent('add_to_cart', {
+      product_id: item.product_id
+    });
+    
     setItems(prev => {
       const existing = prev.findIndex(i => i.product_id === item.product_id);
       if (existing >= 0) {

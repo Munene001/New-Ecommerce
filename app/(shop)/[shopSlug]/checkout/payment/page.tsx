@@ -8,7 +8,6 @@ import { CODPayment } from "./components/cod";
 import { STKPushPayment } from "./components/stkPush";
 import { DirectMpesaPayment } from "./components/manualMpesa";
 
-// Add these type definitions
 interface Order {
   order_id: number;
   order_number: string;
@@ -38,7 +37,7 @@ interface PaymentConfig {
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
-  const { shop } = useShop();
+  const { shop, trackEvent } = useShop();
   const { showToast } = useToast();
   
   const orderId = searchParams.get("order_id");
@@ -46,6 +45,15 @@ export default function PaymentPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
+  
+  // Track payment page view
+  useEffect(() => {
+    if (order && !hasTrackedPageView) {
+      trackEvent('payment_page_view');
+      setHasTrackedPageView(true);
+    }
+  }, [order, hasTrackedPageView, trackEvent]);
   
   // Fetch order details
   useEffect(() => {
@@ -91,6 +99,10 @@ export default function PaymentPage() {
     }
   }, [order?.payment_method, shop?.shopId, showToast]);
   
+  const handlePaymentSuccess = () => {
+    trackEvent('payment_success');
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -114,7 +126,7 @@ export default function PaymentPage() {
   
   // COD Flow - from order data
   if (order.payment_method === "cash_on_delivery") {
-    return <CODPayment orderId={orderId} orderNumber={order.order_number}  />;
+    return <CODPayment orderId={orderId} orderNumber={order.order_number} onPaymentSuccess={handlePaymentSuccess} />;
   }
   
   // M-Pesa Flow - from order data
@@ -131,7 +143,11 @@ export default function PaymentPage() {
     }
     
     if (paymentConfig.active_payment_type === 'stk_push') {
-      return <STKPushPayment orderId={orderId} orderNumber={order.order_number} />;
+      return <STKPushPayment 
+        orderId={orderId} 
+        orderNumber={order.order_number}
+        onPaymentSuccess={handlePaymentSuccess}
+      />;
     }
     
     if (paymentConfig.active_payment_type === 'direct_mpesa' && paymentConfig.direct_mpesa) {
@@ -141,6 +157,7 @@ export default function PaymentPage() {
           orderNumber={order.order_number} 
           mpesaInfo={paymentConfig.direct_mpesa}
           totalAmount={order.total_amount}
+          onPaymentSuccess={handlePaymentSuccess}
         />
       );
     }

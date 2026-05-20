@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 
 export default function ShopFooter() {
-  const { shop } = useShop();
+  const { shop, trackEvent } = useShop();
 
   // Format phone number for display
   const formatPhoneNumber = (phone: string) => {
@@ -48,8 +48,22 @@ export default function ShopFooter() {
 
   const handleWhatsAppClick = () => {
     if (!shop?.contactPhone) return;
+    
+    // Track WhatsApp click
+    trackEvent('whatsapp_click', { button_location: 'footer' });
+    
     const whatsappNumber = getWhatsAppNumber(shop.contactPhone);
     window.open(`https://wa.me/${whatsappNumber}`, '_blank');
+  };
+
+  const handlePhoneClick = () => {
+    if (!shop?.contactPhone) return;
+    
+    // Track phone click
+    trackEvent('phone_click', { button_location: 'footer' });
+    
+    const displayPhone = formatPhoneNumber(shop.contactPhone);
+    window.location.href = `tel:${displayPhone}`;
   };
 
   // Get display phone number
@@ -73,13 +87,13 @@ export default function ShopFooter() {
           {/* Prominent Contact Actions */}
           <div className="flex flex-wrap gap-4 w-full md:w-auto">
             {shop?.contactPhone && (
-              <a 
-                href={`tel:${displayPhone}`}
+              <button 
+                onClick={handlePhoneClick}
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-4 rounded-2xl transition-all group"
               >
-                <Phone className="w-5 h-5  group-hover:scale-110 transition-transform" />
+                <Phone className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 <span className="text-white font-medium">{displayPhone}</span>
-              </a>
+              </button>
             )}
             <button 
               onClick={handleWhatsAppClick}

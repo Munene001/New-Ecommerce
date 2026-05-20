@@ -1,6 +1,6 @@
-// app/(shop)/[shopSlug]/checkout/payment/components/CODPayment.tsx
 "use client";
 
+import { useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/authcontext";
@@ -11,14 +11,21 @@ import { storeRedirect } from "@/lib/redirect/helper";
 interface CODPaymentProps {
   orderId: string | null;
   orderNumber: string | null;
+  onPaymentSuccess?: () => void;
 }
 
-export function CODPayment({ orderId, orderNumber }: CODPaymentProps) {
+export function CODPayment({ orderId, orderNumber, onPaymentSuccess }: CODPaymentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { shop } = useShop();
+  const { shop, trackEvent } = useShop();
   const { isAuthenticated } = useAuth();
+
+  // Track payment success when component loads
+  useEffect(() => {
+    trackEvent('payment_success');
+    onPaymentSuccess?.();
+  }, []);
 
   // Build the full current URL with query params for redirect
   const currentFullPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
