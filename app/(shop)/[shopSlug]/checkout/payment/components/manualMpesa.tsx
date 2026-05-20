@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Copy, Check, CreditCard, Smartphone, Building, Send, PartyPopper, ShoppingBag, Package, Clock, Shield, Wallet } from "lucide-react";
 import { useShop } from "@/app/(shop)/ShopContext";
@@ -18,19 +18,28 @@ interface DirectMpesaPaymentProps {
     till_number: string | null;
     phone_number: string | null;
   };
+  onPaymentSuccess?: () => void;
 }
 
-export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInfo }: DirectMpesaPaymentProps) {
+export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInfo, onPaymentSuccess }: DirectMpesaPaymentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { shop } = useShop();
+  const { shop, trackEvent } = useShop();
   const { isAuthenticated } = useAuth();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   
   // Check if we're in success state from URL
   const isSuccessState = searchParams.get('status') === 'success';
   const [orderComplete, setOrderComplete] = useState(isSuccessState);
+
+  // Track payment success when order is marked complete
+  useEffect(() => {
+    if (orderComplete) {
+      trackEvent('payment_success');
+      onPaymentSuccess?.();
+    }
+  }, [orderComplete, trackEvent, onPaymentSuccess]);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);

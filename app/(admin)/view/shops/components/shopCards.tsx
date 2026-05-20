@@ -2,14 +2,14 @@
 'use client';
 
 import DashCard from "@/app/components/ui/dashCard";
-import { Store, Package, TrendingUp, AlertTriangle } from "lucide-react";
+import { Store, Package, TrendingUp, Calendar } from "lucide-react";
 
 interface ShopStatsCardsProps {
   mostPopularType: string;
   mostPopularCount: number;
   leastPopularType: string;
   leastPopularCount: number;
-  emptyShops: number;
+  totalShops: number;
   recentlyCreated: number;
   currentShown: number;
 }
@@ -19,7 +19,7 @@ export default function ShopStatsCards({
   mostPopularCount,
   leastPopularType,
   leastPopularCount,
-  emptyShops,
+  totalShops,
   recentlyCreated,
   currentShown,
 }: ShopStatsCardsProps) {
@@ -38,15 +38,15 @@ export default function ShopStatsCards({
       subtitle: `${leastPopularCount} shops`,
     },
     { 
-      title: "Empty Shops", 
-      value: emptyShops, 
+      title: "Total Shops", 
+      value: totalShops, 
       icon: Package, 
-      subtitle: `${emptyShops} shops with 0 products`,
+      subtitle: `${totalShops} total shops`,
     },
     { 
       title: "Recently Created", 
       value: recentlyCreated, 
-      icon: AlertTriangle, 
+      icon: Calendar, 
       subtitle: `Last 30 days`,
     },
   ];

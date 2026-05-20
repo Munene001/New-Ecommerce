@@ -6,6 +6,7 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
+import { useShopOwnerTracking } from "@/lib/hooks/useShopOwnerTracking";
 
 interface SignupFormProps {
   onSuccess: (formData: any) => void;
@@ -14,6 +15,7 @@ interface SignupFormProps {
 export default function SignupForm({ onSuccess }: SignupFormProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: string } | null>(null);
+  const { track } = useShopOwnerTracking();
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -97,6 +99,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
       const data = await response.json();
 
       if (data.success) {
+        track("email_verification_sent");
         onSuccess({
           email: formData.email,
           full_name: formData.full_name,

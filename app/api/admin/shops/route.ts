@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     (SELECT COUNT(*) FROM shops GROUP BY shop_type ORDER BY COUNT(*) DESC LIMIT 1) as most_popular_count,
     (SELECT shop_type FROM shops GROUP BY shop_type ORDER BY COUNT(*) ASC LIMIT 1) as least_popular_type,
     (SELECT COUNT(*) FROM shops GROUP BY shop_type ORDER BY COUNT(*) ASC LIMIT 1) as least_popular_count,
-    (SELECT COUNT(*) FROM shops s WHERE NOT EXISTS (SELECT 1 FROM products p WHERE p.shop_id = s.shop_id)) as empty_shops,
+    (SELECT COUNT(*) FROM shops) as total_shops,
     (SELECT COUNT(*) FROM shops WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)) as recently_created`,
     );
 
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         most_popular_count: stats.most_popular_count || 0,
         least_popular_type: stats.least_popular_type || "N/A",
         least_popular_count: stats.least_popular_count || 0,
-        empty_shops: stats.empty_shops || 0,
+        total_shops: stats.total_shops || 0,
         recently_created: stats.recently_created || 0,
       },
       shops,
