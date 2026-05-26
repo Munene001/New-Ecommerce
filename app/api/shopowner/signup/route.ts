@@ -1,20 +1,32 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import pool from '@/lib/db';
+import { RowDataPacket } from 'mysql2';
 
 interface SignupBody {
   email: string;
   password: string;
-  full_name: string;
-  phone: string;
   business_name: string;
-  business_town: string;
-  business_address: string;
-  slug: string; // Add this
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SignupBody = await request.json();
+    
+    // 1. Check if business name already exists
+    const [existingBusiness] = await pool.query<RowDataPacket[]>(
+      `SELECT business_name FROM tenant WHERE LOWER(business_name) = LOWER(?)`,
+      [body.business_name]
+    );
+    
+    if (existingBusiness.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'This business name is already taken. Please choose another.' },
+        { status: 400 }
+      );
+    }
+    
+    // 2. If available, create Supabase user
     const supabase = await createSupabaseServerClient();
     
     const { data, error } = await supabase.auth.signUp({
@@ -22,12 +34,7 @@ export async function POST(request: NextRequest) {
       password: body.password,
       options: {
         data: {
-          full_name: body.full_name,
-          phone: body.phone,
           business_name: body.business_name,
-          business_town: body.business_town,
-          business_address: body.business_address,
-          slug: body.slug, // Add this
           role: 'shop_owner'
         }
       }
@@ -40,7 +47,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Verification code sent to your email',
       user_id: data.user.id,
-      email: body.email
+      email: body.email,
+      business_name: body.business_name
     });
     
   } catch (error) {

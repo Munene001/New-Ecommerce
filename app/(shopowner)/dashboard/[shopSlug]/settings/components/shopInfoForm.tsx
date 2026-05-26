@@ -1,7 +1,6 @@
 "use client";
 
-import FormField from "@/app/components/ui/formField";
-import InstructionsList from "@/app/components/ui/instructionList";
+import FormInput from "@/app/components/ui/formInput";
 
 interface ShopInfoFormData {
   shop_name: string;
@@ -13,17 +12,12 @@ interface ShopInfoFormData {
 
 interface ShopInfoFormProps {
   formData: ShopInfoFormData;
-  setFormData: (data: ShopInfoFormData | ((prev: ShopInfoFormData) => ShopInfoFormData)) => void;
-  errors: Record<string, string>;
+  setFormData: React.Dispatch<React.SetStateAction<any>>; // Accept any or full type
 }
 
-export default function ShopInfoForm({ formData, setFormData, errors }: ShopInfoFormProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
-    if (typeof e === "string" || typeof e === "number") return;
-    if (e && typeof e === "object" && "target" in e) {
-      const { name, value } = e.target;
-      setFormData((prev: ShopInfoFormData) => ({ ...prev, [name]: value }));
-    }
+export default function ShopInfoForm({ formData, setFormData }: ShopInfoFormProps) {
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -31,18 +25,9 @@ export default function ShopInfoForm({ formData, setFormData, errors }: ShopInfo
       <div>
         <div className="text-xl font-semibold text-black">Shop Information</div>
       </div>
-      
-      <InstructionsList
-        items={[
-          { text: "Your shop name appears in the header and search results" },
-          { text: "Contact details are displayed to customers on your shop page" },
-          { text: "WhatsApp number enables customers to message you directly" },
-        ]}
-        variant="green"
-      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <FormField
+        <FormInput
           name="shop_name"
           label="Shop Name"
           type="text"
@@ -50,41 +35,41 @@ export default function ShopInfoForm({ formData, setFormData, errors }: ShopInfo
           onChange={handleChange}
           placeholder="Enter shop name"
           required
-          error={errors.shop_name}
+          icon="user"
         />
-        
-        <FormField
+
+        <FormInput
           name="contact_email"
           label="Contact Email"
           type="email"
           value={formData.contact_email}
           onChange={handleChange}
           placeholder="shop@example.com"
-          error={errors.contact_email}
+          icon="mail"
         />
-        
-        <FormField
+
+        <FormInput
           name="contact_phone"
           label="Contact Phone"
           type="tel"
           value={formData.contact_phone}
           onChange={handleChange}
           placeholder="254712345678"
-          error={errors.contact_phone}
+          icon="phone"
         />
-        
-        <FormField
+
+        <FormInput
           name="whatsapp_number"
           label="WhatsApp Number"
           type="tel"
           value={formData.whatsapp_number}
           onChange={handleChange}
           placeholder="254712345678"
-          error={errors.whatsapp_number}
+          icon="message"
         />
-        
+
         <div className="md:col-span-2">
-          <FormField
+          <FormInput
             name="description"
             label="Shop Description"
             type="textarea"

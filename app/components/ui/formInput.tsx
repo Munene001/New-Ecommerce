@@ -1,5 +1,4 @@
-// components/ui/FormInput.tsx
-"use client";
+"use client"
 
 import { ReactNode } from "react";
 import { User, Mail, Phone, MapPin, Home, MessageSquare } from "lucide-react";

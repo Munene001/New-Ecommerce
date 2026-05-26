@@ -6,10 +6,11 @@ import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface ShopRow extends RowDataPacket {
   shop_id: number;
+  tenant_id: number;
 }
 
 interface UpdateBody {
-  shopId: number;  // Changed from shopSlug to shopId
+  shopId: number;
   shop_name?: string;
   description?: string;
   contact_email?: string;
@@ -21,7 +22,6 @@ interface UpdateBody {
 
 export async function PUT(request: NextRequest) {
   try {
-    // 1. Parse request body
     const body: UpdateBody = await request.json();
     const { 
       shopId,
@@ -41,22 +41,63 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 2. Verify access using helper
     const { authorized, response } = await verifyShopAccess(request, shopId);
+    if (!authorized) return response;
+
+    const [shopRows] = await pool.query<ShopRow[]>(
+      `SELECT tenant_id FROM shops WHERE shop_id = ?`,
+      [shopId]
+    );
     
-    if (!authorized) {
-      return response;
+    if (shopRows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Shop not found' },
+        { status: 404 }
+      );
+    }
+    
+    const tenantId = shopRows[0].tenant_id;
+    let newSlug: string | null = null;
+
+    if (shop_name !== undefined) {
+      let slug = shop_name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+      
+      const [existingSlugs] = await pool.query<RowDataPacket[]>(
+        `SELECT business_slug FROM tenant WHERE (business_slug = ? OR business_slug LIKE ?) AND tenant_id != ?`,
+        [slug, `${slug}-%`, tenantId]
+      );
+      
+      if (existingSlugs.length > 0) {
+        let maxNumber = 0;
+        existingSlugs.forEach((row: any) => {
+          const match = row.business_slug.match(/-(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1]);
+            if (num > maxNumber) maxNumber = num;
+          }
+        });
+        slug = `${slug}-${maxNumber + 1}`;
+      }
+      
+      newSlug = slug;
+      
+      await pool.query(
+        `UPDATE tenant SET business_name = ?, business_slug = ? WHERE tenant_id = ?`,
+        [shop_name, slug, tenantId]
+      );
+      
+      await pool.query(
+        `UPDATE shops SET shop_name = ?, shop_slug = ? WHERE shop_id = ?`,
+        [shop_name, slug, shopId]
+      );
     }
 
-    // 3. Update shops table
     const updateFields: string[] = [];
     const updateValues: (string | number)[] = [];
 
-    if (shop_name !== undefined) {
-      updateFields.push('shop_name = ?');
-      updateValues.push(shop_name);
-    }
-    
     if (description !== undefined) {
       updateFields.push('description = ?');
       updateValues.push(description);
@@ -90,7 +131,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 4. Update shop_settings table (whatsapp_number)
     if (whatsapp_number !== undefined) {
       await pool.query<ResultSetHeader>(
         `UPDATE shop_settings SET whatsapp_number = ? WHERE shop_id = ?`,
@@ -100,7 +140,8 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Shop settings updated successfully'
+      message: 'Shop settings updated successfully',
+      newSlug: newSlug
     });
 
   } catch (error) {
