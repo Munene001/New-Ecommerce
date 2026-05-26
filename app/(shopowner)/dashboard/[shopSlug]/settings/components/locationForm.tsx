@@ -1,7 +1,5 @@
 "use client";
-
-import FormField from "@/app/components/ui/formField";
-import InstructionsList from "@/app/components/ui/instructionList";
+import FormInput from "@/app/components/ui/formInput";
 
 interface LocationFormData {
   business_town: string;
@@ -10,17 +8,12 @@ interface LocationFormData {
 
 interface LocationFormProps {
   formData: LocationFormData;
-  setFormData: (data: LocationFormData | ((prev: LocationFormData) => LocationFormData)) => void;
-  errors: Record<string, string>;
+  setFormData: React.Dispatch<React.SetStateAction<any>>; 
 }
 
-export default function LocationForm({ formData, setFormData, errors }: LocationFormProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
-    if (typeof e === "string" || typeof e === "number") return;
-    if (e && typeof e === "object" && "target" in e) {
-      const { name, value } = e.target;
-      setFormData((prev: LocationFormData) => ({ ...prev, [name]: value }));
-    }
+export default function LocationForm({ formData, setFormData }: LocationFormProps) {
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -28,35 +21,27 @@ export default function LocationForm({ formData, setFormData, errors }: Location
       <div>
         <div className="text-xl font-semibold text-black">Location</div>
       </div>
-      
-      <InstructionsList
-        items={[
-          { text: "Your shop location helps customers find you" },
-          { text: "Town/City and address are displayed on your shop page" },
-        ]}
-        variant="green"
-      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <FormField
+        <FormInput
           name="business_town"
           label="Town/City"
           type="text"
           value={formData.business_town}
           onChange={handleChange}
           placeholder="e.g., Nairobi"
-          error={errors.business_town}
+          icon="mapPin"
         />
-        
+
         <div className="md:col-span-2">
-          <FormField
+          <FormInput
             name="business_address"
             label="Address"
             type="text"
             value={formData.business_address}
             onChange={handleChange}
             placeholder="Street name, building, floor"
-            error={errors.business_address}
+            icon="home"
           />
         </div>
       </div>

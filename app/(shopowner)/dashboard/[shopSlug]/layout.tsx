@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from "next/navigation";
 import { useDashboardOrders } from "./orders/hooks/useDashboardOrders";
+import Wizard from "@/app/components/layout/wizard";
 
 // Create a separate component for the content that needs shop data
 function DashboardContent({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
   const previousParamsRef = useRef(params);
   const pathname = usePathname();
+  const [wizardKey, setWizardKey] = useState(0);
 
   const getPageTitle = (path: string) => {
     if (path.includes('/products')) return 'Products';
@@ -103,6 +105,16 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           flex-1 md:p-6 px-1 bg-gray-50 overflow-y-auto
           ${isMobile ? 'w-full' : ''}
         `}>
+          {/* WIZARD COMPONENT - placed here, right after main opens */}
+          {shopId && (
+            <Wizard 
+              shopSlug={shopSlug} 
+              shopId={shopId} 
+              onComplete={() => setWizardKey(prev => prev + 1)}
+            />
+          )}
+          
+          {/* Page Content */}
           {children}
         </main>
       </div>
