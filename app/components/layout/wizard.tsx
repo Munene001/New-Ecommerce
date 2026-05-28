@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlertCircle, Store, Phone, MapPin, Home, Loader2, X } from "lucide-react";
+import { AlertCircle, Store, Phone, MapPin, Home, Loader2, X, MessageCircle } from "lucide-react";
 import FormInput from "../ui/formInput";
 import { useToast } from "@/context/toastContext";
 import PhoneInput from "react-phone-number-input";
@@ -21,13 +21,13 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
   const [showModal, setShowModal] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
   const [phoneValue, setPhoneValue] = useState<string | undefined>("");
+  const [whatsappValue, setWhatsappValue] = useState<string | undefined>("");
   const [formData, setFormData] = useState({
     business_town: "",
     business_address: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Check wizard status on mount (only once)
   useEffect(() => {
     const checkWizardStatus = async () => {
       try {
@@ -45,12 +45,17 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
           return;
         }
 
-        // Check localStorage for skip period (48 hours)
+        if (data.existingData) {
+          if (data.existingData.phone) setPhoneValue(data.existingData.phone);
+          if (data.existingData.whatsapp_number) setWhatsappValue(data.existingData.whatsapp_number);
+          if (data.existingData.business_town) setFormData(prev => ({ ...prev, business_town: data.existingData.business_town }));
+          if (data.existingData.business_address) setFormData(prev => ({ ...prev, business_address: data.existingData.business_address }));
+        }
+
         const skipUntil = localStorage.getItem(`wizard_skip_until_${shopSlug}`);
         const isSkipped = skipUntil && Date.now() < parseInt(skipUntil);
 
         if (!isSkipped) {
-          // Auto-trigger modal on first visit
           setShowModal(true);
         }
         setHasChecked(true);
@@ -105,6 +110,7 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: phoneValue,
+          whatsapp_number: whatsappValue || null,
           business_town: formData.business_town,
           business_address: formData.business_address,
           shopId: shopId,
@@ -142,19 +148,16 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
     showToast("You can complete this later", );
   };
 
-  // Don't render until we've checked status
   if (!hasChecked) {
     return null;
   }
 
-  // If complete, show nothing
   if (isComplete) {
     return null;
   }
 
   return (
     <>
-      {/* Banner - Red urgency banner */}
       <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4 mb-4 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -179,11 +182,9 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
         </div>
       </div>
 
-      {/* Modal (centered overlay) - Magenta/Three theme */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
             <div className="border-b border-gray-200 p-5 bg-gradient-to-r from-three/5 to-white rounded-t-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -204,7 +205,6 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
               </div>
             </div>
 
-            {/* Body */}
             <div className="p-5 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-800">
@@ -212,13 +212,12 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                 </p>
               </div>
 
-              {/* Phone Input with Country Code */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
                 <PhoneInput
-                  international
+                  
                   defaultCountry="KE"
                   value={phoneValue}
                   onChange={setPhoneValue}
@@ -228,6 +227,20 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                 {errors.phone && (
                   <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  WhatsApp Number
+                </label>
+                <PhoneInput
+                  
+                  defaultCountry="KE"
+                  value={whatsappValue}
+                  onChange={setWhatsappValue}
+                  placeholder="Enter WhatsApp number"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-three/20 focus:border-three"
+                />
               </div>
 
               <FormInput
@@ -253,7 +266,6 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
               />
             </div>
 
-            {/* Footer - Magenta/Three buttons */}
             <div className="border-t border-gray-200 p-4 flex justify-end gap-3">
               <button
                 onClick={handleSkip}

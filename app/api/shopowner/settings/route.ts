@@ -123,6 +123,12 @@ export async function PUT(request: NextRequest) {
       updateValues.push(business_address);
     }
 
+    // Check if we're updating any of the completion fields
+    const isUpdatingCompletionFields = 
+      contact_phone !== undefined || 
+      business_town !== undefined || 
+      business_address !== undefined;
+
     if (updateFields.length > 0) {
       updateValues.push(shopId);
       await pool.query<ResultSetHeader>(
@@ -131,10 +137,41 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // After updating, check if all completion fields are now filled and update the flag
+    if (isUpdatingCompletionFields) {
+      const [currentShop] = await pool.query<RowDataPacket[]>(
+        `SELECT contact_phone, business_town, business_address 
+         FROM shops 
+         WHERE shop_id = ?`,
+        [shopId]
+      );
+      
+      if (currentShop.length > 0) {
+        const shop = currentShop[0];
+        const hasAllData = !!(
+          shop.contact_phone?.trim() && 
+          shop.contact_phone !== 'Not set' &&
+          shop.business_town?.trim() && 
+          shop.business_town !== 'Not set' &&
+          shop.business_address?.trim() && 
+          shop.business_address !== 'Not set'
+        );
+        
+        if (hasAllData) {
+          await pool.query(
+            `UPDATE shops SET business_info_complete = 1 WHERE shop_id = ?`,
+            [shopId]
+          );
+        }
+      }
+    }
+
     if (whatsapp_number !== undefined) {
       await pool.query<ResultSetHeader>(
-        `UPDATE shop_settings SET whatsapp_number = ? WHERE shop_id = ?`,
-        [whatsapp_number, shopId]
+        `INSERT INTO shop_settings (shop_id, whatsapp_number) 
+         VALUES (?, ?) 
+         ON DUPLICATE KEY UPDATE whatsapp_number = ?`,
+        [shopId, whatsapp_number, whatsapp_number]
       );
     }
 
