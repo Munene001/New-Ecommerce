@@ -109,7 +109,14 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+        <GoogleSignIn 
+        userType="customer"
+        fullWidth={true}
+        onError={(error) => setMessage({ text: error, type: "error" })}
+        redirectUrl={redirect || undefined}
+      />
+
+      <form onSubmit={handleSubmit} className="space-y-6 mt-7">
         <div>
           <label className="block text-sm font-medium mb-2">Email Address *</label>
           <Input 
@@ -178,21 +185,9 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
         </Button>
       </form>
 
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-600"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-[#1a1a2e] text-gray-400">Or continue with</span>
-        </div>
-      </div>
+      
 
-      <GoogleSignIn 
-        userType="customer"
-        fullWidth={true}
-        onError={(error) => setMessage({ text: error, type: "error" })}
-        redirectUrl={redirect || undefined}
-      />
+    
 
       <div className="mt-8 text-center">
         <p className="text-gray-400">

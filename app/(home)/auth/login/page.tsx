@@ -222,7 +222,13 @@ function LoginFormContent() {
           Enter your details
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5 md:space-y-5">
+          <GoogleSignIn 
+          fullWidth={true}
+          onError={(error) => setError(error)}
+          redirectUrl={redirectParam || undefined}
+        />
+
+        <form onSubmit={handleSubmit} className="space-y-5 md:space-y-5 mt-7">
           <Input
             label="Email"
             type="email"
@@ -258,20 +264,9 @@ function LoginFormContent() {
           </Button>
         </form>
 
-         <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-600"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-[#1a1a2e] text-gray-400">Or continue with</span>
-          </div>
-        </div>
+        
 
-        <GoogleSignIn 
-          fullWidth={true}
-          onError={(error) => setError(error)}
-          redirectUrl={redirectParam || undefined}
-        />
+      
 
         <div className="mt-5 space-y-8 text-center">
           <div className="flex md:flex-row flex-col gap-4 md:gap-0 justify-between">
