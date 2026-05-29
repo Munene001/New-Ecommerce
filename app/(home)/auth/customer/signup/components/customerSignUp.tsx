@@ -6,6 +6,7 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
+import GoogleSignIn from "@/app/components/auth/googleSigIn";
 
 interface SignupFormProps {
   onSuccess: (formData: any) => void;
@@ -16,7 +17,6 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: string } | null>(null);
   const [formData, setFormData] = useState({
-    full_name: "",
     email: "",
     phone: "",
     password: "",
@@ -43,7 +43,6 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.full_name.trim()) newErrors.full_name = "Full name is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Invalid email format";
@@ -72,8 +71,8 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          full_name: formData.full_name,
           phone: formData.phone,
+          // full_name is NOT sent; backend will derive it from email
         }),
       });
 
@@ -82,9 +81,8 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
       if (data.success) {
         onSuccess({
           email: formData.email,
-          full_name: formData.full_name,
           phone: formData.phone,
-          redirect: redirect 
+          redirect: redirect
         });
       } else {
         setMessage({ text: data.error || "Signup failed", type: "error" });
@@ -112,19 +110,6 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium mb-2">Full Name *</label>
-          <Input 
-            name="full_name" 
-            placeholder="John Doe"
-            value={formData.full_name} 
-            onChange={handleChange} 
-            hasError={!!errors.full_name} 
-            error={errors.full_name} 
-            required 
-          />
-        </div>
-
         <div>
           <label className="block text-sm font-medium mb-2">Email Address *</label>
           <Input 
@@ -192,6 +177,22 @@ export default function CustomerSignupForm({ onSuccess, redirect }: SignupFormPr
           {loading ? "Creating Account..." : "Create Account"}
         </Button>
       </form>
+
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-600"></div>
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-[#1a1a2e] text-gray-400">Or continue with</span>
+        </div>
+      </div>
+
+      <GoogleSignIn 
+        userType="customer"
+        fullWidth={true}
+        onError={(error) => setMessage({ text: error, type: "error" })}
+        redirectUrl={redirect || undefined}
+      />
 
       <div className="mt-8 text-center">
         <p className="text-gray-400">

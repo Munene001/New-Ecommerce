@@ -7,6 +7,7 @@ import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import GoogleSignIn from "@/app/components/auth/googleSigIn";
 import {
   storeRedirect,
   getAndClearRedirect,
@@ -59,32 +60,30 @@ function LoginFormContent() {
 
         if (storedRedirect && restrictedForShopOwner.includes(storedRedirect)) {
           getAndClearRedirect();
-
+          
           return router.replace(
-            profile.onboardingComplete && profile.shopSlug
-              ? `/dashboard/${profile.shopSlug}` // Personal dashboard
-              : "/shopType",
+            profile.shopSlug ? `/dashboard/${profile.shopSlug}` : "/shopType"
           );
         }
       }
 
-      // For all other cases, proceed normally
+    
       const finalRedirect = getAndClearRedirect();
       if (finalRedirect) {
         router.replace(finalRedirect);
         return;
       }
 
-      // Then check for redirect in URL params
+      
       const redirectParam = searchParams.get("redirect");
       if (redirectParam) {
         router.replace(redirectParam);
         return;
       }
 
-      // Only use role-based fallback if no redirect was stored
+      
       if (profile.role === "shop_owner") {
-        if (profile.onboardingComplete && profile.shopSlug) {
+        if (profile.shopSlug) {
           router.replace(`/dashboard/${profile.shopSlug}`);
         } else {
           router.replace("/shopType");
@@ -97,14 +96,11 @@ function LoginFormContent() {
           router.replace("/");
         }
       } else if (profile.role === "super_admin") {
-        // Handle super_admin redirect
         const finalRedirect = getAndClearRedirect();
         if (finalRedirect) {
           router.replace(finalRedirect);
           return;
         }
-
-        
         router.replace("/view");
       } else {
         router.replace("/");
@@ -164,6 +160,22 @@ function LoginFormContent() {
       };
 
       setUserProfile(profileData);
+
+      // IMMEDIATE REDIRECT after setting profile (fixes delay issues)
+      if (profileData.role === "shop_owner") {
+        if (profileData.shopSlug) {
+          router.replace(`/dashboard/${profileData.shopSlug}`);
+        } else {
+          router.replace("/shopType");
+        }
+      } else if (profileData.role === "customer") {
+        const currentShopSlug = sessionStorage.getItem("currentShopSlug");
+        router.replace(currentShopSlug ? `/${currentShopSlug}` : "/");
+      } else if (profileData.role === "super_admin") {
+        router.replace("/view");
+      } else {
+        router.replace("/");
+      }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Invalid email or password";
@@ -245,6 +257,21 @@ function LoginFormContent() {
             {isLoading ? "Logging in..." : "Login"}
           </Button>
         </form>
+
+         <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-600"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-[#1a1a2e] text-gray-400">Or continue with</span>
+          </div>
+        </div>
+
+        <GoogleSignIn 
+          fullWidth={true}
+          onError={(error) => setError(error)}
+          redirectUrl={redirectParam || undefined}
+        />
 
         <div className="mt-5 space-y-8 text-center">
           <div className="flex md:flex-row flex-col gap-4 md:gap-0 justify-between">

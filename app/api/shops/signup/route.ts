@@ -4,8 +4,16 @@ import { NextRequest, NextResponse } from 'next/server';
 interface SignupBody {
   email: string;
   password: string;
-  full_name: string;
   phone: string;
+  
+}
+
+
+function generateFullNameFromEmail(email: string): string {
+  let namePart = email.split('@')[0];
+  namePart = namePart.replace(/\./g, ' ');
+  namePart = namePart.replace(/\b\w/g, (c) => c.toUpperCase());
+  return namePart;
 }
 
 export async function POST(request: NextRequest) {
@@ -13,12 +21,15 @@ export async function POST(request: NextRequest) {
     const body: SignupBody = await request.json();
     const supabase = await createSupabaseServerClient();
     
+    // Generate full name from email
+    const fullName = generateFullNameFromEmail(body.email);
+    
     const { data, error } = await supabase.auth.signUp({
       email: body.email,
       password: body.password,
       options: {
         data: {
-          full_name: body.full_name,
+          full_name: fullName,
           phone: body.phone,
           role: 'customer'
         }
