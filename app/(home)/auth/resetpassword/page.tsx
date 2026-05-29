@@ -25,6 +25,25 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    // If there's a PKCE code (password reset callback), exchange it for a session
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(() => {
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session) {
+            setStep("new-password");
+            setEmail(data.session.user.email || "");
+            setSuccess("Please set your new password");
+            // Clean the URL (remove code param)
+            window.history.replaceState({}, document.title, "/auth/resetpassword");
+          }
+        });
+      });
+      return; // Wait for exchange, don't run other checks yet
+    }
+
+    // Existing recovery param detection (for backward compatibility)
     const hash = window.location.hash;
     const hasRecoveryParam = params.get("type") === "recovery" || 
                              hash.includes("type=recovery") ||
@@ -76,11 +95,11 @@ export default function ResetPasswordPage() {
         throw new Error("Please enter a valid email address");
       }
 
+      // Use the correct redirect URL for localhost (or production)
+      const redirectUrl = `${window.location.origin}/auth/resetpassword`;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
-        {
-          redirectTo: `${window.location.origin}/auth/resetpassword`,
-        }
+        { redirectTo: redirectUrl }
       );
 
       if (resetError) throw new Error(resetError.message);

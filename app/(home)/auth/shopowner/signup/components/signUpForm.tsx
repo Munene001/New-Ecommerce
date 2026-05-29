@@ -5,6 +5,7 @@ import Link from "next/link";
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
 import { useShopOwnerTracking } from "@/lib/hooks/useShopOwnerTracking";
+import GoogleSignIn from "@/app/components/auth/googleSigIn";
 
 interface SignupFormProps {
   onSuccess: (formData: any) => void;
@@ -129,7 +130,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
             error={errors.business_name} 
             required 
           />
-          <p className="text-xs text-gray-400 mt-1">You can change this later in settings</p>
+          <p className="text-xs text-gray-200 mt-1">You can change this later in settings</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -173,6 +174,22 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
           {loading ? "Creating Account..." : "Create Account"}
         </Button>
       </form>
+
+      {/* Divider */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-600"></div>
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-[#1a1a2e] text-gray-400">Or continue with</span>
+        </div>
+      </div>
+
+      {/* Google Sign In Button */}
+      <GoogleSignIn 
+        fullWidth={true}
+        onError={(error) => setMessage({ text: error, type: "error" })}
+      />
 
       <div className="mt-8 text-center">
         <p className="text-gray-400">

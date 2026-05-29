@@ -29,7 +29,7 @@ export default function SimpleToast({ message, onClose, duration = 5000 }: Simpl
       <div
         className={`flex items-center justify-between gap-4 px-6 md:py-3 py-2  rounded-2xl shadow-lg border ${
           message.type === 'success' 
-            ? 'bg-green-50 border-green-200 text-black' 
+            ? 'bg-green-50 border-green-200 text-green-700' 
             : 'bg-red-50 border-red-200 text-red-600'
         }`}
       >
@@ -37,7 +37,7 @@ export default function SimpleToast({ message, onClose, duration = 5000 }: Simpl
           <Icon 
             icon={message.type === 'success' ? "mdi:check-circle" : "mdi:alert-circle"} 
             className={`md:w-5 hmd:h-5 h-9 w-9 ${
-              message.type === 'success' ? 'text-black' : 'text-red-600'
+              message.type === 'success' ? 'text-green-700' : 'text-red-600'
             }`} 
           />
           <span className="md:text-sm text-[16px] font-medium">{message.text}</span>
@@ -45,7 +45,7 @@ export default function SimpleToast({ message, onClose, duration = 5000 }: Simpl
         <button
           onClick={onClose}
           className={`p-1 rounded-full hover:bg-black/5 transition-colors ${
-            message.type === 'success' ? 'text-black' : 'text-red-600'
+            message.type === 'success' ? 'text-green-700' : 'text-red-600'
           }`}
         >
           <Icon icon="mdi:close" className="w-4 h-4" />
