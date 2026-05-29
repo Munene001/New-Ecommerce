@@ -9,55 +9,12 @@ import { useState, useEffect, useRef } from 'react'
 import { usePathname } from "next/navigation";
 import { useDashboardOrders } from "./orders/hooks/useDashboardOrders";
 import Wizard from "@/app/components/layout/wizard";
+import DashboardSkeleton from "@/app/components/layout/skeletonDash";
 
-// Create a separate component for the content that needs shop data
-function DashboardContent({ children }: { children: React.ReactNode }) {
-  const params = useParams();
-  const shopSlug = params?.shopSlug as string;
-  const { shopId } = useShop(); // Now this is inside ShopProvider
+// Component that uses useDashboardOrders (only rendered when shopId is ready)
+function DashboardContentWithOrders({ children, shopId, shopSlug, isMobile, isMobileMenuOpen, setIsMobileMenuOpen, pageTitle }: any) {
   const { unviewedCount } = useDashboardOrders(shopId.toString());
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const previousParamsRef = useRef(params);
-  const pathname = usePathname();
-  const [wizardKey, setWizardKey] = useState(0);
-
-  const getPageTitle = (path: string) => {
-    if (path.includes('/products')) return 'Products';
-    if (path.includes('/payments')) return 'Payments';
-    if (path.includes('/sales')) return 'Sales & Analytics';
-    if (path.includes('/appearance')) return 'Appearance';
-    if (path.includes('/settings')) return 'Settings';
-    return 'Dashboard';
-  };
-
-  const pageTitle = getPageTitle(pathname);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); 
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  useEffect(() => {
-    if (previousParamsRef.current !== params) {
-      setIsMobileMenuOpen(false);
-      previousParamsRef.current = params;
-    }
-  }, [params]);
-
-  const handleMenuClick = (bool: boolean) => {
-    console.log("Menu clicked:", bool);
-    if (isMobile) {
-      setIsMobileMenuOpen(false);
-    }
-  };
-
+  
   return (
     <>
       <header className="fixed top-0 left-0 right-0 h-[85px] bg-white z-50 shadow-sm">
@@ -78,43 +35,16 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           />
         )}
         
-        <aside 
-          className={`
-            ${isMobile 
-              ? `fixed left-0 top-[85px] bottom-0 w-[85%] z-50 transform transition-transform duration-300 ease-in-out ${
-                  isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-                }`
-              : 'sticky top-16 w-64'
-            } 
-            h-[calc(100vh-85px)] md:h-[100vh] 
-            bg-[url('/assets/mazehex4.svg')] 
-            bg-black 
-            text-white 
-            overflow-y-auto
-            md:sticky
-          `}
-        >
+        <aside className={`${isMobile ? `fixed left-0 top-[85px] bottom-0 w-[85%] z-50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}` : 'sticky top-16 w-64'} h-[calc(100vh-85px)] md:h-[100vh] bg-[url('/assets/mazehex4.svg')] bg-black text-white overflow-y-auto md:sticky`}>
           <BaseLeftMenu 
-            onMenuClicked={handleMenuClick}  
+            onMenuClicked={() => isMobile && setIsMobileMenuOpen(false)}  
             shopSlug={shopSlug || ""}
             unviewedCount={unviewedCount} 
           />
         </aside>
         
-        <main className={`
-          flex-1 md:p-6 px-1 bg-gray-50 overflow-y-auto
-          ${isMobile ? 'w-full' : ''}
-        `}>
-          {/* WIZARD COMPONENT - placed here, right after main opens */}
-          {shopId && (
-            <Wizard 
-              shopSlug={shopSlug} 
-              shopId={shopId} 
-              onComplete={() => setWizardKey(prev => prev + 1)}
-            />
-          )}
-          
-          {/* Page Content */}
+        <main className={`flex-1 md:p-6 px-1 bg-gray-50 overflow-y-auto ${isMobile ? 'w-full' : ''}`}>
+          {shopId && <Wizard shopSlug={shopSlug} shopId={shopId} onComplete={() => {}} />}
           {children}
         </main>
       </div>
@@ -122,7 +52,61 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Main layout component
+function DashboardContent({ children }: { children: React.ReactNode }) {
+  const params = useParams();
+  const shopSlug = params?.shopSlug as string;
+  const shopData = useShop(); // old provider returns shopData directly
+  const shopId = shopData?.shopId;
+  
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const previousParamsRef = useRef(params);
+  const pathname = usePathname();
+
+  const getPageTitle = (path: string) => {
+    if (path.includes('/products')) return 'Products';
+    if (path.includes('/payments')) return 'Payments';
+    if (path.includes('/sales')) return 'Sales & Analytics';
+    if (path.includes('/appearance')) return 'Appearance';
+    if (path.includes('/settings')) return 'Settings';
+    return 'Dashboard';
+  };
+  const pageTitle = getPageTitle(pathname);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (previousParamsRef.current !== params) {
+      setIsMobileMenuOpen(false);
+      previousParamsRef.current = params;
+    }
+  }, [params]);
+
+  // Guard: if shopId is not ready yet, show skeleton
+  if (!shopId) {
+    return <DashboardSkeleton />;
+  }
+
+  return (
+    <DashboardContentWithOrders 
+      shopId={shopId} 
+      shopSlug={shopSlug} 
+      isMobile={isMobile}
+      isMobileMenuOpen={isMobileMenuOpen}
+      setIsMobileMenuOpen={setIsMobileMenuOpen}
+      pageTitle={pageTitle}
+    >
+      {children}
+    </DashboardContentWithOrders>
+  );
+}
+
+// Main layout component (unchanged)
 export default function DashboardLayout({
   children,
 }: Readonly<{
