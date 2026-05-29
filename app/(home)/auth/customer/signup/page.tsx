@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import CustomerSignupForm from "./components/customerSignUp";
 import VerifyOTP from "../../shopowner/signup/components/verifyOtp";
-import { getRedirect } from "@/lib/redirect/helper"; // Reuse the same component
 
 type Step = "form" | "verify";
 
-export default function CustomerSignupPage() {
+function CustomerSignupContent() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || undefined;
   const [step, setStep] = useState<Step>("form");
   const [savedFormData, setSavedFormData] = useState<any>(null);
-  const redirect = getRedirect() || undefined;
 
   const handleSignupSuccess = (formData: any) => {
-     setSavedFormData({ ...formData, redirect });
+    setSavedFormData({ ...formData, redirect });
     setStep("verify");
   };
 
@@ -25,11 +26,10 @@ export default function CustomerSignupPage() {
     <div className="min-h-screen text-white font-[Plus_Jakarta_Sans] flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-2xl">
         {step === "form" && (
-         <CustomerSignupForm onSuccess={handleSignupSuccess} redirect={redirect} />
+          <CustomerSignupForm onSuccess={handleSignupSuccess} redirect={redirect} />
         )}
-        
         {step === "verify" && (
-          <VerifyOTP 
+          <VerifyOTP
             savedFormData={savedFormData}
             onBack={handleBackToSignup}
             userType="customer"
@@ -37,5 +37,13 @@ export default function CustomerSignupPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CustomerSignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <CustomerSignupContent />
+    </Suspense>
   );
 }

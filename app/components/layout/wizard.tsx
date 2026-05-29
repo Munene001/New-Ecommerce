@@ -1,7 +1,7 @@
 // components/shopowner/Wizard.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AlertCircle, Store, Phone, MapPin, Home, Loader2, X, MessageCircle } from "lucide-react";
 import FormInput from "../ui/formInput";
 import { useToast } from "@/context/toastContext";
@@ -27,6 +27,7 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
     business_address: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const modalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const checkWizardStatus = async () => {
@@ -56,7 +57,10 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
         const isSkipped = skipUntil && Date.now() < parseInt(skipUntil);
 
         if (!isSkipped) {
-          setShowModal(true);
+          // Delay the modal by 3 seconds to avoid interrupting initial dashboard load
+          modalTimeoutRef.current = setTimeout(() => {
+            setShowModal(true);
+          }, 3000);
         }
         setHasChecked(true);
       } catch (error) {
@@ -68,6 +72,13 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
     if (shopId && !hasChecked) {
       checkWizardStatus();
     }
+
+    // Cleanup timeout on unmount or when shopId changes
+    return () => {
+      if (modalTimeoutRef.current) {
+        clearTimeout(modalTimeoutRef.current);
+      }
+    };
   }, [shopId, shopSlug, hasChecked]);
 
   const handleChange = (field: string, value: string) => {
@@ -217,7 +228,6 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                   Phone Number <span className="text-red-500">*</span>
                 </label>
                 <PhoneInput
-                  
                   defaultCountry="KE"
                   value={phoneValue}
                   onChange={setPhoneValue}
@@ -234,7 +244,6 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                   WhatsApp Number
                 </label>
                 <PhoneInput
-                  
                   defaultCountry="KE"
                   value={whatsappValue}
                   onChange={setWhatsappValue}
