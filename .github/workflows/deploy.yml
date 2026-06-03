@@ -17,7 +17,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/staging
-            git pull origin dev
+            git fetch origin dev && git reset --hard origin/dev
             pnpm install
             pnpm build
             pm2 restart pazia-staging
@@ -34,7 +34,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/production
-            git pull origin main
+            git fetch origin main && git reset --hard origin/main
             pnpm install
             pnpm build
             pm2 restart pazia-production
