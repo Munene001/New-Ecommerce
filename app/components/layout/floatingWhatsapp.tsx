@@ -26,7 +26,7 @@ export default function FloatingWhatsApp() {
   };
 
   return (
-    <div className="fixed bottom-20 right-6 animate-pulse z-40 md:bottom-6">
+    <div className="fixed bottom-20 right-6  z-40 md:bottom-6">
       <button
         onClick={handleWhatsAppClick}
         className="flex items-center justify-center w-14 h-14 bg-green-500 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 hover:scale-110 active:scale-95"
