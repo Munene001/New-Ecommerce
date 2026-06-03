@@ -13,7 +13,7 @@ export default function HomeWhatsApp() {
   };
 
   return (
-    <div className="fixed bottom-15 md:bottom-6 right-3  right-6 z-40">
+    <div className="fixed bottom-15 md:bottom-5 right-3  right-6 z-40">
       <button
         onClick={handleWhatsAppClick}
         className="flex items-center justify-center w-14 h-14 bg-green-500 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 hover:scale-110 active:scale-95"
