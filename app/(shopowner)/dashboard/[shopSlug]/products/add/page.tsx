@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import PrimaryForm from "./components/primaryForm";
 import OptionalForm from "./components/optionalForm";
-import ImagesForm from "./components/imagesForm";
+import ImagesForm, { ImagesFormRef, ProductImage } from "./components/imagesForm";
 import CategoryComponent from "./components/categoryComponent";
 import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
 import Button from "@/app/components/ui/button";
 import SimpleToast from "@/app/components/ui/simpleToast";
-
 
 export default function AddProductPage() {
   const {
@@ -33,7 +33,7 @@ export default function AddProductPage() {
     tabWarning,
     modalState,
     showWarning,
-
+    handleSubmit,
     handleCategoryCreated,
     handleCategoryError,
     handleNext,
@@ -42,7 +42,75 @@ export default function AddProductPage() {
     closeModal,
     addCategory,
     removeCategory,
+    resetForm,
+    setActiveIndex,
   } = useProductForm();
+
+  const imagesRef = useRef<ImagesFormRef>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [imagesFormKey, setImagesFormKey] = useState(0); // for resetting ImagesForm
+
+  const [resultModal, setResultModal] = useState<{
+    isOpen: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: "success",
+    title: "",
+    message: "",
+  });
+
+  const handleSaveProduct = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+      const productId = await handleSubmit();
+      if (!productId) {
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Error",
+          message: "Failed to create product. Please check your inputs.",
+        });
+        return;
+      }
+
+      const uploadResult = await imagesRef.current?.uploadImages(productId);
+      if (uploadResult?.success) {
+        // Reset everything
+        resetForm();              // clears form data (including images in parent state)
+        setImagesFormKey((prev) => prev + 1); // forces ImagesForm to re-mount
+        setActiveIndex(0);        // go back to primary tab
+        
+        setResultModal({
+          isOpen: true,
+          type: "success",
+          title: "Success!",
+          message: "Product created and all images uploaded successfully. Form reset.",
+        });
+      } else {
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Partial Success",
+          message: `Product created but ${uploadResult?.failedCount || 0} image(s) failed to upload. You can retry later.`,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setResultModal({
+        isOpen: true,
+        type: "error",
+        title: "Error",
+        message: "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const renderComponent = () => {
     switch (activeIndex) {
@@ -72,8 +140,12 @@ export default function AddProductPage() {
       case 2:
         return (
           <ImagesForm
-            images={formData.images}
-            setImages={(images) => setFormData((prev) => ({ ...prev, images }))}
+            key={imagesFormKey}
+            ref={imagesRef}
+            initialImages={formData.images as ProductImage[]}
+            onImagesChange={(images) =>
+              setFormData((prev) => ({ ...prev, images: images as any }))
+            }
             onError={(message) => showWarning(message, "error")}
           />
         );
@@ -82,14 +154,22 @@ export default function AddProductPage() {
     }
   };
 
+  const onNextOrSave = async () => {
+    if (activeIndex === sections.length - 1) {
+      await handleSaveProduct();
+    } else {
+      handleNext();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 relative font-[Poppins]">
       <ResultModal
-        isOpen={modalState.isOpen}
-        type={modalState.type}
-        title={modalState.title}
-        message={modalState.message}
-        onClose={closeModal}
+        isOpen={resultModal.isOpen}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+        onClose={() => setResultModal((prev) => ({ ...prev, isOpen: false }))}
       />
 
       <div className="mb-6">
@@ -106,7 +186,7 @@ export default function AddProductPage() {
         <h1 className="text-3xl font-semibold text-black font-[Poppins]">
           Add New Product
         </h1>
-        <p className=" hidden md:block text-magenta-dark mt-2 font-[Poppins]">
+        <p className="hidden md:block text-magenta-dark mt-2 font-[Poppins]">
           Shop: <span className="font-medium text-black">{shopSlug}</span> •
           Type:{" "}
           <span className="font-medium text-black">
@@ -132,7 +212,6 @@ export default function AddProductPage() {
               onCategoryCreated={handleCategoryCreated}
               onCategoryError={handleCategoryError}
               onCancel={() => setShowCategoryForm(false)}
-              // ❌ Remove token prop - CategoryComponent already updated
             />
           </div>
         )}
@@ -194,14 +273,14 @@ export default function AddProductPage() {
         </button>
 
         <button
-          onClick={handleNext}
-          disabled={loading}
+          onClick={onNextOrSave}
+          disabled={loading || isSaving}
           className="px-6 py-3 bg-black text-white rounded-lg font-[Poppins] text-sm font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300"
         >
-          {loading ? (
+          {loading || isSaving ? (
             <span className="flex items-center gap-2">
               <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
-              Creating Product...
+              {activeIndex === sections.length - 1 ? "Saving..." : "Loading..."}
             </span>
           ) : activeIndex === sections.length - 1 ? (
             "Save Product"

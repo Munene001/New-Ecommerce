@@ -1,270 +1,353 @@
 "use client";
 
-import {  useRef } from "react";
-import { Icon } from "@iconify/react";
+import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
+import { Camera, Image as ImageIcon, Star, Trash2, X, RefreshCw } from "lucide-react";
 import Image from "next/image";
-import { ProductImage } from "../types";
+import imageCompression from "browser-image-compression";
 import InstructionsList from "@/app/components/ui/instructionList";
 
-interface ImagesFormProps {
-  images: ProductImage[];
-  setImages: (images: ProductImage[]) => void;
-  onError?: (message: string) => void; // Add this to show errors
+export interface ProductImage {
+  file: File;
+  preview: string;
+  isPrimary: boolean;
+  id: string;
+  status?: "pending" | "uploading" | "success" | "failed";
+  serverId?: number;
 }
 
-export default function ImagesForm({
-  images,
-  setImages,
-  onError,
-}: ImagesFormProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const additionalInputRef = useRef<HTMLInputElement>(null);
+export interface ImagesFormRef {
+  uploadImages: (productId: number) => Promise<{ success: boolean; failedCount: number }>;
+}
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+interface ImagesFormProps {
+  initialImages?: ProductImage[];        // for edit mode
+  onImagesChange?: (images: ProductImage[]) => void;
+  onError?: (message: string) => void;
+}
 
-  const validateFileSize = (file: File): boolean => {
-    if (file.size > MAX_FILE_SIZE) {
-      const errorMsg = `Image "${file.name}" exceeds 5MB limit. Please choose a smaller file.`;
-      if (onError) onError(errorMsg);
+const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
+  ({ initialImages = [], onImagesChange, onError }, ref) => {
+    const [localImages, setLocalImages] = useState<ProductImage[]>(initialImages);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+    const [showRetryModal, setShowRetryModal] = useState(false);
+    const [failedImageIds, setFailedImageIds] = useState<string[]>([]);
 
-      // Clear error after 5 seconds
-      setTimeout(() => onError?.(""), 5000);
-      return false;
-    }
-    return true;
-  };
+    // Notify parent of changes (only on user actions)
+    useEffect(() => {
+      onImagesChange?.(localImages);
+    }, [localImages, onImagesChange]);
 
-  const handlePrimaryImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    // Compression options
+    const compressionOptions = {
+      maxSizeMB: 0.15,
+      maxWidthOrHeight: 1000,
+      useWebWorker: true,
+      initialQuality: 0.7,
+    };
 
-      // Validate file size
-      if (!validateFileSize(file)) {
-        e.target.value = ""; // Clear the input
+    const compressFile = async (file: File): Promise<File> => {
+      try {
+        return await imageCompression(file, compressionOptions);
+      } catch (err) {
+        console.error("Compression failed, using original", err);
+        return file;
+      }
+    };
+
+    const handlePrimarySelection = async (file: File) => {
+      if (file.size > 8 * 1024 * 1024) {
+        onError?.("Image exceeds 8MB. Please choose a smaller one.");
         return;
       }
+      const compressed = await compressFile(file);
+      const preview = URL.createObjectURL(compressed);
+      const newPrimary: ProductImage = {
+        file: compressed,
+        preview,
+        isPrimary: true,
+        id: crypto.randomUUID(),
+        status: "pending",
+      };
+      const filtered = localImages.filter((img) => !img.isPrimary);
+      setLocalImages([newPrimary, ...filtered]);
+    };
 
-      const preview = URL.createObjectURL(file);
-
-      // Remove any existing primary image
-      const filteredImages = images.filter((img) => !img.isPrimary);
-
-      setImages([{ file, preview, isPrimary: true }, ...filteredImages]);
-    }
-  };
-
-  const handleAdditionalImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    const handleAdditionalSelection = async (files: FileList | File[]) => {
+      const fileArray = Array.from(files);
+      const currentAdditionalCount = localImages.filter((img) => !img.isPrimary).length;
+      const remainingSlots = 5 - currentAdditionalCount;
+      if (fileArray.length > remainingSlots) {
+        onError?.(`You can only add ${remainingSlots} more image(s).`);
+        return;
+      }
       const newImages: ProductImage[] = [];
-      const remainingSlots = 6 - images.length;
-      const files = Array.from(e.target.files);
+      for (const file of fileArray) {
+        if (file.size > 8 * 1024 * 1024) {
+          onError?.(`${file.name} exceeds 8MB. Skipped.`);
+          continue;
+        }
+        const compressed = await compressFile(file);
+        const preview = URL.createObjectURL(compressed);
+        newImages.push({
+          file: compressed,
+          preview,
+          isPrimary: false,
+          id: crypto.randomUUID(),
+          status: "pending",
+        });
+      }
+      setLocalImages([...localImages, ...newImages]);
+    };
 
-      // Check total slots first
-      if (files.length > remainingSlots) {
-        const errorMsg = `You can only add ${remainingSlots} more image${
-          remainingSlots !== 1 ? "s" : ""
-        }.`;
-        if (onError) onError(errorMsg);
-        setTimeout(() => onError?.(""), 5000);
-        e.target.value = "";
-        return;
+    const removeImage = (id: string) => {
+      const img = localImages.find((i) => i.id === id);
+      if (img?.preview) URL.revokeObjectURL(img.preview);
+      setLocalImages(localImages.filter((i) => i.id !== id));
+      onError?.("");
+    };
+
+    const setAsPrimary = (id: string) => {
+      setLocalImages(
+        localImages.map((img) => ({
+          ...img,
+          isPrimary: img.id === id,
+        }))
+      );
+    };
+
+    // Exposed method for parent to call after product creation
+    const uploadImages = async (productId: number) => {
+      const pendingImages = localImages.filter((img) => img.status !== "success");
+      if (pendingImages.length === 0) {
+        return { success: true, failedCount: 0 };
       }
 
-      // Validate each file size
-      const invalidFiles = files.filter((file) => file.size > MAX_FILE_SIZE);
-      if (invalidFiles.length > 0) {
-        const fileNames = invalidFiles.map((f) => `"${f.name}"`).join(", ");
-        const errorMsg = `${
-          invalidFiles.length > 1 ? "Files" : "File"
-        } ${fileNames} exceed${
-          invalidFiles.length === 1 ? "s" : ""
-        } 5MB limit.`;
-        if (onError) onError(errorMsg);
-        setTimeout(() => onError?.(""), 5000);
-        e.target.value = "";
-        return;
+      setIsUploading(true);
+      setFailedImageIds([]);
+      const newFailedIds: string[] = [];
+
+      for (let i = 0; i < pendingImages.length; i++) {
+        const img = pendingImages[i];
+        setLocalImages((prev) =>
+          prev.map((p) => (p.id === img.id ? { ...p, status: "uploading" } : p))
+        );
+        setUploadProgress({ current: i + 1, total: pendingImages.length });
+
+        try {
+          const formData = new FormData();
+          formData.append("image", img.file);
+          formData.append("isPrimary", String(img.isPrimary));
+
+          const res = await fetch(`/api/shopowner/products/${productId}/images`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          const data = await res.json();
+          setLocalImages((prev) =>
+            prev.map((p) =>
+              p.id === img.id
+                ? { ...p, status: "success", serverId: data.image_id }
+                : p
+            )
+          );
+        } catch (err) {
+          console.error(`Failed to upload ${img.id}`, err);
+          setLocalImages((prev) =>
+            prev.map((p) => (p.id === img.id ? { ...p, status: "failed" } : p))
+          );
+          newFailedIds.push(img.id);
+        }
       }
 
-      // Process valid files
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const preview = URL.createObjectURL(file);
-        newImages.push({ file, preview, isPrimary: false });
+      setUploadProgress({ current: 0, total: 0 });
+      setIsUploading(false);
+
+      if (newFailedIds.length > 0) {
+        setFailedImageIds(newFailedIds);
+        setShowRetryModal(true);
+        return { success: false, failedCount: newFailedIds.length };
       }
+      return { success: true, failedCount: 0 };
+    };
 
-      setImages([...images, ...newImages]);
-    }
-  };
+    useImperativeHandle(ref, () => ({ uploadImages }));
 
-  const removeImage = (index: number) => {
-    const newImages = [...images];
-    URL.revokeObjectURL(newImages[index].preview);
-    newImages.splice(index, 1);
-    setImages(newImages);
-    if (onError) onError(""); // Clear any errors when removing
-  };
+    const primaryImage = localImages.find((img) => img.isPrimary);
+    const additionalImages = localImages.filter((img) => !img.isPrimary);
 
-  const setAsPrimary = (index: number) => {
-    const newImages = images.map((img, i) => ({
-      ...img,
-      isPrimary: i === index,
-    }));
-    setImages(newImages);
-  };
+    const StatusIcon = ({ status }: { status?: string }) => {
+      if (status === "uploading")
+        return <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />;
+      if (status === "success")
+        return <div className="w-4 h-4 bg-green-500 rounded-full shadow-md" />;
+      if (status === "failed")
+        return <X className="w-4 h-4 text-red-500 bg-white rounded-full" />;
+      return null;
+    };
 
-  const primaryImage = images.find((img) => img.isPrimary);
-  const additionalImages = images.filter((img) => !img.isPrimary);
+    return (
+      <div className="md:space-y-6 space-y-8 bg-white md:p-6 rounded-lg">
+        <div className="text-xl font-semibold text-black">Product Images</div>
 
-  return (
-    <div className="md:space-y-6 space-y-8 bg-white  md:p-6 rounded-lg">
-      <div className="text-xl font-semibold text-black">Product Images</div>
+        <InstructionsList
+          items={[
+            { text: "Maximum 6 images total" },
+            { text: "Images are automatically resized to 1000px and compressed to ~150KB" },
+            { text: "Max file size: 8MB (compressed before upload)" },
+            { text: "Primary image is the default image." },
+            { text: "Click the star icon on any image to make it primary" },
+          ]}
+          variant="green"
+        />
 
-      <InstructionsList
-        items={[
-          { text: "Maximum 6 images total" },
-          {
-            text: (
-              <>
-                No image should exceed{" "}
-                <span className="font-semibold">5MB</span>
-              </>
-            ),
-          },
-          {
-            text: "Primary image is the default image and will be presented to the customer as the main image.",
-          },
-          {
-            text: "Clicking the star icon on an image makes it the primary image",
-          },
-        ]}
-        variant="green"
-      />
+        {/* Primary Image */}
+        <div className="space-y-2">
+          <label className="block md:text-sm text-[16px] font-medium text-gray-700">
+            Primary Image <span className="text-red-500">*</span>
+          </label>
 
-      {/* Primary Image */}
-      <div className="space-y-2">
-        <label className="block md:text-sm text-[16px] font-medium text-gray-700">
-          Primary Image <span className="text-red-500">*</span>
-        </label>
-
-        {primaryImage ? (
-          <div className="relative w-40 h-40 border rounded-lg overflow-hidden group">
-            <Image
-              src={primaryImage.preview}
-              alt="Primary"
-              fill
-              className="object-cover"
-            />
-            <button
-              onClick={() => removeImage(images.indexOf(primaryImage))}
-              className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-              title="Remove primary image"
-            >
-              <Icon icon="mdi:close" className="w-4 h-4" />
-            </button>
-            <div className="absolute bottom-2 left-2 bg-magenta-dark text-white text-xs px-2 py-1 rounded">
-              Primary
-            </div>
-            {/* File size indicator */}
-            {primaryImage.file && (
-              <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                {(primaryImage.file.size / (1024 * 1024)).toFixed(2)} MB
+          {primaryImage ? (
+            <div className="relative w-40 h-40 border rounded-lg overflow-hidden bg-gray-100">
+              <Image src={primaryImage.preview} alt="Primary" fill className="object-cover" />
+              <div className="absolute top-2 right-2 flex gap-1">
+                <button
+                  onClick={() => removeImage(primaryImage.id)}
+                  className="bg-red-500 text-white p-1.5 rounded-full shadow-md"
+                  title="Remove"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
+              <div className="absolute bottom-2 left-2 bg-magenta-dark text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                <Star className="w-3 h-3 fill-current" /> Primary
+              </div>
+              <div className="absolute bottom-2 right-2 bg-black/50 rounded-full p-0.5">
+                <StatusIcon status={primaryImage.status} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-4">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => { if (e.target.files?.[0]) handlePrimarySelection(e.target.files[0]); e.target.value = ""; }}
+                className="hidden"
+                id="primary-camera"
+              />
+              <label htmlFor="primary-camera" className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center">
+                <Camera className="w-6 h-6 text-gray-400" />
+                <span className="text-xs mt-1">Take Photo</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => { if (e.target.files?.[0]) handlePrimarySelection(e.target.files[0]); e.target.value = ""; }}
+                className="hidden"
+                id="primary-gallery"
+              />
+              <label htmlFor="primary-gallery" className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center">
+                <ImageIcon className="w-6 h-6 text-gray-400" />
+                <span className="text-xs mt-1">Gallery</span>
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Additional Images */}
+        <div className="space-y-2">
+          <label className="block md:text-sm text-[16px] font-medium text-gray-700">
+            Additional Images ({additionalImages.length}/5)
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {additionalImages.map((image) => (
+              <div key={image.id} className="relative aspect-square border rounded-lg overflow-hidden bg-gray-100">
+                <Image src={image.preview} alt="Additional" fill className="object-cover" />
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <button onClick={() => setAsPrimary(image.id)} className="bg-yellow-500 text-white p-1.5 rounded-full shadow-md">
+                    <Star className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => removeImage(image.id)} className="bg-red-500 text-white p-1.5 rounded-full shadow-md">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="absolute bottom-2 right-2 bg-black/50 rounded-full p-0.5">
+                  <StatusIcon status={image.status} />
+                </div>
+              </div>
+            ))}
+            {additionalImages.length < 5 && !isUploading && (
+              <>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple={false}
+                  onChange={(e) => { if (e.target.files) handleAdditionalSelection(e.target.files); e.target.value = ""; }}
+                  className="hidden"
+                  id="additional-camera"
+                />
+                <label htmlFor="additional-camera" className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer">
+                  <Camera className="w-6 h-6" />
+                  <span className="text-xs mt-1">Camera</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => { if (e.target.files) handleAdditionalSelection(e.target.files); e.target.value = ""; }}
+                  className="hidden"
+                  id="additional-gallery"
+                />
+                <label htmlFor="additional-gallery" className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer">
+                  <ImageIcon className="w-6 h-6" />
+                  <span className="text-xs mt-1">Gallery</span>
+                </label>
+              </>
             )}
           </div>
-        ) : (
-          <div className="flex items-center gap-4">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePrimaryImage}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors group"
-            >
-              <Icon
-                icon="mdi:cloud-upload"
-                className="text-3xl text-gray-400 mx-auto mb-2 group-hover:text-blue-500"
+        </div>
+
+        {/* Progress bar – only shown during upload (triggered by parent) */}
+        {isUploading && (
+          <div className="space-y-1 mt-4">
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-magenta-dark h-full transition-all duration-300"
+                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
               />
-              <span className="text-sm text-gray-600 group-hover:text-blue-500">
-                Click to upload primary image
-              </span>
-            </button>
+            </div>
+            <p className="text-xs text-gray-500 text-center">
+              Uploading images {uploadProgress.current} of {uploadProgress.total}
+            </p>
+          </div>
+        )}
+
+        {/* Simple modal to inform about failed uploads */}
+        {showRetryModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <h3 className="text-lg font-semibold mb-2">Upload Incomplete</h3>
+              <p className="text-gray-600 mb-4">
+                {failedImageIds.length} image(s) failed to upload. Please save the product again to retry.
+              </p>
+              <div className="flex justify-end">
+                <button onClick={() => setShowRetryModal(false)} className="px-4 py-2 bg-magenta-dark text-white rounded-lg">
+                  OK
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
+    );
+  }
+);
 
-      {/* Additional Images */}
-      <div className="space-y-2">
-        <label className="block md:text-sm text-[16px] font-medium text-gray-700">
-          Additional Images ({additionalImages.length}/5)
-        </label>
+ImagesForm.displayName = "ImagesForm";
 
-        <input
-          ref={additionalInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleAdditionalImages}
-          className="hidden"
-        />
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {additionalImages.map((image, idx) => {
-            const originalIndex = images.indexOf(image);
-            return (
-              <div
-                key={idx}
-                className="relative aspect-square border rounded-lg overflow-hidden group "
-              >
-                <Image
-                  src={image.preview}
-                  alt={`Additional ${idx + 1}`}
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => setAsPrimary(originalIndex)}
-                    className="bg-yellow-500 text-white p-1.5 rounded-full hover:bg-yellow-600 transition-colors"
-                    title="Make primary"
-                  >
-                    <Icon icon="mdi:star" className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => removeImage(originalIndex)}
-                    className="bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-colors"
-                    title="Remove"
-                  >
-                    <Icon icon="mdi:delete" className="w-4 h-4" />
-                  </button>
-                </div>
-                {/* File size indicator on hover */}
-                {image.file && (
-                  <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                    {(image.file.size / (1024 * 1024)).toFixed(2)} MB
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {additionalImages.length < 5 && (
-            <button
-              onClick={() => additionalInputRef.current?.click()}
-              className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-blue-500 hover:text-blue-500 transition-colors group"
-            >
-              <Icon
-                icon="mdi:plus"
-                className="w-8 h-8 group-hover:scale-110 transition-transform"
-              />
-              <span className="text-xs mt-1">Add More</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+export default ImagesForm;

@@ -12,10 +12,12 @@ export interface Category {
 }
 
 export interface ProductImage {
-  id?: number;
-  file?: File;
+  id?: string | number;        
+  file?: File;                 
   preview: string;
   isPrimary: boolean;
+  status?: "pending" | "uploading" | "success" | "failed";
+  serverId?: number;
   size_kb?: number;
 }
 

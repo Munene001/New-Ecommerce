@@ -19,7 +19,6 @@ interface ImageInsertResult extends ResultSetHeader {
   insertId: number;
 }
 
-// Helper to get shop_id from product
 async function getShopIdFromProduct(productId: number): Promise<number | null> {
   const [rows] = await pool.query<ProductRow[]>(
     'SELECT shop_id FROM products WHERE product_id = ?',
@@ -40,20 +39,14 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
     }
 
-    // Get shop_id from product
     const shopId = await getShopIdFromProduct(productIdNum);
     if (!shopId) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Verify access using helper
     const { authorized, response } = await verifyShopAccess(req, shopId);
-    
-    if (!authorized) {
-      return response;
-    }
+    if (!authorized) return response;
 
-    // Process upload
     const formData = await req.formData();
     const file = formData.get('image') as File;
     const isPrimary = formData.get('isPrimary') === 'true';
@@ -64,6 +57,8 @@ export async function POST(
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const originalSizeKb = Math.round(buffer.length / 1024);
+    
+    // 5MB safety net (though frontend should compress)
     if (originalSizeKb > 5000) {
       return NextResponse.json({ error: 'Image too large. Max 5MB.' }, { status: 400 });
     }
@@ -76,38 +71,24 @@ export async function POST(
       return NextResponse.json({ error: 'Maximum 6 images per product' }, { status: 400 });
     }
 
-    let quality = 75;
-    let compressed = await sharp(buffer)
+    // ----- ALWAYS CONVERT TO WEBP (single pass, adaptive quality) -----
+    // Use higher quality for already small images to avoid degrading them
+    const quality = originalSizeKb <= 150 ? 80 : 65;
+    
+    const webpBuffer = await sharp(buffer)
       .resize(1000, null, { withoutEnlargement: true, fit: 'inside' })
       .webp({ quality, effort: 4 })
       .toBuffer();
+    
+    const finalSizeKb = Math.round(webpBuffer.length / 1024);
 
-    let fileSizeKb = Math.round(compressed.length / 1024);
-    while (fileSizeKb > 200 && quality > 60) {
-      quality -= 5;
-      compressed = await sharp(buffer)
-        .resize(1000, null, { withoutEnlargement: true })
-        .webp({ quality, effort: 4 })
-        .toBuffer();
-      fileSizeKb = Math.round(compressed.length / 1024);
-    }
-    while (fileSizeKb > 200 && quality > 50) {
-      quality -= 5;
-      compressed = await sharp(buffer)
-        .resize(1000, null, { withoutEnlargement: true })
-        .webp({ quality, effort: 4 })
-        .toBuffer();
-      fileSizeKb = Math.round(compressed.length / 1024);
-    }
-
-  
-
+    // Save as .webp
     const filename = `${Date.now()}-${randomUUID().split('-')[0]}.webp`;
     const relativePath = `/${productIdNum}/${filename}`;
     const fullPath = path.join('/home/munene/storage/originals', productIdNum.toString(), filename);
 
     await mkdir(path.dirname(fullPath), { recursive: true });
-    await writeFile(fullPath, compressed);
+    await writeFile(fullPath, webpBuffer);
 
     if (isPrimary) {
       await pool.query<ResultSetHeader>(
@@ -122,16 +103,14 @@ export async function POST(
       [productIdNum, relativePath, isPrimary]
     );
 
-    const imageId = result.insertId;
-
     return NextResponse.json({
       success: true,
-      image_id: imageId,
+      image_id: result.insertId,
       image_path: relativePath,
-      url: `/api/shopowner/product/${productIdNum}/images/${imageId}`,
+      url: `/api/shopowner/product/${productIdNum}/images/${result.insertId}`,
       is_primary: isPrimary,
-      size_kb: fileSizeKb,
-      quality_used: quality
+      size_kb: finalSizeKb,
+      quality_used: quality,
     });
   } catch (error) {
     console.error('Upload error:', error);
