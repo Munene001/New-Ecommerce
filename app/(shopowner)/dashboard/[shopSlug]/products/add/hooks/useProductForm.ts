@@ -4,7 +4,7 @@ import { Attribute, Category, ProductFormData } from "../types";
 import { useAuth } from "@/context/authcontext";
 
 export function useProductForm() {
-  const { isAuthenticated } = useAuth(); // Only need isAuthenticated
+  const { isAuthenticated } = useAuth();
   const { shopId, shopType, shopSlug } = useShop();
 
   const warningRef = useRef<HTMLDivElement>(null);
@@ -95,7 +95,6 @@ export function useProductForm() {
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
-      // No Authorization header needed - cookies are sent automatically
       const res = await fetch(`/api/shopowner/products/attributes?shopType=${type}`);
       const data = await res.json();
       const fields = data.fields || [];
@@ -124,13 +123,12 @@ export function useProductForm() {
 
   const fetchCategories = async (id: number) => {
     try {
-      // No Authorization header needed - cookies are sent automatically
       const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
       const data = await res.json();
       setCategories(
-        data.map((c: { category_id: number; category_name: string }) => ({ 
-          id: c.category_id, 
-          name: c.category_name 
+        data.map((c: { category_id: number; category_name: string }) => ({
+          id: c.category_id,
+          name: c.category_name,
         }))
       );
     } catch (error) {
@@ -260,11 +258,10 @@ export function useProductForm() {
     return true;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
+  const handleSubmit = async (): Promise<number | null> => {
+    if (!validateForm()) return null;
     setLoading(true);
     try {
-      // 1. Create product - No Authorization header needed
       const productRes = await fetch("/api/shopowner/products", {
         method: "POST",
         headers: {
@@ -287,30 +284,7 @@ export function useProductForm() {
       }
       const productId = productData.product_id;
 
-      // 2. Upload images - No Authorization header needed (cookies are sent)
-      const imageFiles = formData.images.filter((img) => img.file);
-      if (imageFiles.length > 0) {
-        const uploadPromises = imageFiles.map(async (image) => {
-          const imageFormData = new FormData();
-          imageFormData.append("image", image.file!);
-          imageFormData.append("isPrimary", String(image.isPrimary));
-          const imageRes = await fetch(
-            `/api/shopowner/products/${productId}/images`,
-            {
-              method: "POST",
-              // No headers - FormData sets its own Content-Type
-              body: imageFormData,
-            }
-          );
-          if (!imageRes.ok) {
-            const error = await imageRes.json();
-            throw new Error(error.error || "Image upload failed");
-          }
-        });
-        await Promise.all(uploadPromises);
-      }
-
-      // 3. Link categories - No Authorization header needed
+      // Link categories
       if (formData.categoryIds.length > 0) {
         const categoryPromises = formData.categoryIds.map(async (categoryId) => {
           const catRes = await fetch(
@@ -330,22 +304,12 @@ export function useProductForm() {
         await Promise.all(categoryPromises);
       }
 
-      setModalState({
-        isOpen: true,
-        type: "success",
-        title: "Success!",
-        message: "Product has been created successfully.",
-      });
-      resetForm();
+      // No modal, no reset – parent handles success UI
+      return productId;
     } catch (error) {
       console.error("Submit failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to create product";
-      setModalState({
-        isOpen: true,
-        type: "error",
-        title: "Error",
-        message: errorMessage,
-      });
+      // Do not show modal here – parent will handle error
+      return null;
     } finally {
       setLoading(false);
     }
@@ -446,6 +410,7 @@ export function useProductForm() {
     showWarning,
     handleCategoryCreated,
     handleCategoryError,
+    handleSubmit,
     handleNext,
     handlePrevious,
     handleTabClick,
