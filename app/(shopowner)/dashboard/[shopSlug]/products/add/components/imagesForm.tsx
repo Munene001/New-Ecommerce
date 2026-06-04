@@ -239,9 +239,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 className="hidden"
                 id="primary-camera"
               />
-              <label htmlFor="primary-camera" className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center">
-                <Camera className="w-6 h-6 text-gray-400" />
-                <span className="text-xs mt-1">Take Photo</span>
+              <label htmlFor="primary-camera"  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center">
+                <Camera className="w-8 h-8 text-gray-600" />
+                <span className="text-xs text-black mt-1">Take Photo</span>
               </label>
               <input
                 type="file"
@@ -251,8 +251,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 id="primary-gallery"
               />
               <label htmlFor="primary-gallery" className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center">
-                <ImageIcon className="w-6 h-6 text-gray-400" />
-                <span className="text-xs mt-1">Gallery</span>
+                <ImageIcon className="w-8 h-8 text-gray-400" />
+                <span className="text-xs text-black mt-1">Gallery</span>
               </label>
             </div>
           )}
@@ -292,8 +292,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   id="additional-camera"
                 />
                 <label htmlFor="additional-camera" className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer">
-                  <Camera className="w-6 h-6" />
-                  <span className="text-xs mt-1">Camera</span>
+                  <Camera className="w-8 h-8 text-gray-600" />
+                  <span className="text-xs text-black mt-1">Camera</span>
                 </label>
                 <input
                   type="file"
@@ -304,8 +304,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   id="additional-gallery"
                 />
                 <label htmlFor="additional-gallery" className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer">
-                  <ImageIcon className="w-6 h-6" />
-                  <span className="text-xs mt-1">Gallery</span>
+                  <ImageIcon className="w-8 h-8 text-gray-600" />
+                  <span className="text-xs text-black mt-1">Gallery</span>
                 </label>
               </>
             )}

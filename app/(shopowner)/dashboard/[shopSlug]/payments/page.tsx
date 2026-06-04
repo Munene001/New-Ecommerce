@@ -58,8 +58,8 @@ export default function PaymentsPage() {
 
       {/* Future: Payout History Table */}
       <div className="mt-8">
-        <h3 className="text-lg font-semibold mb-4">Payout History</h3>
-        <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500 border border-gray-200">
+        <h3 className="text-lg text-black font-semibold mb-4">Payout History</h3>
+        <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-700 border border-gray-200">
           <p>No payouts yet</p>
           <p className="text-sm mt-1">Payout history will appear here once you start selling</p>
         </div>
