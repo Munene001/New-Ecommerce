@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { AlertCircle, Store, Phone, MapPin, Home, Loader2, X, MessageCircle } from "lucide-react";
+import { AlertCircle, Store, Loader2, X } from "lucide-react";
 import FormInput from "../ui/formInput";
 import { useToast } from "@/context/toastContext";
 import PhoneInput from "react-phone-number-input";
@@ -20,14 +20,24 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
+  
+  // Form values
   const [phoneValue, setPhoneValue] = useState<string | undefined>("");
   const [whatsappValue, setWhatsappValue] = useState<string | undefined>("");
   const [formData, setFormData] = useState({
     business_town: "",
     business_address: "",
   });
+  
+  // Store original values from DB to know when to clear on focus
+  const originalValuesRef = useRef({
+    phone: "",
+    whatsapp: "",
+    town: "",
+    address: "",
+  });
+  
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const modalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const checkWizardStatus = async () => {
@@ -44,24 +54,37 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
           setIsComplete(true);
           setHasChecked(true);
           return;
+
         }
 
         if (data.existingData) {
-          if (data.existingData.phone) setPhoneValue(data.existingData.phone);
-          if (data.existingData.whatsapp_number) setWhatsappValue(data.existingData.whatsapp_number);
-          if (data.existingData.business_town) setFormData(prev => ({ ...prev, business_town: data.existingData.business_town }));
-          if (data.existingData.business_address) setFormData(prev => ({ ...prev, business_address: data.existingData.business_address }));
+          // Store original values
+          if (data.existingData.phone) {
+            const phone = data.existingData.phone;
+            setPhoneValue(phone);
+            originalValuesRef.current.phone = phone;
+          }
+          if (data.existingData.whatsapp_number) {
+            const whatsapp = data.existingData.whatsapp_number;
+            setWhatsappValue(whatsapp);
+            originalValuesRef.current.whatsapp = whatsapp;
+          }
+          if (data.existingData.business_town) {
+            const town = data.existingData.business_town;
+            setFormData(prev => ({ ...prev, business_town: town }));
+            originalValuesRef.current.town = town;
+          }
+          if (data.existingData.business_address) {
+            const address = data.existingData.business_address;
+            setFormData(prev => ({ ...prev, business_address: address }));
+            originalValuesRef.current.address = address;
+          }
         }
 
         const skipUntil = localStorage.getItem(`wizard_skip_until_${shopSlug}`);
         const isSkipped = skipUntil && Date.now() < parseInt(skipUntil);
 
-        if (!isSkipped) {
-          // Delay the modal by 3 seconds to avoid interrupting initial dashboard load
-          modalTimeoutRef.current = setTimeout(() => {
-            setShowModal(true);
-          }, 3000);
-        }
+        // No auto-open modal – only show when button clicked
         setHasChecked(true);
       } catch (error) {
         console.error("Failed to check wizard status:", error);
@@ -72,14 +95,36 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
     if (shopId && !hasChecked) {
       checkWizardStatus();
     }
-
-    // Cleanup timeout on unmount or when shopId changes
-    return () => {
-      if (modalTimeoutRef.current) {
-        clearTimeout(modalTimeoutRef.current);
-      }
-    };
   }, [shopId, shopSlug, hasChecked]);
+
+  // Clear field on focus if it still contains the original DB value
+  const handlePhoneFocus = () => {
+    if (phoneValue === originalValuesRef.current.phone && originalValuesRef.current.phone) {
+      setPhoneValue("");
+    }
+    if (errors.phone) setErrors(prev => ({ ...prev, phone: "" }));
+  };
+
+  const handleWhatsappFocus = () => {
+    if (whatsappValue === originalValuesRef.current.whatsapp && originalValuesRef.current.whatsapp) {
+      setWhatsappValue("");
+    }
+    if (errors.whatsapp) setErrors(prev => ({ ...prev, whatsapp: "" }));
+  };
+
+  const handleTownFocus = () => {
+    if (formData.business_town === originalValuesRef.current.town && originalValuesRef.current.town) {
+      setFormData(prev => ({ ...prev, business_town: "" }));
+    }
+    if (errors.business_town) setErrors(prev => ({ ...prev, business_town: "" }));
+  };
+
+  const handleAddressFocus = () => {
+    if (formData.business_address === originalValuesRef.current.address && originalValuesRef.current.address) {
+      setFormData(prev => ({ ...prev, business_address: "" }));
+    }
+    if (errors.business_address) setErrors(prev => ({ ...prev, business_address: "" }));
+  };
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -159,22 +204,16 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
     showToast("You can complete this later", );
   };
 
-  if (!hasChecked) {
-    return null;
-  }
-
-  if (isComplete) {
-    return null;
-  }
+  if (!hasChecked) return null;
+  if (isComplete) return null;
 
   return (
     <>
+      {/* Banner with button to open modal */}
       <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4 mb-4 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex-shrink-0">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-            </div>
+            <AlertCircle className="w-5 h-5 text-red-600" />
             <div>
               <p className="text-sm font-semibold text-red-800">
                 Action Required: Shop Setup Incomplete
@@ -193,6 +232,7 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
         </div>
       </div>
 
+      {/* Modal - only opens when button clicked */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -207,10 +247,7 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                     <p className="text-sm text-gray-500">Add your contact information</p>
                   </div>
                 </div>
-                <button
-                  onClick={handleSkip}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
+                <button onClick={handleSkip} className="text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -223,6 +260,7 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                 </p>
               </div>
 
+              {/* Phone Number - clears on focus if original value */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number <span className="text-red-500">*</span>
@@ -231,14 +269,14 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                   defaultCountry="KE"
                   value={phoneValue}
                   onChange={setPhoneValue}
+                  onFocus={handlePhoneFocus}
                   placeholder="Enter phone number"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-three/20 focus:border-three"
+                  className="w-full"
                 />
-                {errors.phone && (
-                  <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-                )}
+                {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone}</p>}
               </div>
 
+              {/* WhatsApp Number - clears on focus if original value */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   WhatsApp Number
@@ -247,28 +285,33 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
                   defaultCountry="KE"
                   value={whatsappValue}
                   onChange={setWhatsappValue}
+                  onFocus={handleWhatsappFocus}
                   placeholder="Enter WhatsApp number"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-three/20 focus:border-three"
+                  className="w-full"
                 />
               </div>
 
+              {/* Town/City - clears on focus if original value */}
               <FormInput
                 name="business_town"
                 label="Town/City"
                 type="text"
                 value={formData.business_town}
                 onChange={handleChange}
+                onFocus={handleTownFocus}
                 placeholder="e.g., Nairobi"
                 required
                 icon="mapPin"
               />
 
+              {/* Business Address - clears on focus if original value */}
               <FormInput
                 name="business_address"
                 label="Business Address"
                 type="text"
                 value={formData.business_address}
                 onChange={handleChange}
+                onFocus={handleAddressFocus}
                 placeholder="Street name, building, floor"
                 required
                 icon="home"
@@ -279,14 +322,14 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
               <button
                 onClick={handleSkip}
                 disabled={loading}
-                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 text-sm font-medium"
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm font-medium"
               >
                 Remind Later (48h)
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="px-5 py-2 bg-three text-white rounded-lg hover:bg-three/90 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+                className="px-5 py-2 bg-three text-white rounded-lg hover:bg-three/90 disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Complete Setup
@@ -295,6 +338,16 @@ export default function Wizard({ shopSlug, shopId, onComplete }: WizardProps) {
           </div>
         </div>
       )}
+
+      {/* Ensure placeholders have visible color */}
+      <style jsx global>{`
+        .PhoneInputInput::placeholder,
+        input::placeholder,
+        textarea::placeholder {
+          color: #9ca3af !important;
+          opacity: 1;
+        }
+      `}</style>
     </>
   );
 }

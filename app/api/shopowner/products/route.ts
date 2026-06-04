@@ -331,11 +331,28 @@ export async function DELETE(req: NextRequest) {
       'DELETE FROM product_images WHERE product_id IN (?)',
       [productIds]
     );
-    // Finally delete products
-    await pool.query<ResultSetHeader>(
-      'DELETE FROM products WHERE product_id IN (?) AND shop_id = ?',
-      [productIds, shopId]
-    );
+    
+    // Finally delete products – catch foreign key constraint from order_items
+    try {
+      await pool.query<ResultSetHeader>(
+        'DELETE FROM products WHERE product_id IN (?) AND shop_id = ?',
+        [productIds, shopId]
+      );
+    } catch (deleteError: any) {
+      // Foreign key constraint violation (product has order items)
+      if (deleteError.code === 'ER_ROW_IS_REFERENCED_2' && 
+          deleteError.sqlMessage?.includes('order_items')) {
+        return NextResponse.json(
+          { 
+            error: 'Cannot delete products that have existing orders.',
+            constraint: 'order_items'
+          },
+          { status: 400 }
+        );
+      }
+      // Re-throw other DB errors
+      throw deleteError;
+    }
 
     return NextResponse.json({ 
       success: true, 

@@ -70,6 +70,87 @@ export default function CheckoutForm({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6">
+      {/* Payment Method - MOVED TO TOP */}
+      <div>
+        <h3 className="font-semibold text-black mb-3 flex items-center gap-2">
+          <CreditCard className="w-5 h-5" style={{ color: secondaryColor }} />
+          Payment Method
+        </h3>
+        
+        <div className="space-y-3">
+          {/* M-Pesa - Radio button style */}
+          {mpesaEnabled && (
+            <label 
+              className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                paymentMethod === "mpesa" ? "border-opacity-100 bg-opacity-5" : "border-gray-200"
+              }`}
+              style={{ 
+                borderColor: paymentMethod === "mpesa" ? secondaryColor : undefined,
+                backgroundColor: paymentMethod === "mpesa" ? `${secondaryColor}10` : undefined
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="mpesa"
+                  checked={paymentMethod === "mpesa"}
+                  onChange={() => onPaymentMethodChange("mpesa")}
+                  className="w-4 h-4"
+                  style={{ accentColor: secondaryColor }}
+                />
+                <Wallet className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="font-medium text-black">M-Pesa</p>
+                  <p className="text-xs text-gray-500">Pay via M-Pesa (STK Push or Paybill)</p>
+                </div>
+              </div>
+              {paymentMethod === "mpesa" && (
+                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: secondaryColor }} />
+              )}
+            </label>
+          )}
+          
+          {/* Cash on Delivery */}
+          {codEnabled && (
+            <button
+              type="button"
+              onClick={() => onPaymentMethodChange("cod")}
+              className={`w-full flex items-center justify-between p-4 border-2 rounded-lg transition-all ${
+                paymentMethod === "cod" 
+                  ? "border-opacity-100 bg-opacity-5" 
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              style={{ 
+                borderColor: paymentMethod === "cod" ? secondaryColor : undefined,
+                backgroundColor: paymentMethod === "cod" ? `${secondaryColor}10` : undefined
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  paymentMethod === "cod" ? "border-" : "border-gray-300"
+                }`}
+                style={paymentMethod === "cod" ? { borderColor: secondaryColor } : {}}
+                >
+                  {paymentMethod === "cod" && (
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
+                  )}
+                </div>
+                <CreditCard className="w-5 h-5 text-orange-600" />
+                <div className="text-left">
+                  <p className="font-medium text-black">Cash on Delivery</p>
+                  <p className="text-xs text-gray-500">Pay when you receive your order</p>
+                </div>
+              </div>
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {/* Divider */}
+      <div className="border-t border-gray-200 my-6"></div>
+      
+      {/* Delivery Information - NOW AFTER PAYMENT METHOD */}
       <h2 className="text-xl font-semibold text-black mb-5 flex items-center gap-2">
         Delivery Information
       </h2>
@@ -167,86 +248,6 @@ export default function CheckoutForm({
           icon="message"
           rows={2}
         />
-      </div>
-      
-      {/* Divider */}
-      <div className="border-t border-gray-200 my-6"></div>
-      
-      {/* Payment Method */}
-      <div>
-        <h3 className="font-semibold text-black mb-3 flex items-center gap-2">
-          <CreditCard className="w-5 h-5" style={{ color: secondaryColor }} />
-          Payment Method
-        </h3>
-        
-        <div className="space-y-3">
-          {/* M-Pesa - Radio button style */}
-          {mpesaEnabled && (
-            <label 
-              className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                paymentMethod === "mpesa" ? "border-opacity-100 bg-opacity-5" : "border-gray-200"
-              }`}
-              style={{ 
-                borderColor: paymentMethod === "mpesa" ? secondaryColor : undefined,
-                backgroundColor: paymentMethod === "mpesa" ? `${secondaryColor}10` : undefined
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="mpesa"
-                  checked={paymentMethod === "mpesa"}
-                  onChange={() => onPaymentMethodChange("mpesa")}
-                  className="w-4 h-4"
-                  style={{ accentColor: secondaryColor }}
-                />
-                <Wallet className="w-5 h-5 text-green-600" />
-                <div>
-                  <p className="font-medium text-black">M-Pesa</p>
-                  <p className="text-xs text-gray-500">Pay via M-Pesa (STK Push or Paybill)</p>
-                </div>
-              </div>
-              {paymentMethod === "mpesa" && (
-                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: secondaryColor }} />
-              )}
-            </label>
-          )}
-          
-          {/* Cash on Delivery - Original button style restored */}
-          {codEnabled && (
-            <button
-              type="button"
-              onClick={() => onPaymentMethodChange("cod")}
-              className={`w-full flex items-center justify-between p-4 border-2 rounded-lg transition-all ${
-                paymentMethod === "cod" 
-                  ? "border-opacity-100 bg-opacity-5" 
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              style={{ 
-                borderColor: paymentMethod === "cod" ? secondaryColor : undefined,
-                backgroundColor: paymentMethod === "cod" ? `${secondaryColor}10` : undefined
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  paymentMethod === "cod" ? "border-" : "border-gray-300"
-                }`}
-                style={paymentMethod === "cod" ? { borderColor: secondaryColor } : {}}
-                >
-                  {paymentMethod === "cod" && (
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
-                  )}
-                </div>
-                <CreditCard className="w-5 h-5 text-orange-600" />
-                <div className="text-left">
-                  <p className="font-medium text-black">Cash on Delivery</p>
-                  <p className="text-xs text-gray-500">Pay when you receive your order</p>
-                </div>
-              </div>
-            </button>
-          )}
-        </div>
       </div>
       
       {/* Delivery Note */}

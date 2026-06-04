@@ -223,8 +223,8 @@ export default function ProductsTable({
                     )}
                   </div>
 
-                  <div className="w-[21%] pr-4">
-                    <div className="font-medium overflow-auto text-gray-900">
+                  <div className="w-[21%] pr-4 min-w-0">
+                    <div className="font-medium truncate text-gray-900">
                       {product.product_name}
                     </div>
                   </div>
@@ -261,7 +261,7 @@ export default function ProductsTable({
 
                   <div className="w-[9.5%]">
                     <select
-                      className="border rounded-sm p-1"
+                      className="border border-black text-black rounded-sm p-1"
                       value={actionValues[product.product_id] || ""}
                       onChange={(e) =>
                         handleActionChange(e.target.value, product.product_id)

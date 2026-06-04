@@ -238,7 +238,7 @@ export default function Settings() {
                     className={`flex-1 text-center px-2 py-3 text-[18px] md:text-base font-[500] transition-colors font-[Poppins] relative ${
                       index === activeIndex
                         ? "text-black"
-                        : "text-gray-400 hover:text-gray-600"
+                        : "text-gray-700 hover:text-gray-600"
                     }`}
                   >
                     {section}

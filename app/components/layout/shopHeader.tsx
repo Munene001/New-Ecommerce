@@ -247,12 +247,8 @@ export default function ShopHeader() {
                 className="flex gap-12 text-lg font-[Inter]"
                 style={{ color: shop?.secondaryColor || "var(--secondary)" }}
               >
-                <NavIcon href={`/`} icon={<ShoppingCart />} label="Shop" />
-                <NavIcon
-                  href={`/${shop?.shopSlug}/blog`}
-                  icon={<Newspaper />}
-                  label="Blog"
-                />
+                <NavIcon href={`/${shop?.shopSlug}`} icon={<ShoppingCart />} label="Shop" />
+               
                 <div onClick={scrollToFooter}>
                   <NavIcon href="#" icon={<PhoneForwarded />} label="Contact" />
                 </div>
@@ -316,13 +312,7 @@ export default function ShopHeader() {
                       onClick={() => setIsMobileMenuOpen(false)}
                       isMobile={true}
                     />
-                    <NavIcon
-                      href={`/${shop?.shopSlug}/blog`}
-                      icon={<Newspaper className="w-6 h-6" />}
-                      label="Blog"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      isMobile={true}
-                    />
+                   
                     <div onClick={scrollToFooter}>
                       <NavIcon
                         href="#"

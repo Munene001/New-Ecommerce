@@ -193,7 +193,7 @@ export default function AppearancePage() {
                   className={`flex-1 text-center px-2 py-3 text-[18px] md:text-base font-[500] transition-colors font-[Poppins] ${
                     index === activeIndex
                       ? "text-black"
-                      : "text-gray-400 hover:text-gray-600"
+                      : "text-gray-700 hover:text-gray-600"
                   }`}
                   style={{ width: `${100 / sections.length}%` }}
                 >

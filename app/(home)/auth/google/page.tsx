@@ -180,6 +180,7 @@ export default function AuthCallbackPage() {
             required
             autoFocus
           />
+           <p className="text-xs text-gray-200 mt-1">You can change this later in settings</p>
 
           <Button
             onClick={handleBusinessSubmit}

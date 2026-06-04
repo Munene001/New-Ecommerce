@@ -204,7 +204,7 @@ export default function SalesClient({
             placeholder="Search by order # or customer..."
             value={searchInput}
             onChange={handleSearch}
-            className="w-full border border-gray-300 px-4 h-[50px] pl-12 rounded-lg bg-white text-black"
+            className="w-full border border-gray-600 px-4 h-[50px] pl-12 rounded-lg bg-white text-black"
           />
           <Icon
             icon="mdi:magnify"
@@ -225,15 +225,15 @@ export default function SalesClient({
         </select>
 
         {/* Date Range Picker */}
-        <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 h-[50px]">
-          <Calendar size={18} className="text-gray-400" />
+        <div className="flex items-center gap-2 text-black bg-white border border-gray-600 rounded-lg px-3 h-[50px]">
+          <Calendar size={18} className="text-gray-600" />
           <input
             type="date"
             value={dateFrom}
             onChange={handleDateFromChange}
             className="w-32 h-full focus:outline-none text-sm placeholder:text-gray-700 text-black"
           />
-          <span className="text-gray-400">—</span>
+          <span className="text-gray-600">—</span>
           <input
             type="date"
             value={dateTo}

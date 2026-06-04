@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react";
+import { ReactNode, FocusEvent } from "react";
 import { User, Mail, Phone, MapPin, Home, MessageSquare } from "lucide-react";
 
 interface FormInputProps {
@@ -13,6 +13,7 @@ interface FormInputProps {
   required?: boolean;
   icon?: ReactNode;
   rows?: number;
+  onFocus?: (e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void; // ADDED
 }
 
 const iconMap = {
@@ -34,8 +35,17 @@ export default function FormInput({
   required = false,
   icon,
   rows = 3,
+  onFocus, // ADDED
 }: FormInputProps) {
   const iconElement = typeof icon === "string" ? iconMap[icon as keyof typeof iconMap] : icon;
+
+  const commonProps = {
+    value,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(name, e.target.value),
+    placeholder,
+    onFocus, // ADDED – will be undefined if not provided
+    className: "w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 text-black",
+  };
 
   return (
     <div>
@@ -50,19 +60,14 @@ export default function FormInput({
         )}
         {type === "textarea" ? (
           <textarea
-            value={value}
-            onChange={(e) => onChange(name, e.target.value)}
-            placeholder={placeholder}
+            {...commonProps}
             rows={rows}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 text-black resize-none"
+            className={commonProps.className + " resize-none"}
           />
         ) : (
           <input
+            {...commonProps}
             type={type}
-            value={value}
-            onChange={(e) => onChange(name, e.target.value)}
-            placeholder={placeholder}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 text-black"
           />
         )}
       </div>

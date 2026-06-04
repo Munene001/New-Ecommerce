@@ -152,18 +152,18 @@ export default function OrdersClient({
             placeholder="Search by order # or customer..."
             value={searchInput}
             onChange={handleSearch}
-            className="w-full border border-gray-300 px-4 h-[50px] pl-12 rounded-lg bg-white text-black placeholder:to-black"
+            className="w-full border border-gray-600 px-4 h-[50px] pl-12 rounded-lg bg-white text-black placeholder:to-black"
           />
           <Icon
             icon="mdi:magnify"
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 w-5 h-5"
           />
         </div>
 
         <select
           value={statusFilter}
           onChange={handleStatusFilter}
-          className="w-48 border border-gray-300 h-[50px] px-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-magenta-dark"
+          className="w-48 border border-gray-600 h-[50px] text-black px-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-magenta-dark"
         >
           <option value="">All Status</option>
           <option value="pending">Pending</option>
@@ -173,15 +173,15 @@ export default function OrdersClient({
         </select>
 
         {/* Clean Date Range Picker */}
-        <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 h-[50px]">
-          <Calendar size={18} className="text-gray-400" />
+        <div className="flex items-center gap-2 bg-white border text-black border-gray-600 rounded-lg px-3 h-[50px]">
+          <Calendar size={18} className="text-gray-600" />
           <input
             type="date"
             value={dateFrom}
             onChange={handleDateFromChange}
             className="w-32 h-full focus:outline-none text-sm"
           />
-          <span className="text-gray-400">—</span>
+          <span className="text-black">—</span>
           <input
             type="date"
             value={dateTo}

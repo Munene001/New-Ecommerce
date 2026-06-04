@@ -95,13 +95,7 @@ export default function ShopFooter() {
                 <span className="text-white font-medium">{displayPhone}</span>
               </button>
             )}
-            <button 
-              onClick={handleWhatsAppClick}
-              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 px-6 py-4 rounded-2xl transition-all group"
-            >
-              <Icon icon="logos:whatsapp-icon" className="w-5 h-5" />
-              <span className="text-green-400 font-medium">WhatsApp</span>
-            </button>
+          
           </div>
         </div>
 
