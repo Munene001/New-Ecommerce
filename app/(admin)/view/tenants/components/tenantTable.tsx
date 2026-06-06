@@ -1,7 +1,7 @@
 // app/admin/tenants/components/tenantsTable.tsx
 'use client';
 
-import { useState, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 
@@ -21,6 +21,7 @@ interface TenantsTableProps {
   loading: boolean;
   hasMore: boolean;
   loadMore: () => void;
+  onRowClick?: (tenantId: number) => void; // NEW: optional custom handler
 }
 
 const SkeletonRow = () => (
@@ -91,6 +92,7 @@ export default function TenantsTable({
   loading,
   hasMore,
   loadMore,
+  onRowClick,
 }: TenantsTableProps) {
   const router = useRouter();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -112,7 +114,11 @@ export default function TenantsTable({
   );
 
   const handleRowClick = (tenantId: number) => {
-    router.push(`/view/tenants/${tenantId}`);
+    if (onRowClick) {
+      onRowClick(tenantId);
+    } else {
+      router.push(`/view/tenants/${tenantId}`);
+    }
   };
 
   return (
