@@ -47,7 +47,6 @@ export async function GET(
     return NextResponse.json({ error: "Invalid shop slug" }, { status: 400 });
   }
 
- 
   const supabase = await createSupabaseServerClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -105,13 +104,23 @@ export async function GET(
         LIMIT 1
       ) as active_banner,
       
-      -- ✅ ADD OWNERSHIP CHECK
-      EXISTS (
-        SELECT 1 
-        FROM tenant t
-        JOIN users u ON t.user_id = u.user_id
-        WHERE t.tenant_id = s.tenant_id 
-        AND u.supabase_uid = ?
+      -- Ownership check: owner OR affiliate who referred this tenant
+      (
+        EXISTS (
+          SELECT 1 
+          FROM tenant t
+          JOIN users u ON t.user_id = u.user_id
+          WHERE t.tenant_id = s.tenant_id 
+          AND u.supabase_uid = ?
+        )
+        OR
+        EXISTS (
+          SELECT 1 
+          FROM tenant t
+          JOIN affiliate a ON t.affiliate_id = a.affiliate_id
+          WHERE t.tenant_id = s.tenant_id 
+          AND a.user_id = (SELECT user_id FROM users WHERE supabase_uid = ?)
+        )
       ) as is_owner
       
     FROM shops s
@@ -119,7 +128,7 @@ export async function GET(
     WHERE s.shop_slug = ?
     `;
 
-    const [rows] = await pool.query<ShopRow[]>(query, [user?.id || null, shopSlug]);
+    const [rows] = await pool.query<ShopRow[]>(query, [user?.id || null, user?.id || null, shopSlug]);
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "Shop not found" }, { status: 404 });
@@ -127,7 +136,6 @@ export async function GET(
 
     const shop = rows[0];
     
-   
     const isAuthenticated = !!user && !authError;
     const isOwner = shop.is_owner === 1;
 
@@ -167,7 +175,6 @@ export async function GET(
       categories,
       banner,
       
-     
       isAuthenticated,
       isOwner,
     });

@@ -102,6 +102,9 @@ function LoginFormContent() {
           return;
         }
         router.replace("/view");
+      } else if (profile.role === "affiliate") {
+        // Affiliate redirect – static route
+        router.replace("/affiliate/tenants");
       } else {
         router.replace("/");
       }
@@ -173,6 +176,8 @@ function LoginFormContent() {
         router.replace(currentShopSlug ? `/${currentShopSlug}` : "/");
       } else if (profileData.role === "super_admin") {
         router.replace("/view");
+      } else if (profileData.role === "affiliate") {
+        router.replace("/affiliate/tenants");
       } else {
         router.replace("/");
       }
@@ -263,10 +268,6 @@ function LoginFormContent() {
             {isLoading ? "Logging in..." : "Login"}
           </Button>
         </form>
-
-        
-
-      
 
         <div className="mt-5 space-y-8 text-center">
           <div className="flex md:flex-row flex-col gap-4 md:gap-0 justify-between">

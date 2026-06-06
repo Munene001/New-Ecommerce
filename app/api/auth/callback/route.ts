@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import pool from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
@@ -98,10 +99,31 @@ export async function POST(request: NextRequest) {
           const businessTown = 'Not set';
           const businessAddress = 'Not set';
 
-          await conn.execute(
+          let affiliateIdFromCookie: number | null = null;
+          try {
+            const cookieStore = await cookies();
+            const cookieValue = cookieStore.get('affiliate_id')?.value;
+            if (cookieValue) affiliateIdFromCookie = parseInt(cookieValue, 10);
+          } catch {
+            // ignore cookie read errors
+          }
+
+          const [tenantResult] = await conn.execute<ResultSetHeader>(
             `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) VALUES (?, ?, ?, ?, ?)`,
             [userId, body.business_name, slug, businessTown, businessAddress]
           );
+          const tenantId = tenantResult.insertId;
+
+          if (affiliateIdFromCookie) {
+            await conn.execute(
+              `UPDATE tenant SET affiliate_id = ? WHERE tenant_id = ?`,
+              [affiliateIdFromCookie, tenantId]
+            );
+            await conn.execute(
+              `UPDATE affiliate SET conversion_count = conversion_count + 1 WHERE affiliate_id = ?`,
+              [affiliateIdFromCookie]
+            );
+          }
 
           await conn.commit();
           const response = NextResponse.json({
@@ -222,10 +244,31 @@ export async function POST(request: NextRequest) {
         const businessTown = 'Not set';
         const businessAddress = 'Not set';
 
-        await conn.execute(
+        let affiliateIdFromCookie: number | null = null;
+        try {
+          const cookieStore = await cookies();
+          const cookieValue = cookieStore.get('affiliate_id')?.value;
+          if (cookieValue) affiliateIdFromCookie = parseInt(cookieValue, 10);
+        } catch {
+          
+        }
+
+        const [tenantResult] = await conn.execute<ResultSetHeader>(
           `INSERT INTO tenant (user_id, business_name, business_slug, business_town, business_address) VALUES (?, ?, ?, ?, ?)`,
           [userId, body.business_name, slug, businessTown, businessAddress]
         );
+        const tenantId = tenantResult.insertId;
+
+        if (affiliateIdFromCookie) {
+          await conn.execute(
+            `UPDATE tenant SET affiliate_id = ? WHERE tenant_id = ?`,
+            [affiliateIdFromCookie, tenantId]
+          );
+          await conn.execute(
+            `UPDATE affiliate SET conversion_count = conversion_count + 1 WHERE affiliate_id = ?`,
+            [affiliateIdFromCookie]
+          );
+        }
 
         await conn.commit();
         const response = NextResponse.json({

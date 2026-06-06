@@ -1,55 +1,33 @@
+// app/affiliate/layout.tsx
 "use client";
+
+import { AffiliateProvider, useAffiliate } from "./affiliateContext";
+import { ToastProvider } from "@/context/toastContext";
 import BaseLeftMenu from "@/app/components/layout/leftNav";
 import DashHeader from "@/app/components/layout/dashHeader";
-import { AdminProvider, useAdmin } from "../adminContext";
-import { ToastProvider } from "@/context/toastContext";
-import * as React from 'react'
-import { useState, useEffect, useRef } from 'react'
+import * as React from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Store, ChartNoAxesCombined, Settings, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, Store, Users, Link2, Settings, LogOut } from "lucide-react";
 
-// Admin nav items
-const adminNavItems = [
+
+const affiliateNavItems = [
+
   {
-    href: "/view",
-    title: "Dashboard",
-    icon: LayoutDashboard
-  },
-  {
-    href: "/view/tenants",
-    title: "Tenants",
+    href: "/affiliate/tenants",
+    title: "My Tenants",
     icon: Users
   },
   {
-    href: "/view/shops",
-    title: "Shops",
+    href: "/affiliate/shops",
+    title: "My Shops",
     icon: Store
   },
-  {
-    href: "/view/analytics",
-    title: "Analytics",
-    icon: ChartNoAxesCombined
-  },
-  {
-    href: "/view/affiliates",
-    title: "Analytics",
-    icon: ChartNoAxesCombined
-  },
-  {
-    href: "/view/settings",
-    title: "Settings",
-    icon: Settings
-  },
-  {
-    href: "/view/permissions",
-    title: "Permissions",
-    icon: Shield
-  },
+ 
 ];
 
-// Create a separate component for the content that needs admin data
-function AdminContent({ children }: { children: React.ReactNode }) {
-  const { isAdmin, adminLogout } = useAdmin(); // Add admin logout
+function AffiliateContent({ children }: { children: React.ReactNode }) {
+  const { affiliateLogout } = useAffiliate();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -57,25 +35,21 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const getPageTitle = (path: string) => {
-    if (path.includes('/tenants')) return 'Tenants';
-    if (path.includes('/shops')) return 'Shops';
-    if (path.includes('/analytics')) return 'Analytics';
+    if (path.includes('/tenants')) return 'My Tenants';
+    if (path.includes('/shops')) return 'My Shops';
+    if (path.includes('/referral')) return 'Referral Link';
     if (path.includes('/settings')) return 'Settings';
-     if (path.includes('/affiliates')) return 'Affiliates';
-    if (path.includes('/permissions')) return 'Permissions';
-    return 'Admin Dashboard';
+    return 'Affiliate Dashboard';
   };
 
   const pageTitle = getPageTitle(pathname);
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); 
+      setIsMobile(window.innerWidth < 768);
     };
-    
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -86,16 +60,13 @@ function AdminContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  const handleMenuClick = (bool: boolean) => {
-    console.log("Menu clicked:", bool);
-    if (isMobile) {
-      setIsMobileMenuOpen(false);
-    }
+  const handleMenuClick = () => {
+    if (isMobile) setIsMobileMenuOpen(false);
   };
 
-  const handleAdminLogout = () => {
-    adminLogout(); 
-    router.push("/admin/login");
+  const handleLogout = () => {
+    affiliateLogout();
+    router.push("/");
   };
 
   return (
@@ -109,15 +80,15 @@ function AdminContent({ children }: { children: React.ReactNode }) {
           title={pageTitle}
         />
       </header>
-      
+
       <div className="pt-[85px] flex min-h-screen relative">
         {isMobile && isMobileMenuOpen && (
           <div 
-            className="fixed inset-0 bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
-        
+
         <aside 
           className={`
             ${isMobile 
@@ -136,11 +107,11 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         >
           <BaseLeftMenu 
             onMenuClicked={handleMenuClick}  
-            navItems={adminNavItems}
+            navItems={affiliateNavItems}
             unviewedCount={0}
           />
         </aside>
-        
+
         <main className={`
           flex-1 md:p-6 px-1 bg-gray-50 overflow-y-auto
           ${isMobile ? 'w-full' : ''}
@@ -152,19 +123,18 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Main layout component
-export default function AdminLayout({
+export default function AffiliateLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <AdminProvider>
+    <AffiliateProvider>
       <ToastProvider>
         <div className="min-h-screen">
-          <AdminContent>{children}</AdminContent>
+          <AffiliateContent>{children}</AffiliateContent>
         </div>
       </ToastProvider>
-    </AdminProvider>
+    </AffiliateProvider>
   );
 }

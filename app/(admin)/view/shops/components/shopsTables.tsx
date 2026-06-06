@@ -1,7 +1,7 @@
 // app/admin/shops/components/shopsTable.tsx
 'use client';
 
-import { useState, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 
@@ -21,6 +21,7 @@ interface ShopsTableProps {
   loading: boolean;
   hasMore: boolean;
   loadMore: () => void;
+  onRowClick?: (shopId: number) => void; // optional custom handler
 }
 
 const SkeletonRow = () => (
@@ -69,6 +70,7 @@ export default function ShopsTable({
   loading,
   hasMore,
   loadMore,
+  onRowClick,
 }: ShopsTableProps) {
   const router = useRouter();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -90,7 +92,12 @@ export default function ShopsTable({
   );
 
   const handleRowClick = (shopId: number) => {
-    router.push(`/view/shops/${shopId}`);
+    if (onRowClick) {
+      onRowClick(shopId);
+    } else {
+      // Default admin navigation
+      router.push(`/view/shops/${shopId}`);
+    }
   };
 
   return (
