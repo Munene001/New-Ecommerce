@@ -14,12 +14,15 @@ import {
 import { useState } from "react";
 import ShareButton from "@/app/components/ui/shareButton";
 
+
 export default function Dashboard() {
   const params = useParams();
   const shopSlug = params?.shopSlug as string;
   const [] = useState(false);
 
-  // Guard against undefined shopSlug
+  
+
+  
   if (!shopSlug) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
