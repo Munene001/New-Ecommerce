@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import pool from '@/lib/db';
+import { RowDataPacket } from 'mysql2';
 
 const excludedSubdomains = new Set(['www', 'staging', 'mail', 'admin', 'support']);
 
@@ -7,28 +9,33 @@ let validSlugsCache: string[] = [];
 let lastFetchTime = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-async function getValidShopSlugs(request: NextRequest): Promise<string[]> {
+// Preload cache on module load (optional, speeds up first request)
+async function preloadSlugs() {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT shop_slug FROM shops');
+    validSlugsCache = rows.map(row => row.shop_slug);
+    lastFetchTime = Date.now();
+    console.log(`[Proxy] Preloaded ${validSlugsCache.length} slugs on startup`);
+  } catch (err) {
+    console.error('[Proxy] Failed to preload slugs:', err);
+  }
+}
+preloadSlugs(); // run immediately
+
+async function getValidShopSlugs(): Promise<string[]> {
   const now = Date.now();
   if (lastFetchTime !== 0 && now - lastFetchTime < CACHE_TTL_MS) {
-    console.log(`[Proxy] Using cached slugs (${validSlugsCache.length} items)`);
     return validSlugsCache;
   }
   try {
-    console.log('[Proxy] Fetching fresh shop slugs from API');
-    // Use internal localhost to avoid SSL errors
-    const url = new URL('/api/shops/shop-slugs', 'http://localhost:3000');
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      console.log(`[Proxy] API returned ${res.status}, using stale cache`);
-      return validSlugsCache;
-    }
-    const data = await res.json();
-    validSlugsCache = data.slugs || [];
+    console.log('[Proxy] Fetching fresh shop slugs from DB');
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT shop_slug FROM shops');
+    validSlugsCache = rows.map(row => row.shop_slug);
     lastFetchTime = now;
     console.log(`[Proxy] Cached ${validSlugsCache.length} slugs:`, validSlugsCache);
     return validSlugsCache;
   } catch (err) {
-    console.error('[Proxy] Error fetching slugs:', err);
+    console.error('[Proxy] DB error fetching slugs:', err);
     return validSlugsCache;
   }
 }
@@ -56,33 +63,29 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get('host') || '';
   const hostname = host.split(':')[0];
 
-  console.log(`[Proxy] Request host: ${host}, hostname: ${hostname}, pathname: ${pathname}`);
-
   // Allow main domain and www to pass through
   if (hostname === 'paziatech.co.ke' || hostname === 'www.paziatech.co.ke') {
-    console.log('[Proxy] Main domain or www – skipping subdomain logic');
     return NextResponse.next();
   }
 
   const parts = hostname.split('.');
   const subdomain = parts.length >= 3 ? parts[0] : null;
 
-  console.log(`[Proxy] parts: ${parts}, subdomain extracted: ${subdomain}`);
-
   if (subdomain && !excludedSubdomains.has(subdomain)) {
-    console.log(`[Proxy] Subdomain "${subdomain}" not excluded, checking validity`);
-    const validSlugs = await getValidShopSlugs(request);
+    const validSlugs = await getValidShopSlugs();
     if (validSlugs.includes(subdomain)) {
       const url = request.nextUrl.clone();
-      url.pathname = `/${subdomain}${pathname}`;
-      console.log(`[Proxy] Valid shop! Rewriting to: ${url.pathname}`);
+      // Prevent duplicate subdomain in path
+      if (pathname.startsWith(`/${subdomain}/`) || pathname === `/${subdomain}`) {
+        url.pathname = pathname;
+      } else {
+        url.pathname = `/${subdomain}${pathname}`;
+      }
       return NextResponse.rewrite(url);
     }
-    console.log(`[Proxy] Subdomain "${subdomain}" not found in valid slugs list`);
     return new NextResponse('Shop not found', { status: 404 });
   }
 
-  console.log(`[Proxy] No valid subdomain (subdomain=${subdomain}, excluded? ${subdomain && excludedSubdomains.has(subdomain)}) – passing through`);
   return NextResponse.next();
 }
 
