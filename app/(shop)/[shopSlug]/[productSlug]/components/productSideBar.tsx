@@ -199,8 +199,7 @@ export default function ProductSidebar({
       value: value as AttributeValue,
     }));
 
-  // Construct share URL (client-side only)
-  const shareUrl = `/${shopSlug}/${product.product_slug}`;
+ const shareUrl = `${window.location.origin}/${product.product_slug}`;
  
 
   // Heart icon and style based on wishlist status and owner restriction
