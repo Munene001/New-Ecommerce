@@ -15,7 +15,8 @@ async function getValidShopSlugs(request: NextRequest): Promise<string[]> {
   }
   try {
     console.log('[Proxy] Fetching fresh shop slugs from API');
-    const url = new URL('/api/shops/shop-slugs', request.nextUrl.origin);
+    // Use internal localhost to avoid SSL errors
+    const url = new URL('/api/shops/shop-slugs', 'http://localhost:3000');
     const res = await fetch(url.toString());
     if (!res.ok) {
       console.log(`[Proxy] API returned ${res.status}, using stale cache`);
