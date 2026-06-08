@@ -164,8 +164,8 @@ export async function GET(
       businessAddress: shop.business_address,
 
       // Settings with defaults
-      primaryColor: shop.primary_color || "#3B82F6",
-      secondaryColor: shop.secondary_color || "#10B981",
+      primaryColor: shop.primary_color || "#000000",
+      secondaryColor: shop.secondary_color || "#000000",
       logoUrl: shop.logo_url,
       whatsappNumber: shop.whatsapp_number,
       headerMessage: shop.header_message,

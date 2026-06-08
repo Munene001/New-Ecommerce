@@ -110,7 +110,7 @@ export default function SimpleFooter() {
           <div className="space-y-4 col-span-2 md:col-span-1">
             <h4 className="text-white font-semibold uppercase tracking-widest text-sm">Socials</h4>
             <div className="flex gap-4">
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="bg-white/5 hover:bg-white/10 p-3 rounded-full transition-all">
+              <a href="https://instagram.com/paziatech" target="_blank" rel="noopener noreferrer" className="bg-white/5 hover:bg-white/10 p-3 rounded-full transition-all">
                 <Instagram className="w-5 h-5 text-white" />
               </a>
               <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="bg-white/5 hover:bg-white/10 p-3 rounded-full transition-all">

@@ -4,7 +4,7 @@
 import { useAuth } from "@/context/authcontext";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, LogOut, Home, Phone, HelpCircle } from "lucide-react";
+import { Menu, X, LogOut, Home, Phone,DollarSign, HelpCircle } from "lucide-react";
 import Button from "../ui/button";
 import Link from "next/link";
 import Image from "next/image";
@@ -31,6 +31,7 @@ export default function HomeHeader() {
 
   const navItems = [
     { title: "Home", href: "/", icon: Home },
+    { title: "Pricing", href: "/pricing", icon: DollarSign },
     { title: "Contact Us", href: "/contact", icon: Phone },
     { title: "Help", href: "/contact#faq", icon: HelpCircle },
   ];
