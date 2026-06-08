@@ -82,8 +82,7 @@ export default function Dashboard() {
         <div className="text-sm text-amber-800">
           <p className="font-medium mb-1">Mobile View</p>
           <p>
-            For the best dashboard experience, please use a
-            computer or laptop.
+            For the best dashboard experience, please use a computer or laptop.
           </p>
         </div>
       </div>
@@ -102,18 +101,18 @@ export default function Dashboard() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white/10 rounded-lg p-3 mb-3">
             <Link
-              href={`/shop/${shopSlug}`}
+              href={`https://${shopSlug}.paziatech.co.ke`}
               target="_blank"
               className="text-white hover:underline font-medium text-sm sm:text-base break-all"
             >
-              Paziatech.co.ke/{shopSlug}
+              {shopSlug}.paziatech.co.ke
             </Link>
 
             {/* Share Button */}
             <ShareButton
               title="My Shop"
               text="Check out my shop"
-              url={`https://paziatech.co.ke/${shopSlug}`}
+              url={`https://${shopSlug}.paziatech.co.ke`}
               variant="primary"
               showLabel
             />

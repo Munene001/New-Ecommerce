@@ -1,14 +1,75 @@
+// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function proxy(request: NextRequest) {
-  // Block requests with suspiciously short 'next-action' header
+const excludedSubdomains = new Set(['www', 'staging', 'mail', 'admin', 'support']);
+
+
+let validSlugsCache: string[] = [];
+let lastFetchTime = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function getValidShopSlugs(request: NextRequest): Promise<string[]> {
+  const now = Date.now();
+ 
+  if (lastFetchTime !== 0 && now - lastFetchTime < CACHE_TTL_MS) {
+    return validSlugsCache;
+  }
+  try {
+    const url = new URL('/api/shops/shop-slugs', request.nextUrl.origin);
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      // Return stale cache (or empty if none)
+      return validSlugsCache;
+    }
+    const data = await res.json();
+    validSlugsCache = data.slugs || []; // always an array
+    lastFetchTime = now;
+    return validSlugsCache;
+  } catch {
+    // On error, return whatever is in cache (or empty)
+    return validSlugsCache;
+  }
+}
+
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // 1. Security: block malicious next-action headers
   const actionHeader = request.headers.get('next-action') || request.headers.get('x-nextjs-action');
-  
   if (actionHeader && actionHeader.length < 10) {
     console.warn(`Blocked malicious action header: ${actionHeader}`);
     return new NextResponse('Forbidden', { status: 403 });
   }
-  
+
+  // 2. Skip static assets
+  if (
+    pathname.startsWith('/_next/static') ||
+    pathname.startsWith('/_next/image') ||
+    pathname === '/favicon.ico'
+  ) {
+    return NextResponse.next();
+  }
+
+  // 3. Subdomain logic
+  const host = request.headers.get('host') || '';
+  const hostname = host.split(':')[0];
+  const parts = hostname.split('.');
+  const subdomain = parts.length >= 3 ? parts[0] : null;
+
+  if (subdomain && !excludedSubdomains.has(subdomain)) {
+    const validSlugs = await getValidShopSlugs(request);
+    if (validSlugs.includes(subdomain)) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/(shop)/${subdomain}${pathname}`;
+      return NextResponse.rewrite(url);
+    }
+    return new NextResponse('Shop not found', { status: 404 });
+  }
+
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: '/((?!api|_next/static|_next/image|favicon.ico).*)',
+};

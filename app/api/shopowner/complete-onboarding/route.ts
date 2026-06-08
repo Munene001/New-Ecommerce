@@ -99,6 +99,9 @@ export async function POST(request: NextRequest) {
       [shopId, userPhone]
     );
 
+ const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+fetch(`${baseUrl}/api/shops/shop-slugs`, { method: 'POST' }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       message: 'Shop created successfully',

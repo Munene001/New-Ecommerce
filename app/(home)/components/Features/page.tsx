@@ -3,6 +3,8 @@
 import FeatureCard from "./components/unit";
 import Image from "next/image";
 import { Package, ShoppingCart, ClipboardList, TrendingUp } from "lucide-react";
+import Button from "@/app/components/ui/button";
+import Link from "next/link";
 
 const FeaturesSection = () => {
   const features = [
@@ -56,6 +58,15 @@ const FeaturesSection = () => {
         ))}
       </div>
 
+      <div className="flex py-6 justify-center ">
+        <Link
+          href="/pricing"
+          className="bg-three text-white flex items-center justify-center text-[20px] h-[50px] font-semibold rounded-lg p-4"
+        >
+          View Our Pricing
+        </Link>
+      </div>
+
       {/* Dashboard Screenshot */}
       <div className="rounded-2xl overflow-hidden   max-w-4xl mx-auto">
         <Image
@@ -65,7 +76,6 @@ const FeaturesSection = () => {
           height={800}
           className="w-full h-auto "
         />
-        
       </div>
     </section>
   );
