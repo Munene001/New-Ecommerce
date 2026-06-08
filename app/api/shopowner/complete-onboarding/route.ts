@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     await pool.query<ResultSetHeader>(
       `INSERT INTO shop_settings 
        (shop_id, primary_color, secondary_color, whatsapp_number, product_card_style, cart_icon) 
-       VALUES (?, '#000000', '#f54a00', ?, 'standard', 'cart')`,
+       VALUES (?, '#000000', '#000000', ?, 'standard', 'cart')`,
       [shopId, userPhone]
     );
 

@@ -56,12 +56,12 @@ const faqItems: FAQItem[] = [
       "Yes! Money goes directly from your customer to YOU. Pazia Tech never holds your funds. No intermediary, no waiting periods, no withdrawal limits. Your money, your control.",
     icon: <Wallet className="w-5 h-5 text-orange-500" />,
   },
-  {
-    question: "What is your pricing model? Do you have a free trial?",
-    answer:
-      "We're offer  a 30-day free trial so you can experience Pazia Tech risk-free. While we're still finalizing our pricing, we're committed to keeping it in relation to profitability of the seller - think KES 799/month range.",
-    icon: <Gift className="w-5 h-5 text-orange-500" />,
-  },
+ {
+  question: "What is your pricing model? Do you have a free trial?",
+  answer:
+    "We offer a 30-day free trial so you can experience Pazia Tech risk‑free. After your trial, our Basic plan is KES 999/month and Pro plan is KES 2,499/month. Zero commissions – you keep 100% of your sales. [View pricing →](/pricing)",
+  icon: <Gift className="w-5 h-5 text-orange-500" />,
+},
   {
     question: "What payment methods do you support?",
     answer:
