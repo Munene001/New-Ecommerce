@@ -32,7 +32,6 @@ const AnimatedImage = ({
 }: AnimatedImageProps) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const imageRef = useRef<HTMLDivElement>(null);
- 
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -67,7 +66,7 @@ const AnimatedImage = ({
 
 export default function Home() {
   const router = useRouter();
-   const { track } = useShopOwnerTracking();
+  const { track } = useShopOwnerTracking();
 
   useEffect(() => {
     track("home");
@@ -78,20 +77,20 @@ export default function Home() {
       <div className="md:grid grid-cols-[60%_40%] md:h-auto h-fit mb-4 p-4">
         <div className="flex flex-col gap-4 md:gap-0 justify-between">
           <div className="text-[18px] md:text-[22px] w-fit p-2 bg-gray-900/10 border text-primary-text border-white rounded-3xl mb-2">
-            Add products, Accept payments
+            Share products with a simple link
           </div>
 
           <div className="md:text-[65px] text-[45px] leading-[55px] md:leading-[65px] font-[Poppins] text-primary-text mb-5 flex flex-col">
-            <span>Launch your online </span>
-            <span> Store in minutes </span>
+            <span>Sell online without</span>
+            <span>Endless DMs</span>
           </div>
 
           <div className="text-[20px] md:block leading-[30px] mb-6 text-primary-text">
-            Sell products, accept M-Pesa payments, and manage everything from
-            one simple dashboard. Built for Kenyan businesses that want to start
-            fast and scale.{" "}
+            PaziaTech helps Kenyan businesses share a simple shop link where
+            customers can browse items, check details, and make buying decisions
+            without endless {" "}
             <span className="font-semibold text-three">
-              MPesa-powered checkout
+              Back-and-forth conversations.
             </span>{" "}
           </div>
 
