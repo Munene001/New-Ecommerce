@@ -86,7 +86,7 @@ export default function Home() {
           </div>
 
           <div className="text-[20px] md:block leading-[30px] mb-6 text-primary-text">
-            PaziaTech helps Kenyan businesses share a simple shop link where
+            PaziaTech is a Software as a service that helps Kenyan businesses share a simple shop link where
             customers can browse items, check details, and make buying decisions
             without endless {" "}
             <span className="font-semibold text-three">

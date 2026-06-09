@@ -39,10 +39,16 @@ const FeaturesSection = () => {
       {/* Section Header - White text for black background */}
       <div className="text-center mb-12 md:mb-16">
         <h2 className="text-3xl md:text-4xl font-bold text-white font-[Poppins] mb-3">
-          Everything you need to run your online store
+          About PaziaTech
         </h2>
-        <p className="text-gray-200 text-base md:text-lg max-w-2xl mx-auto">
-          From adding products to managing orders — all in one simple dashboard.
+        <p className="text-gray-100 text-base md:text-lg max-w-3xl mx-auto">
+          PaziaTech is a SaaS platform that helps online sellers create and
+          manage an online product catalog.</p>
+          
+          <p className="text-gray-100 text-base md:text-lg max-w-3xl mx-auto mt-2"> Businesses can share their catalog
+          through a simple link, allowing customers to browse products, view
+          details, and make purchase decisions without relying on constant
+          WhatsApp or Instagram conversations.
         </p>
       </div>
 
