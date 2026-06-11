@@ -1,15 +1,6 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-// Use same SMTP config as your orders
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface ContactEmailProps {
   name: string;
@@ -19,6 +10,8 @@ interface ContactEmailProps {
 }
 
 export async function sendContactEmail({ name, phone, email, message }: ContactEmailProps) {
+  const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://paziatech.co.ke'}/logo.png`;
+
   const emailContent = `
     <!DOCTYPE html>
     <html>
@@ -27,6 +20,7 @@ export async function sendContactEmail({ name, phone, email, message }: ContactE
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background: #f97316; padding: 20px; text-align: center; color: white; border-radius: 8px 8px 0 0; }
+        .logo { max-width: 80px; margin-bottom: 10px; }
         .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
         .field { margin-bottom: 20px; }
         .label { font-weight: bold; color: #f97316; margin-bottom: 5px; display: block; }
@@ -37,6 +31,7 @@ export async function sendContactEmail({ name, phone, email, message }: ContactE
     <body>
       <div class="container">
         <div class="header">
+          <img src="${logoUrl}" alt="PaziaTech Logo" class="logo" style="max-width: 80px;">
           <h2>📬 New Contact Form Submission</h2>
           <p>Pazia Tech</p>
         </div>
@@ -45,17 +40,14 @@ export async function sendContactEmail({ name, phone, email, message }: ContactE
             <div class="label">👤 Name</div>
             <div class="value">${name}</div>
           </div>
-          
           <div class="field">
             <div class="label">📞 Phone</div>
             <div class="value">${phone}</div>
           </div>
-          
           <div class="field">
             <div class="label">✉️ Email</div>
             <div class="value">${email}</div>
           </div>
-          
           <div class="field">
             <div class="label">💬 Message</div>
             <div class="value">${message.replace(/\n/g, '<br>')}</div>
@@ -69,17 +61,12 @@ export async function sendContactEmail({ name, phone, email, message }: ContactE
     </html>
   `;
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: process.env.SMTP_FROM,
-    replyTo: email, // So you can reply directly to the customer
+  await resend.emails.send({
+    from: `PaziaTech <noreply@paziatech.co.ke>`,
+    to: process.env.CONTACT_NOTIFICATION_EMAIL || "admin@paziatech.co.ke",
+    replyTo: email,
     subject: `New Contact Form Submission from ${name}`,
-    text: `
-      Name: ${name}
-      Phone: ${phone}
-      Email: ${email}
-      Message: ${message}
-    `,
+    text: `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\nMessage: ${message}`,
     html: emailContent,
   });
 }
