@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import pool from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { sendWelcomeEmail } from '@/lib/email/onBoard';
 
 interface VerifyBody {
   email: string;
@@ -126,6 +127,19 @@ export async function POST(request: NextRequest) {
           }
 
           await conn.commit();
+
+          // Send welcome email (non-blocking)
+          try {
+            await sendWelcomeEmail({
+              email: body.email,
+              businessName: body.business_name!,
+              fullName: fullName,
+              businessSlug: slug,
+            });
+          } catch (emailErr) {
+            console.error('Welcome email error (Google OAuth):', emailErr);
+          }
+
           const response = NextResponse.json({
             success: true,
             message: 'Account created successfully!',
@@ -271,6 +285,19 @@ export async function POST(request: NextRequest) {
         }
 
         await conn.commit();
+
+        // Send welcome email (non-blocking)
+        try {
+          await sendWelcomeEmail({
+            email: body.email,
+            businessName: body.business_name!,
+            fullName: fullName,
+            businessSlug: slug,
+          });
+        } catch (emailErr) {
+          console.error('Welcome email error (OTP):', emailErr);
+        }
+
         const response = NextResponse.json({
           success: true,
           message: 'Email verified successfully!',

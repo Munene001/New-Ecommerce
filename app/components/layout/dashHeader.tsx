@@ -8,25 +8,26 @@ import Link from "next/link";
 import { getBaseDomain } from "@/lib/constants/page";
 
 interface DashHeaderProps {
-    shopSlug?: string;
-    title?: string;
-    isMobile?: boolean;
-    isMobileMenuOpen?: boolean;
-    onMobileMenuToggle?: () => void;
+  shopSlug?: string;
+  title?: string;
+  isMobile?: boolean;
+  isMobileMenuOpen?: boolean;
+  onMobileMenuToggle?: () => void;
 }
 
-export default function DashHeader({ 
-    shopSlug,
-    title,
-    isMobile = false, 
-    isMobileMenuOpen = false, 
-    onMobileMenuToggle 
+export default function DashHeader({
+  shopSlug,
+  title,
+  isMobile = false,
+  isMobileMenuOpen = false,
+  onMobileMenuToggle,
 }: DashHeaderProps) {
   const { isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const baseDomain = getBaseDomain();
- const shopUrl = `https://${shopSlug}.${baseDomain}`;
-
+  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+  const shopUrl = `${protocol}://${shopSlug}.${baseDomain}`;
+  
   const handleLogin = () => {
     router.push("/auth/login");
   };
@@ -46,14 +47,10 @@ export default function DashHeader({
             className="text-white hover:bg-white/10 p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-white/20"
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
-            {isMobileMenuOpen ? (
-              <X size={24} />
-            ) : (
-              <Menu size={24} />
-            )}
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         ) : null}
-        
+
         {/* Dynamic Title - Shows on both mobile and desktop */}
         {title && (
           <h1 className="text-white md:ml-64 font-semibold text-xl md:text-2xl">
@@ -63,16 +60,16 @@ export default function DashHeader({
       </div>
 
       {/* Right side - View Shop & Auth buttons */}
-    <div className="flex items-center gap-4">
-    {isAuthenticated && shopSlug && (
-      <Link href={shopUrl} target="_blank" rel="noopener noreferrer">
-        <Button variant="secondary" className="flex items-center gap-2">
-          <Store size={18} />
-          View Shop
-        </Button>
-      </Link>
-    )}
-  </div>
+      <div className="flex items-center gap-4">
+        {isAuthenticated && shopSlug && (
+          <Link href={shopUrl} target="_blank" rel="noopener noreferrer">
+            <Button variant="secondary" className="flex items-center gap-2">
+              <Store size={18} />
+              View Shop
+            </Button>
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
