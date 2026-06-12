@@ -81,6 +81,12 @@ export default function SimpleFooter() {
                   Nairobi, Kenya
                 </div>
               </li>
+               <li>
+                <div className="text-white/90 inline-flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  hello@mail.paziatech.co.ke
+                </div>
+              </li>
             </ul>
           </div>
 

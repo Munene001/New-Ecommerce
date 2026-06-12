@@ -63,7 +63,7 @@ export async function sendContactEmail({ name, phone, email, message }: ContactE
 
   await resend.emails.send({
     from: `PaziaTech <noreply@paziatech.co.ke>`,
-    to: process.env.CONTACT_NOTIFICATION_EMAIL || "admin@paziatech.co.ke",
+    to:"hello@mail.paziatech.co.ke",
     replyTo: email,
     subject: `New Contact Form Submission from ${name}`,
     text: `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\nMessage: ${message}`,
