@@ -49,7 +49,6 @@ export default function AddProductPage() {
   const imagesRef = useRef<ImagesFormRef>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [imagesFormKey, setImagesFormKey] = useState(0);
-  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   const [resultModal, setResultModal] = useState<{
     isOpen: boolean;
@@ -66,10 +65,8 @@ export default function AddProductPage() {
   const handleSaveProduct = async () => {
     if (isSaving) return;
     setIsSaving(true);
-    setShouldRedirect(false);
 
     try {
-      // 1. Create the product
       const result = await handleSubmit();
 
       if (!result.success || !result.productId) {
@@ -83,11 +80,8 @@ export default function AddProductPage() {
       }
 
       const productId = result.productId;
-
-      // 2. Upload images
       const uploadResult = await imagesRef.current?.uploadImages(productId);
 
-      // 3. Check if primary image succeeded
       if (!uploadResult?.primarySucceeded) {
         // PRIMARY IMAGE FAILED – ROLLBACK: delete the product
         try {
@@ -98,10 +92,7 @@ export default function AddProductPage() {
           console.error("Failed to delete product after primary image failure:", deleteError);
         }
 
-        // Clear form
-        resetForm();
-        setImagesFormKey((prev) => prev + 1);
-        setActiveIndex(0);
+        // ✅ DO NOT clear the form – keep everything for the user to fix
 
         setResultModal({
           isOpen: true,
@@ -112,9 +103,7 @@ export default function AddProductPage() {
         return;
       }
 
-      // 4. Primary succeeded – check if any additional images failed
       if (uploadResult.failedCount > 0) {
-        // Partial success – some additional images failed
         resetForm();
         setImagesFormKey((prev) => prev + 1);
         setActiveIndex(0);
@@ -128,11 +117,9 @@ export default function AddProductPage() {
         return;
       }
 
-      // 5. Full success – everything worked
       resetForm();
       setImagesFormKey((prev) => prev + 1);
       setActiveIndex(0);
-      setShouldRedirect(true);
 
       setResultModal({
         isOpen: true,
@@ -206,11 +193,6 @@ export default function AddProductPage() {
 
   const handleModalClose = () => {
     setResultModal((prev) => ({ ...prev, isOpen: false }));
-
-    // If we should redirect and it was a success, go to product list
-    if (shouldRedirect) {
-      window.location.href = `/dashboard/${shopSlug}/products`;
-    }
   };
 
   return (
