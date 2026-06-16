@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
-import { Camera, Image as ImageIcon, Star, Trash2, X, Loader2, RefreshCw } from "lucide-react";
+import {
+  Camera,
+  Image as ImageIcon,
+  Star,
+  Trash2,
+  X,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import Image from "next/image";
 import imageCompression from "browser-image-compression";
 import InstructionsList from "@/app/components/ui/instructionList";
@@ -16,12 +24,13 @@ export interface ProductImage {
 }
 
 export interface ImagesFormRef {
-  uploadImages: (productId: number) => Promise<{ 
-    success: boolean; 
-    failedCount: number; 
+  uploadImages: (productId: number) => Promise<{
+    success: boolean;
+    failedCount: number;
     failedIds: string[];
     primarySucceeded: boolean;
   }>;
+  clearFailedPrimary: () => void;
 }
 
 interface ImagesFormProps {
@@ -34,23 +43,29 @@ const COMPRESSION_TIMEOUT_MS = 12000;
 
 const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
   ({ initialImages = [], onImagesChange, onError }, ref) => {
-    const [localImages, setLocalImages] = useState<ProductImage[]>(initialImages);
+    const [localImages, setLocalImages] =
+      useState<ProductImage[]>(initialImages);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+    const [uploadProgress, setUploadProgress] = useState({
+      current: 0,
+      total: 0,
+    });
 
     useEffect(() => {
       onImagesChange?.(localImages);
     }, [localImages, onImagesChange]);
 
-    // ----- COMPRESSION (Always succeeds) -----
     const compressFile = async (file: File): Promise<File> => {
-      // Skip if already small
       if (file.size < 200 * 1024) return file;
 
-      // Skip HEIC/HEIF (browser-image-compression can't handle them)
       const type = file.type.toLowerCase();
-      if (type === "image/heic" || type === "image/heif" || type.includes("heic") || type.includes("heif")) {
+      if (
+        type === "image/heic" ||
+        type === "image/heif" ||
+        type.includes("heic") ||
+        type.includes("heif")
+      ) {
         console.warn("HEIC/HEIF detected – using original");
         return file;
       }
@@ -66,14 +81,19 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         const compressed = await Promise.race([
           imageCompression(file, compressionOptions),
           new Promise<File>((_, reject) =>
-            setTimeout(() => reject(new Error("Compression timeout")), COMPRESSION_TIMEOUT_MS)
+            setTimeout(
+              () => reject(new Error("Compression timeout")),
+              COMPRESSION_TIMEOUT_MS,
+            ),
           ),
         ]);
-        console.log(`✅ Compressed: ${(file.size / 1024).toFixed(1)}KB → ${(compressed.size / 1024).toFixed(1)}KB`);
+        console.log(
+          `✅ Compressed: ${(file.size / 1024).toFixed(1)}KB → ${(compressed.size / 1024).toFixed(1)}KB`,
+        );
         return compressed;
       } catch (err) {
         console.warn("Compression failed or timed out – using original", err);
-        return file; // Always return a file – no failure point
+        return file;
       }
     };
 
@@ -106,7 +126,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 
     const handleAdditionalSelection = async (files: FileList | File[]) => {
       const fileArray = Array.from(files);
-      const currentAdditionalCount = localImages.filter((img) => !img.isPrimary).length;
+      const currentAdditionalCount = localImages.filter(
+        (img) => !img.isPrimary,
+      ).length;
       const remainingSlots = 5 - currentAdditionalCount;
       if (fileArray.length > remainingSlots) {
         onError?.(`You can only add ${remainingSlots} more image(s).`);
@@ -128,7 +150,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           const compressed = await compressFile(file);
           const preview = URL.createObjectURL(compressed);
 
-          const isPrimary = !hasPrimary && newImages.length === 0 && localImages.length === 0;
+          const isPrimary =
+            !hasPrimary && newImages.length === 0 && localImages.length === 0;
 
           newImages.push({
             file: compressed,
@@ -159,24 +182,56 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       onError?.("");
     };
 
-    const setAsPrimary = (id: string) => {
+    const setAsPrimary = async (id: string) => {
+      const img = localImages.find((i) => i.id === id);
+      if (!img) return;
+
+      // If the image is already uploaded, update primary status on the server
+      if (img.status === "success" && img.serverId) {
+        try {
+          // 👇 REMOVED "/set-primary" from the URL
+          const res = await fetch(`/api/shopowner/images/${img.serverId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isPrimary: true }),
+          });
+
+          if (!res.ok) {
+            throw new Error("Failed to update primary status");
+          }
+        } catch (err) {
+          console.error("Failed to set primary:", err);
+          onError?.("Failed to update primary image. Please try again.");
+          return;
+        }
+      }
+
+      // Update local state
       setLocalImages((prev) =>
-        prev.map((img) => ({
-          ...img,
-          isPrimary: img.id === id,
-        }))
+        prev.map((i) => ({
+          ...i,
+          isPrimary: i.id === id,
+        })),
+      );
+    };
+    // 👇 NEW: Clear the failed primary image
+    const clearFailedPrimary = () => {
+      setLocalImages((prev) =>
+        prev.filter((img) => !(img.isPrimary && img.status === "failed")),
       );
     };
 
-    // ----- UPLOAD IMAGES (Sharp processes, can fail) -----
     const uploadImages = async (productId: number) => {
-      const pendingImages = localImages.filter((img) => img.status !== "success");
-      if (pendingImages.length === 0) return { 
-        success: true, 
-        failedCount: 0, 
-        failedIds: [],
-        primarySucceeded: true,
-      };
+      const pendingImages = localImages.filter(
+        (img) => img.status !== "success",
+      );
+      if (pendingImages.length === 0)
+        return {
+          success: true,
+          failedCount: 0,
+          failedIds: [],
+          primarySucceeded: true,
+        };
 
       setIsUploading(true);
       const newFailedIds: string[] = [];
@@ -185,7 +240,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       for (let i = 0; i < pendingImages.length; i++) {
         const img = pendingImages[i];
         setLocalImages((prev) =>
-          prev.map((p) => (p.id === img.id ? { ...p, status: "uploading" } : p))
+          prev.map((p) =>
+            p.id === img.id ? { ...p, status: "uploading" } : p,
+          ),
         );
         setUploadProgress({ current: i + 1, total: pendingImages.length });
 
@@ -194,10 +251,13 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           formData.append("image", img.file);
           formData.append("isPrimary", String(img.isPrimary));
 
-          const res = await fetch(`/api/shopowner/products/${productId}/images`, {
-            method: "POST",
-            body: formData,
-          });
+          const res = await fetch(
+            `/api/shopowner/products/${productId}/images`,
+            {
+              method: "POST",
+              body: formData,
+            },
+          );
 
           const data = await res.json();
 
@@ -209,8 +269,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             prev.map((p) =>
               p.id === img.id
                 ? { ...p, status: "success", serverId: data.image_id }
-                : p
-            )
+                : p,
+            ),
           );
 
           if (img.isPrimary) {
@@ -219,7 +279,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         } catch (err) {
           console.error(`Failed to upload ${img.id}`, err);
           setLocalImages((prev) =>
-            prev.map((p) => (p.id === img.id ? { ...p, status: "failed" } : p))
+            prev.map((p) => (p.id === img.id ? { ...p, status: "failed" } : p)),
           );
           newFailedIds.push(img.id);
         }
@@ -228,7 +288,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       setIsUploading(false);
       setUploadProgress({ current: 0, total: 0 });
 
-      // Final check: is primary image in the list and marked as success?
       const primary = localImages.find((img) => img.isPrimary);
       if (primary && primary.status === "success") {
         primarySucceeded = true;
@@ -242,14 +301,19 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       };
     };
 
-    useImperativeHandle(ref, () => ({ uploadImages }));
+    useImperativeHandle(ref, () => ({
+      uploadImages,
+      clearFailedPrimary,
+    }));
 
     const primaryImage = localImages.find((img) => img.isPrimary);
     const additionalImages = localImages.filter((img) => !img.isPrimary);
 
     const StatusIcon = ({ status }: { status?: string }) => {
       if (status === "uploading")
-        return <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />;
+        return (
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        );
       if (status === "success")
         return <div className="w-4 h-4 bg-green-500 rounded-full shadow-md" />;
       if (status === "failed")
@@ -257,13 +321,12 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       return null;
     };
 
-    // Inline retry for a single failed image
     const retryImage = async (imageId: string, productId: number) => {
       const img = localImages.find((i) => i.id === imageId);
       if (!img || img.status !== "failed") return;
 
       setLocalImages((prev) =>
-        prev.map((p) => (p.id === imageId ? { ...p, status: "uploading" } : p))
+        prev.map((p) => (p.id === imageId ? { ...p, status: "uploading" } : p)),
       );
 
       try {
@@ -286,13 +349,13 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           prev.map((p) =>
             p.id === imageId
               ? { ...p, status: "success", serverId: data.image_id }
-              : p
-          )
+              : p,
+          ),
         );
       } catch (err) {
         console.error(`Retry failed for ${imageId}`, err);
         setLocalImages((prev) =>
-          prev.map((p) => (p.id === imageId ? { ...p, status: "failed" } : p))
+          prev.map((p) => (p.id === imageId ? { ...p, status: "failed" } : p)),
         );
       }
     };
@@ -320,7 +383,12 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 
           {primaryImage ? (
             <div className="relative w-40 h-40 border rounded-lg overflow-hidden bg-gray-100">
-              <Image src={primaryImage.preview} alt="Primary" fill className="object-cover" />
+              <Image
+                src={primaryImage.preview}
+                alt="Primary"
+                fill
+                className="object-cover"
+              />
               <div className="absolute top-2 right-2 flex gap-1">
                 <button
                   onClick={() => removeImage(primaryImage.id)}
@@ -351,7 +419,11 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={(e) => { if (e.target.files?.[0]) handlePrimarySelection(e.target.files[0]); e.target.value = ""; }}
+                onChange={(e) => {
+                  if (e.target.files?.[0])
+                    handlePrimarySelection(e.target.files[0]);
+                  e.target.value = "";
+                }}
                 className="hidden"
                 id="primary-camera"
                 disabled={isProcessing}
@@ -374,7 +446,11 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => { if (e.target.files?.[0]) handlePrimarySelection(e.target.files[0]); e.target.value = ""; }}
+                onChange={(e) => {
+                  if (e.target.files?.[0])
+                    handlePrimarySelection(e.target.files[0]);
+                  e.target.value = "";
+                }}
                 className="hidden"
                 id="primary-gallery"
                 disabled={isProcessing}
@@ -404,18 +480,29 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             Additional Images ({additionalImages.length}/5)
           </label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative">
-            {/* Processing Overlay */}
             {isProcessing && (
               <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center z-10">
                 <Loader2 className="w-10 h-10 text-magenta-dark animate-spin" />
-                <p className="text-sm font-medium text-gray-700 mt-2">Processing images...</p>
-                <p className="text-xs text-gray-500">Please wait while we compress your images</p>
+                <p className="text-sm font-medium text-gray-700 mt-2">
+                  Processing images...
+                </p>
+                <p className="text-xs text-gray-500">
+                  Please wait while we compress your images
+                </p>
               </div>
             )}
 
             {additionalImages.map((image) => (
-              <div key={image.id} className="relative aspect-square border rounded-lg overflow-hidden bg-gray-100">
-                <Image src={image.preview} alt="Additional" fill className="object-cover" />
+              <div
+                key={image.id}
+                className="relative aspect-square border rounded-lg overflow-hidden bg-gray-100"
+              >
+                <Image
+                  src={image.preview}
+                  alt="Additional"
+                  fill
+                  className="object-cover"
+                />
                 <div className="absolute top-2 right-2 flex gap-1">
                   <button
                     onClick={() => setAsPrimary(image.id)}
@@ -453,7 +540,11 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   accept="image/*"
                   capture="environment"
                   multiple={false}
-                  onChange={(e) => { if (e.target.files) handleAdditionalSelection(e.target.files); e.target.value = ""; }}
+                  onChange={(e) => {
+                    if (e.target.files)
+                      handleAdditionalSelection(e.target.files);
+                    e.target.value = "";
+                  }}
                   className="hidden"
                   id="additional-camera"
                 />
@@ -468,7 +559,11 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   type="file"
                   accept="image/*"
                   multiple
-                  onChange={(e) => { if (e.target.files) handleAdditionalSelection(e.target.files); e.target.value = ""; }}
+                  onChange={(e) => {
+                    if (e.target.files)
+                      handleAdditionalSelection(e.target.files);
+                    e.target.value = "";
+                  }}
                   className="hidden"
                   id="additional-gallery"
                 />
@@ -484,23 +579,25 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           </div>
         </div>
 
-        {/* Upload Progress */}
         {isUploading && (
           <div className="space-y-1 mt-4">
             <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-magenta-dark h-full transition-all duration-300"
-                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                style={{
+                  width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                }}
               />
             </div>
             <p className="text-xs text-gray-500 text-center">
-              Uploading images {uploadProgress.current} of {uploadProgress.total}
+              Uploading images {uploadProgress.current} of{" "}
+              {uploadProgress.total}
             </p>
           </div>
         )}
       </div>
     );
-  }
+  },
 );
 
 ImagesForm.displayName = "ImagesForm";

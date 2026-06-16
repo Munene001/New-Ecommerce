@@ -86,6 +86,7 @@ export default function AddProductPage() {
 
       const productId = result.productId;
       const uploadResult = await imagesRef.current?.uploadImages(productId);
+
       if (!uploadResult?.primarySucceeded) {
         // PRIMARY IMAGE FAILED – ROLLBACK: delete the product
         try {
@@ -99,7 +100,10 @@ export default function AddProductPage() {
           );
         }
 
-        // ✅ Remove ONLY the failed primary image – keep everything else
+        // ✅ Clear the failed primary image from the ImagesForm
+        imagesRef.current?.clearFailedPrimary();
+
+        // Also sync with formData
         const updatedImages = formData.images.filter((img) => !img.isPrimary);
         setFormData((prev) => ({ ...prev, images: updatedImages }));
 
@@ -112,6 +116,7 @@ export default function AddProductPage() {
         });
         return;
       }
+
       if (uploadResult.failedCount > 0) {
         resetForm();
         setImagesFormKey((prev) => prev + 1);
