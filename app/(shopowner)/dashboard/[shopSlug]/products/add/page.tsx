@@ -5,7 +5,10 @@ import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import PrimaryForm from "./components/primaryForm";
 import OptionalForm from "./components/optionalForm";
-import ImagesForm, { ImagesFormRef, ProductImage } from "./components/imagesForm";
+import ImagesForm, {
+  ImagesFormRef,
+  ProductImage,
+} from "./components/imagesForm";
 import CategoryComponent from "./components/categoryComponent";
 import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
@@ -74,14 +77,15 @@ export default function AddProductPage() {
           isOpen: true,
           type: "error",
           title: "Error",
-          message: result.error || "Failed to create product. Please check your inputs.",
+          message:
+            result.error ||
+            "Failed to create product. Please check your inputs.",
         });
         return;
       }
 
       const productId = result.productId;
       const uploadResult = await imagesRef.current?.uploadImages(productId);
-
       if (!uploadResult?.primarySucceeded) {
         // PRIMARY IMAGE FAILED – ROLLBACK: delete the product
         try {
@@ -89,20 +93,25 @@ export default function AddProductPage() {
             method: "DELETE",
           });
         } catch (deleteError) {
-          console.error("Failed to delete product after primary image failure:", deleteError);
+          console.error(
+            "Failed to delete product after primary image failure:",
+            deleteError,
+          );
         }
 
-        // ✅ DO NOT clear the form – keep everything for the user to fix
+        // ✅ Remove ONLY the failed primary image – keep everything else
+        const updatedImages = formData.images.filter((img) => !img.isPrimary);
+        setFormData((prev) => ({ ...prev, images: updatedImages }));
 
         setResultModal({
           isOpen: true,
           type: "error",
           title: "Product Creation Failed",
-          message: "The primary image could not be uploaded. The product has been removed. Please try with a different image.",
+          message:
+            "The primary image could not be uploaded. Please try with a different image or press the star icon on a different image to make it primary.",
         });
         return;
       }
-
       if (uploadResult.failedCount > 0) {
         resetForm();
         setImagesFormKey((prev) => prev + 1);
@@ -127,7 +136,6 @@ export default function AddProductPage() {
         title: "Success!",
         message: "Product created and all images uploaded successfully.",
       });
-
     } catch (err) {
       console.error(err);
       setResultModal({
