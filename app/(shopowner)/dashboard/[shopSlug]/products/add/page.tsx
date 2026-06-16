@@ -62,55 +62,57 @@ export default function AddProductPage() {
     message: "",
   });
 
-  const handleSaveProduct = async () => {
-    if (isSaving) return;
-    setIsSaving(true);
+ const handleSaveProduct = async () => {
+  if (isSaving) return;
+  setIsSaving(true);
 
-    try {
-      const productId = await handleSubmit();
-      if (!productId) {
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Error",
-          message: "Failed to create product. Please check your inputs.",
-        });
-        return;
-      }
+  try {
+    const result = await handleSubmit();
 
-      const uploadResult = await imagesRef.current?.uploadImages(productId);
-      if (uploadResult?.success) {
-        // Reset everything
-        resetForm();              // clears form data (including images in parent state)
-        setImagesFormKey((prev) => prev + 1); // forces ImagesForm to re-mount
-        setActiveIndex(0);        // go back to primary tab
-        
-        setResultModal({
-          isOpen: true,
-          type: "success",
-          title: "Success!",
-          message: "Product created and all images uploaded successfully. Form reset.",
-        });
-      } else {
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Partial Success",
-          message: `Product created but ${uploadResult?.failedCount || 0} image(s) failed to upload. You can retry later.`,
-        });
-      }
-    } catch (err) {
-      console.error(err);
+    if (!result.success || !result.productId) {
       setResultModal({
         isOpen: true,
         type: "error",
         title: "Error",
-        message: "An unexpected error occurred. Please try again.",
+        message: result.error || "Failed to create product. Please check your inputs.",
       });
-    } finally {
-      setIsSaving(false);
+      return;
     }
-  };
+
+    const productId = result.productId;
+    const uploadResult = await imagesRef.current?.uploadImages(productId);
+
+    if (uploadResult?.success) {
+      resetForm();
+      setImagesFormKey((prev) => prev + 1);
+      setActiveIndex(0);
+
+      setResultModal({
+        isOpen: true,
+        type: "success",
+        title: "Success!",
+        message: "Product created and all images uploaded successfully. Form reset.",
+      });
+    } else {
+      setResultModal({
+        isOpen: true,
+        type: "error",
+        title: "Partial Success",
+        message: `Product created but ${uploadResult?.failedCount || 0} image(s) failed to upload. You can retry later.`,
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    setResultModal({
+      isOpen: true,
+      type: "error",
+      title: "Error",
+      message: "An unexpected error occurred. Please try again.",
+    });
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const renderComponent = () => {
     switch (activeIndex) {

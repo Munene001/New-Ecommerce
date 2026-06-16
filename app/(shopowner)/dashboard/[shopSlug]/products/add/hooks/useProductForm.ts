@@ -258,62 +258,72 @@ export function useProductForm() {
     return true;
   };
 
-  const handleSubmit = async (): Promise<number | null> => {
-    if (!validateForm()) return null;
-    setLoading(true);
-    try {
-      const productRes = await fetch("/api/shopowner/products", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shopId,
-          productName: formData.productName,
-          productSlug: formData.productSlug,
-          description: formData.description,
-          price: formData.price,
-          discountPrice: formData.discountPrice || null,
-          inStock: formData.inStock,
-          attributes: formData.attributes,
-        }),
-      });
-      const productData = await productRes.json();
-      if (!productRes.ok) {
-        throw new Error(productData.error || "Failed to create product");
-      }
-      const productId = productData.product_id;
-
-      // Link categories
-      if (formData.categoryIds.length > 0) {
-        const categoryPromises = formData.categoryIds.map(async (categoryId) => {
-          const catRes = await fetch(
-            `/api/shopowner/products/${productId}/categories`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ category_id: categoryId }),
-            }
-          );
-          if (!catRes.ok) {
-            console.error(`Failed to add category ${categoryId}`);
-          }
-        });
-        await Promise.all(categoryPromises);
-      }
-
-      // No modal, no reset – parent handles success UI
-      return productId;
-    } catch (error) {
-      console.error("Submit failed:", error);
-      // Do not show modal here – parent will handle error
-      return null;
-    } finally {
-      setLoading(false);
+  const handleSubmit = async (): Promise<{ success: boolean; productId?: number; error?: string }> => {
+  if (!validateForm()) {
+    return { success: false, error: "Please fix validation errors." };
+  }
+  setLoading(true);
+  try {
+    const productRes = await fetch("/api/shopowner/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shopId,
+        productName: formData.productName,
+        productSlug: formData.productSlug,
+        description: formData.description,
+        price: formData.price,
+        discountPrice: formData.discountPrice || null,
+        inStock: formData.inStock,
+        attributes: formData.attributes,
+      }),
+    });
+    const productData = await productRes.json();
+    
+    if (!productRes.ok) {
+      // 🔥 This is where the duplicate slug error is captured
+      return { success: false, error: productData.error || "Failed to create product" };
     }
-  };
+
+    const productId = productData.product_id;
+
+    // Link categories
+    if (formData.categoryIds.length > 0) {
+      try {
+        await Promise.all(
+          formData.categoryIds.map(async (categoryId) => {
+            const catRes = await fetch(
+              `/api/shopowner/products/${productId}/categories`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ category_id: categoryId }),
+              }
+            );
+            if (!catRes.ok) {
+              throw new Error(`Failed to add category ${categoryId}`);
+            }
+          })
+        );
+      } catch (catError) {
+        return {
+          success: false,
+          error: catError instanceof Error ? catError.message : "Failed to link categories",
+        };
+      }
+    }
+
+    return { success: true, productId };
+  } catch (error) {
+    console.error("Submit failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected network error occurred",
+    };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleNext = () => {
     if (activeIndex === 0 && !validatePrimaryTab()) {

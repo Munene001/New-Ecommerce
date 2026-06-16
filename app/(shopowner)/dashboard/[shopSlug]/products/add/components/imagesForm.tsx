@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
-import { Camera, Image as ImageIcon, Star, Trash2, X, RefreshCw } from "lucide-react";
+import { Camera, Image as ImageIcon, Star, Trash2, X, Loader2 } from "lucide-react";
 import Image from "next/image";
 import imageCompression from "browser-image-compression";
 import InstructionsList from "@/app/components/ui/instructionList";
@@ -20,37 +20,51 @@ export interface ImagesFormRef {
 }
 
 interface ImagesFormProps {
-  initialImages?: ProductImage[];        // for edit mode
+  initialImages?: ProductImage[];
   onImagesChange?: (images: ProductImage[]) => void;
   onError?: (message: string) => void;
 }
 
+const compressionOptions = {
+  maxSizeMB: 0.2,
+  maxWidthOrHeight: 1000,
+  useWebWorker: true,
+  initialQuality: 0.6,
+};
+
+const COMPRESSION_TIMEOUT_MS = 12000;
+
 const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
   ({ initialImages = [], onImagesChange, onError }, ref) => {
     const [localImages, setLocalImages] = useState<ProductImage[]>(initialImages);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
     const [showRetryModal, setShowRetryModal] = useState(false);
     const [failedImageIds, setFailedImageIds] = useState<string[]>([]);
 
-    // Notify parent of changes (only on user actions)
     useEffect(() => {
       onImagesChange?.(localImages);
     }, [localImages, onImagesChange]);
 
-    // Compression options
-    const compressionOptions = {
-      maxSizeMB: 0.15,
-      maxWidthOrHeight: 1000,
-      useWebWorker: true,
-      initialQuality: 0.7,
-    };
-
     const compressFile = async (file: File): Promise<File> => {
+      const type = file.type.toLowerCase();
+      if (type === "image/heic" || type === "image/heif" || type.includes("heic") || type.includes("heif")) {
+        console.warn("HEIC/HEIF detected – skipping frontend compression");
+        return file;
+      }
+      if (file.size < 200 * 1024) return file;
+
       try {
-        return await imageCompression(file, compressionOptions);
+        const compressed = await Promise.race([
+          imageCompression(file, compressionOptions),
+          new Promise<File>((_, reject) =>
+            setTimeout(() => reject(new Error("Compression timeout")), COMPRESSION_TIMEOUT_MS)
+          ),
+        ]);
+        return compressed;
       } catch (err) {
-        console.error("Compression failed, using original", err);
+        console.warn("Compression failed or timed out – using original", err);
         return file;
       }
     };
@@ -60,17 +74,26 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         onError?.("Image exceeds 8MB. Please choose a smaller one.");
         return;
       }
-      const compressed = await compressFile(file);
-      const preview = URL.createObjectURL(compressed);
-      const newPrimary: ProductImage = {
-        file: compressed,
-        preview,
-        isPrimary: true,
-        id: crypto.randomUUID(),
-        status: "pending",
-      };
-      const filtered = localImages.filter((img) => !img.isPrimary);
-      setLocalImages([newPrimary, ...filtered]);
+
+      setIsProcessing(true);
+      try {
+        const compressed = await compressFile(file);
+        const preview = URL.createObjectURL(compressed);
+        const newPrimary: ProductImage = {
+          file: compressed,
+          preview,
+          isPrimary: true,
+          id: crypto.randomUUID(),
+          status: "pending",
+        };
+        const filtered = localImages.filter((img) => !img.isPrimary);
+        setLocalImages([newPrimary, ...filtered]);
+      } catch (err) {
+        console.error("Error processing primary image:", err);
+        onError?.("Failed to process image. Please try again.");
+      } finally {
+        setIsProcessing(false);
+      }
     };
 
     const handleAdditionalSelection = async (files: FileList | File[]) => {
@@ -81,50 +104,67 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         onError?.(`You can only add ${remainingSlots} more image(s).`);
         return;
       }
+
+      setIsProcessing(true);
       const newImages: ProductImage[] = [];
-      for (const file of fileArray) {
-        if (file.size > 8 * 1024 * 1024) {
-          onError?.(`${file.name} exceeds 8MB. Skipped.`);
-          continue;
+      const hasPrimary = localImages.some((img) => img.isPrimary);
+
+      try {
+        for (let i = 0; i < fileArray.length; i++) {
+          const file = fileArray[i];
+          if (file.size > 8 * 1024 * 1024) {
+            onError?.(`${file.name} exceeds 8MB. Skipped.`);
+            continue;
+          }
+
+          const compressed = await compressFile(file);
+          const preview = URL.createObjectURL(compressed);
+
+          const isPrimary = !hasPrimary && newImages.length === 0 && localImages.length === 0;
+
+          newImages.push({
+            file: compressed,
+            preview,
+            isPrimary,
+            id: crypto.randomUUID(),
+            status: "pending",
+          });
+
+          if (i < fileArray.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
         }
-        const compressed = await compressFile(file);
-        const preview = URL.createObjectURL(compressed);
-        newImages.push({
-          file: compressed,
-          preview,
-          isPrimary: false,
-          id: crypto.randomUUID(),
-          status: "pending",
-        });
+
+        setLocalImages((prev) => [...prev, ...newImages]);
+      } catch (err) {
+        console.error("Error processing additional images:", err);
+        onError?.("Failed to process some images. Please try again.");
+      } finally {
+        setIsProcessing(false);
       }
-      setLocalImages([...localImages, ...newImages]);
     };
 
     const removeImage = (id: string) => {
       const img = localImages.find((i) => i.id === id);
       if (img?.preview) URL.revokeObjectURL(img.preview);
-      setLocalImages(localImages.filter((i) => i.id !== id));
+      setLocalImages((prev) => prev.filter((i) => i.id !== id));
       onError?.("");
     };
 
     const setAsPrimary = (id: string) => {
-      setLocalImages(
-        localImages.map((img) => ({
+      setLocalImages((prev) =>
+        prev.map((img) => ({
           ...img,
           isPrimary: img.id === id,
         }))
       );
     };
 
-    // Exposed method for parent to call after product creation
     const uploadImages = async (productId: number) => {
       const pendingImages = localImages.filter((img) => img.status !== "success");
-      if (pendingImages.length === 0) {
-        return { success: true, failedCount: 0 };
-      }
+      if (pendingImages.length === 0) return { success: true, failedCount: 0 };
 
       setIsUploading(true);
-      setFailedImageIds([]);
       const newFailedIds: string[] = [];
 
       for (let i = 0; i < pendingImages.length; i++) {
@@ -163,8 +203,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         }
       }
 
-      setUploadProgress({ current: 0, total: 0 });
       setIsUploading(false);
+      setUploadProgress({ current: 0, total: 0 });
 
       if (newFailedIds.length > 0) {
         setFailedImageIds(newFailedIds);
@@ -196,9 +236,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         <InstructionsList
           items={[
             { text: "Maximum 6 images total" },
-            { text: "Images are automatically resized to 1000px and compressed to ~150KB" },
-            { text: "Max file size: 8MB (compressed before upload)" },
-            { text: "Primary image is the default image." },
+            { text: "Images are automatically resized to 1000px and compressed to ~200KB" },
+            { text: "HEIC/HEIF images will be uploaded in original format and processed server-side" },
+            { text: "The first image added becomes the primary image" },
             { text: "Click the star icon on any image to make it primary" },
           ]}
           variant="green"
@@ -238,10 +278,22 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 onChange={(e) => { if (e.target.files?.[0]) handlePrimarySelection(e.target.files[0]); e.target.value = ""; }}
                 className="hidden"
                 id="primary-camera"
+                disabled={isProcessing}
               />
-              <label htmlFor="primary-camera"  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center">
-                <Camera className="w-8 h-8 text-gray-600" />
-                <span className="text-xs text-black mt-1">Take Photo</span>
+              <label
+                htmlFor="primary-camera"
+                className={`border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center ${
+                  isProcessing ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-8 h-8 text-gray-600 animate-spin" />
+                ) : (
+                  <Camera className="w-8 h-8 text-gray-600" />
+                )}
+                <span className="text-xs text-black mt-1">
+                  {isProcessing ? "Processing..." : "Take Photo"}
+                </span>
               </label>
               <input
                 type="file"
@@ -249,10 +301,22 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 onChange={(e) => { if (e.target.files?.[0]) handlePrimarySelection(e.target.files[0]); e.target.value = ""; }}
                 className="hidden"
                 id="primary-gallery"
+                disabled={isProcessing}
               />
-              <label htmlFor="primary-gallery" className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center">
-                <ImageIcon className="w-8 h-8 text-gray-400" />
-                <span className="text-xs text-black mt-1">Gallery</span>
+              <label
+                htmlFor="primary-gallery"
+                className={`border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer flex flex-col items-center ${
+                  isProcessing ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-8 h-8 text-gray-600 animate-spin" />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-gray-400" />
+                )}
+                <span className="text-xs text-black mt-1">
+                  {isProcessing ? "Processing..." : "Gallery"}
+                </span>
               </label>
             </div>
           )}
@@ -263,15 +327,32 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           <label className="block md:text-sm text-[16px] font-medium text-gray-700">
             Additional Images ({additionalImages.length}/5)
           </label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative">
+            {/* Processing Overlay */}
+            {isProcessing && (
+              <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center z-10">
+                <Loader2 className="w-10 h-10 text-magenta-dark animate-spin" />
+                <p className="text-sm font-medium text-gray-700 mt-2">Processing images...</p>
+                <p className="text-xs text-gray-500">Please wait while we compress your images</p>
+              </div>
+            )}
+
             {additionalImages.map((image) => (
               <div key={image.id} className="relative aspect-square border rounded-lg overflow-hidden bg-gray-100">
                 <Image src={image.preview} alt="Additional" fill className="object-cover" />
                 <div className="absolute top-2 right-2 flex gap-1">
-                  <button onClick={() => setAsPrimary(image.id)} className="bg-yellow-500 text-white p-1.5 rounded-full shadow-md">
+                  <button
+                    onClick={() => setAsPrimary(image.id)}
+                    className="bg-yellow-500 text-white p-1.5 rounded-full shadow-md"
+                    title="Make primary"
+                  >
                     <Star className="w-4 h-4" />
                   </button>
-                  <button onClick={() => removeImage(image.id)} className="bg-red-500 text-white p-1.5 rounded-full shadow-md">
+                  <button
+                    onClick={() => removeImage(image.id)}
+                    className="bg-red-500 text-white p-1.5 rounded-full shadow-md"
+                    title="Remove"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -280,7 +361,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 </div>
               </div>
             ))}
-            {additionalImages.length < 5 && !isUploading && (
+
+            {additionalImages.length < 5 && !isUploading && !isProcessing && (
               <>
                 <input
                   type="file"
@@ -291,7 +373,10 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   className="hidden"
                   id="additional-camera"
                 />
-                <label htmlFor="additional-camera" className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer">
+                <label
+                  htmlFor="additional-camera"
+                  className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
+                >
                   <Camera className="w-8 h-8 text-gray-600" />
                   <span className="text-xs text-black mt-1">Camera</span>
                 </label>
@@ -303,7 +388,10 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   className="hidden"
                   id="additional-gallery"
                 />
-                <label htmlFor="additional-gallery" className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer">
+                <label
+                  htmlFor="additional-gallery"
+                  className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
+                >
                   <ImageIcon className="w-8 h-8 text-gray-600" />
                   <span className="text-xs text-black mt-1">Gallery</span>
                 </label>
@@ -312,7 +400,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           </div>
         </div>
 
-        {/* Progress bar – only shown during upload (triggered by parent) */}
+        {/* Upload Progress */}
         {isUploading && (
           <div className="space-y-1 mt-4">
             <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -327,7 +415,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           </div>
         )}
 
-        {/* Simple modal to inform about failed uploads */}
+        {/* Retry Modal */}
         {showRetryModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-md w-full p-6">
@@ -349,5 +437,4 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 );
 
 ImagesForm.displayName = "ImagesForm";
-
 export default ImagesForm;
