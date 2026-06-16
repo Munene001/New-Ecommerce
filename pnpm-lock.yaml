@@ -11,6 +11,15 @@ importers:
       '@iconify/react':
         specifier: ^6.0.2
         version: 6.0.2(react@19.2.3)
+      '@squoosh-kit/core':
+        specifier: ^0.2.4
+        version: 0.2.4
+      '@squoosh-kit/mozjpeg':
+        specifier: ^0.2.4
+        version: 0.2.4
+      '@squoosh-kit/webp':
+        specifier: ^0.2.4
+        version: 0.2.4
       '@supabase/ssr':
         specifier: ^0.8.0
         version: 0.8.0(@supabase/supabase-js@2.93.3)
@@ -491,6 +500,52 @@ packages:
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
+
+  '@squoosh-kit/avif@0.2.4':
+    resolution: {integrity: sha512-b2X9wu4t0om93o9/x7SHRZeUMU4ow5vDEGb4ugxbZ8OvfD2yp+0ZR3kwWaq8s46pKDklSpLgpBFke2aPt57X0w==}
+
+  '@squoosh-kit/core@0.2.4':
+    resolution: {integrity: sha512-PDeEg2pAQcueDc5zI5Ex2HTk7e55Q1qBAvCg3Jbotpnm/Zn387ZxLnC/rUtklWi/ytoV1LGqWeGk7EjdgowPuA==}
+    engines: {bun: '>=1.0.0', node: '>=18.0.0'}
+
+  '@squoosh-kit/hqx@0.2.4':
+    resolution: {integrity: sha512-LhG0ibeCZwy1NK3OHYMAcza7XLxNSbR0XKoNUY1EPUaay1jHkqbs/n+TEmTbKeZLVHDNusscHrb03s9PbcKIbQ==}
+
+  '@squoosh-kit/imagequant@0.2.4':
+    resolution: {integrity: sha512-iTIglNP/UyHPnMIOHIyG8TPGOqatyhrs8sbfrIr2vWoNLFRDMxBTwJ3BrQNMB0yfw6FNLaOv5MuM7UgNJRvWUA==}
+
+  '@squoosh-kit/jxl@0.2.4':
+    resolution: {integrity: sha512-FSomISFC0iDpk+B82gQkk4dmGLL9BslhawtVuddhuQetHH3SISB8SgJhaCHpiBnH7BdoNiyEnqH4k4RizCF3NQ==}
+
+  '@squoosh-kit/mozjpeg@0.2.4':
+    resolution: {integrity: sha512-bIsXpnbvCA7ETwCPCs4wYCmUisboCNEcHv67fDWEI52kRX13HlAQhDikNep2P1MkjGkNgeogIOAaxWJ9kVfA0g==}
+
+  '@squoosh-kit/oxipng@0.2.4':
+    resolution: {integrity: sha512-3Cx4OW0q7PpyBYB9ss967lKAT7XB0IrNDKbRyrp2dJ8fd9odutdY3i4kf01SYKMbMRzM/5XnnkpjHTjZ3CdNAQ==}
+
+  '@squoosh-kit/png@0.2.4':
+    resolution: {integrity: sha512-IPY++9hYoy6An8nG9jCbGe0UxVAmyMAlcN1ViUUXL+Ingi62LAal/ARxWxNjgrY5G0fOtAQZxpiCbOOIY2/amQ==}
+
+  '@squoosh-kit/qoi@0.2.4':
+    resolution: {integrity: sha512-5euECdD4ZoL1nuVOdR1iTq8Zb0pjdu55WRWdVQZfACqOAgQ56UpYqnmCwW6gdQd3/mS6dNpAnZdLDH8FgKUShA==}
+
+  '@squoosh-kit/resize@0.2.4':
+    resolution: {integrity: sha512-FQ3DWq1DdA63O8tO00p37aH5DF/HIVfO2+/iKvykjhgnDe5A0HZ82GkXK8KCQ+pe0tgjS6yBGU/bKfR6ZikdDA==}
+
+  '@squoosh-kit/rotate@0.2.4':
+    resolution: {integrity: sha512-uOzpFraZN51dB3ghDj3giJ7HMVbkpiBDR4cBhqXToKH4h6RTgrklWHS6nKEkUvKV6x2t2Mnbh87OgshMZO/s8Q==}
+
+  '@squoosh-kit/runtime@0.2.4':
+    resolution: {integrity: sha512-tOWFHWUfABN2Br4uRkgO83UzYiLCzh/jiFG1QmZPw4vc8x9l6v/Mng/y6QKNjewgxrnfQJbEc7khhBnLurYC3A==}
+
+  '@squoosh-kit/visdif@0.2.4':
+    resolution: {integrity: sha512-QTJXtyTA3R1rBsGa41z17kPkgJ9UtTRB1xNQlvvWoPQHSSJRjW32WTCg5Ledh2vyoJNeQAKk7xQdNyPxDiHW4w==}
+
+  '@squoosh-kit/webp@0.2.4':
+    resolution: {integrity: sha512-VsIxzP+m01IrI0BYrEgUCnlaApcpCaIiP0suGt/8R2y4/C0m67nobSyEnx0Z4yHwIJHL2E7/61kvHtaXFC7t0w==}
+
+  '@squoosh-kit/wp2@0.2.4':
+    resolution: {integrity: sha512-JNEEG/uueIgtwI/CGU5sm9M5KG2RKal0jb2z8sa7n79RE8z/UsxTdnhsupOYcQZfFOc1JlJ+8rqmyi4Ew70TAw==}
 
   '@stablelib/base64@1.0.1':
     resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
@@ -2281,6 +2336,9 @@ packages:
   victory-vendor@37.3.6:
     resolution: {integrity: sha512-SbPDPdDBYp+5MJHhBCAyI7wKM3d5ivekigc2Dk2s7pgbZ9wIgIBYGVw4zGHBml/qTFbexrofXW6Gu4noGxrOwQ==}
 
+  wasm-feature-detect@1.8.0:
+    resolution: {integrity: sha512-zksaLKM2fVlnB5jQQDqKXXwYHLQUVH9es+5TOOHwGOVJOCeRBCiPjwSg+3tN2AdTCzjgli4jijCH290kXb/zWQ==}
+
   which-boxed-primitive@1.1.1:
     resolution: {integrity: sha512-TbX3mj8n0odCBFVlY8AxkqcHASw3L60jIuF8jFP78az3C2YhmGvqbHBpAjTRH2/xqYunrJ9g1jSyjCjpoWzIAA==}
     engines: {node: '>= 0.4'}
@@ -2697,6 +2755,79 @@ snapshots:
       react-redux: 9.2.0(@types/react@19.2.10)(react@19.2.3)(redux@5.0.1)
 
   '@rtsao/scc@1.1.0': {}
+
+  '@squoosh-kit/avif@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/core@0.2.4':
+    dependencies:
+      '@squoosh-kit/avif': 0.2.4
+      '@squoosh-kit/hqx': 0.2.4
+      '@squoosh-kit/imagequant': 0.2.4
+      '@squoosh-kit/jxl': 0.2.4
+      '@squoosh-kit/mozjpeg': 0.2.4
+      '@squoosh-kit/oxipng': 0.2.4
+      '@squoosh-kit/png': 0.2.4
+      '@squoosh-kit/qoi': 0.2.4
+      '@squoosh-kit/resize': 0.2.4
+      '@squoosh-kit/rotate': 0.2.4
+      '@squoosh-kit/runtime': 0.2.4
+      '@squoosh-kit/visdif': 0.2.4
+      '@squoosh-kit/webp': 0.2.4
+      '@squoosh-kit/wp2': 0.2.4
+
+  '@squoosh-kit/hqx@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/imagequant@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/jxl@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/mozjpeg@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/oxipng@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/png@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/qoi@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/resize@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/rotate@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/runtime@0.2.4':
+    dependencies:
+      wasm-feature-detect: 1.8.0
+
+  '@squoosh-kit/visdif@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/webp@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
+
+  '@squoosh-kit/wp2@0.2.4':
+    dependencies:
+      '@squoosh-kit/runtime': 0.2.4
 
   '@stablelib/base64@1.0.1': {}
 
@@ -4708,6 +4839,8 @@ snapshots:
       d3-shape: 3.2.0
       d3-time: 3.1.0
       d3-timer: 3.0.1
+
+  wasm-feature-detect@1.8.0: {}
 
   which-boxed-primitive@1.1.1:
     dependencies:

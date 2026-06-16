@@ -48,7 +48,8 @@ export default function AddProductPage() {
 
   const imagesRef = useRef<ImagesFormRef>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [imagesFormKey, setImagesFormKey] = useState(0); // for resetting ImagesForm
+  const [imagesFormKey, setImagesFormKey] = useState(0);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   const [resultModal, setResultModal] = useState<{
     isOpen: boolean;
@@ -62,57 +63,96 @@ export default function AddProductPage() {
     message: "",
   });
 
- const handleSaveProduct = async () => {
-  if (isSaving) return;
-  setIsSaving(true);
+  const handleSaveProduct = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setShouldRedirect(false);
 
-  try {
-    const result = await handleSubmit();
+    try {
+      // 1. Create the product
+      const result = await handleSubmit();
 
-    if (!result.success || !result.productId) {
-      setResultModal({
-        isOpen: true,
-        type: "error",
-        title: "Error",
-        message: result.error || "Failed to create product. Please check your inputs.",
-      });
-      return;
-    }
+      if (!result.success || !result.productId) {
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Error",
+          message: result.error || "Failed to create product. Please check your inputs.",
+        });
+        return;
+      }
 
-    const productId = result.productId;
-    const uploadResult = await imagesRef.current?.uploadImages(productId);
+      const productId = result.productId;
 
-    if (uploadResult?.success) {
+      // 2. Upload images
+      const uploadResult = await imagesRef.current?.uploadImages(productId);
+
+      // 3. Check if primary image succeeded
+      if (!uploadResult?.primarySucceeded) {
+        // PRIMARY IMAGE FAILED – ROLLBACK: delete the product
+        try {
+          await fetch(`/api/shopowner/products/${productId}`, {
+            method: "DELETE",
+          });
+        } catch (deleteError) {
+          console.error("Failed to delete product after primary image failure:", deleteError);
+        }
+
+        // Clear form
+        resetForm();
+        setImagesFormKey((prev) => prev + 1);
+        setActiveIndex(0);
+
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Product Creation Failed",
+          message: "The primary image could not be uploaded. The product has been removed. Please try with a different image.",
+        });
+        return;
+      }
+
+      // 4. Primary succeeded – check if any additional images failed
+      if (uploadResult.failedCount > 0) {
+        // Partial success – some additional images failed
+        resetForm();
+        setImagesFormKey((prev) => prev + 1);
+        setActiveIndex(0);
+
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Product Created (Partial Success)",
+          message: `Product created successfully, but ${uploadResult.failedCount} image(s) failed to upload. You can retry failed images later from the product edit page.`,
+        });
+        return;
+      }
+
+      // 5. Full success – everything worked
       resetForm();
       setImagesFormKey((prev) => prev + 1);
       setActiveIndex(0);
+      setShouldRedirect(true);
 
       setResultModal({
         isOpen: true,
         type: "success",
         title: "Success!",
-        message: "Product created and all images uploaded successfully. Form reset.",
+        message: "Product created and all images uploaded successfully.",
       });
-    } else {
+
+    } catch (err) {
+      console.error(err);
       setResultModal({
         isOpen: true,
         type: "error",
-        title: "Partial Success",
-        message: `Product created but ${uploadResult?.failedCount || 0} image(s) failed to upload. You can retry later.`,
+        title: "Error",
+        message: "An unexpected error occurred. Please try again.",
       });
+    } finally {
+      setIsSaving(false);
     }
-  } catch (err) {
-    console.error(err);
-    setResultModal({
-      isOpen: true,
-      type: "error",
-      title: "Error",
-      message: "An unexpected error occurred. Please try again.",
-    });
-  } finally {
-    setIsSaving(false);
-  }
-};
+  };
 
   const renderComponent = () => {
     switch (activeIndex) {
@@ -164,6 +204,15 @@ export default function AddProductPage() {
     }
   };
 
+  const handleModalClose = () => {
+    setResultModal((prev) => ({ ...prev, isOpen: false }));
+
+    // If we should redirect and it was a success, go to product list
+    if (shouldRedirect) {
+      window.location.href = `/dashboard/${shopSlug}/products`;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 relative font-[Poppins]">
       <ResultModal
@@ -171,7 +220,7 @@ export default function AddProductPage() {
         type={resultModal.type}
         title={resultModal.title}
         message={resultModal.message}
-        onClose={() => setResultModal((prev) => ({ ...prev, isOpen: false }))}
+        onClose={handleModalClose}
       />
 
       <div className="mb-6">
