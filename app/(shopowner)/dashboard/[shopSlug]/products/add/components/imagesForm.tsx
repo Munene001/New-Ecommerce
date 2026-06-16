@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
-import { Camera, Image as ImageIcon, Star, Trash2, X, Loader2 } from "lucide-react";
+import { Camera, Image as ImageIcon, Star, Trash2, X, Loader2, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import imageCompression from "browser-image-compression";
 import InstructionsList from "@/app/components/ui/instructionList";
@@ -16,7 +16,12 @@ export interface ProductImage {
 }
 
 export interface ImagesFormRef {
-  uploadImages: (productId: number) => Promise<{ success: boolean; failedCount: number }>;
+  uploadImages: (productId: number) => Promise<{ 
+    success: boolean; 
+    failedCount: number; 
+    failedIds: string[];
+    primarySucceeded: boolean;
+  }>;
 }
 
 interface ImagesFormProps {
@@ -24,13 +29,6 @@ interface ImagesFormProps {
   onImagesChange?: (images: ProductImage[]) => void;
   onError?: (message: string) => void;
 }
-
-const compressionOptions = {
-  maxSizeMB: 0.2,
-  maxWidthOrHeight: 1000,
-  useWebWorker: true,
-  initialQuality: 0.6,
-};
 
 const COMPRESSION_TIMEOUT_MS = 12000;
 
@@ -40,20 +38,29 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
     const [isProcessing, setIsProcessing] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-    const [showRetryModal, setShowRetryModal] = useState(false);
-    const [failedImageIds, setFailedImageIds] = useState<string[]>([]);
 
     useEffect(() => {
       onImagesChange?.(localImages);
     }, [localImages, onImagesChange]);
 
+    // ----- COMPRESSION (Always succeeds) -----
     const compressFile = async (file: File): Promise<File> => {
+      // Skip if already small
+      if (file.size < 200 * 1024) return file;
+
+      // Skip HEIC/HEIF (browser-image-compression can't handle them)
       const type = file.type.toLowerCase();
       if (type === "image/heic" || type === "image/heif" || type.includes("heic") || type.includes("heif")) {
-        console.warn("HEIC/HEIF detected – skipping frontend compression");
+        console.warn("HEIC/HEIF detected – using original");
         return file;
       }
-      if (file.size < 200 * 1024) return file;
+
+      const compressionOptions = {
+        maxSizeMB: 0.2,
+        maxWidthOrHeight: 1000,
+        useWebWorker: true,
+        initialQuality: 0.6,
+      };
 
       try {
         const compressed = await Promise.race([
@@ -62,10 +69,11 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             setTimeout(() => reject(new Error("Compression timeout")), COMPRESSION_TIMEOUT_MS)
           ),
         ]);
+        console.log(`✅ Compressed: ${(file.size / 1024).toFixed(1)}KB → ${(compressed.size / 1024).toFixed(1)}KB`);
         return compressed;
       } catch (err) {
         console.warn("Compression failed or timed out – using original", err);
-        return file;
+        return file; // Always return a file – no failure point
       }
     };
 
@@ -160,12 +168,19 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       );
     };
 
+    // ----- UPLOAD IMAGES (Sharp processes, can fail) -----
     const uploadImages = async (productId: number) => {
       const pendingImages = localImages.filter((img) => img.status !== "success");
-      if (pendingImages.length === 0) return { success: true, failedCount: 0 };
+      if (pendingImages.length === 0) return { 
+        success: true, 
+        failedCount: 0, 
+        failedIds: [],
+        primarySucceeded: true,
+      };
 
       setIsUploading(true);
       const newFailedIds: string[] = [];
+      let primarySucceeded = false;
 
       for (let i = 0; i < pendingImages.length; i++) {
         const img = pendingImages[i];
@@ -184,9 +199,12 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             body: formData,
           });
 
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
           const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+
           setLocalImages((prev) =>
             prev.map((p) =>
               p.id === img.id
@@ -194,6 +212,10 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 : p
             )
           );
+
+          if (img.isPrimary) {
+            primarySucceeded = true;
+          }
         } catch (err) {
           console.error(`Failed to upload ${img.id}`, err);
           setLocalImages((prev) =>
@@ -206,12 +228,18 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       setIsUploading(false);
       setUploadProgress({ current: 0, total: 0 });
 
-      if (newFailedIds.length > 0) {
-        setFailedImageIds(newFailedIds);
-        setShowRetryModal(true);
-        return { success: false, failedCount: newFailedIds.length };
+      // Final check: is primary image in the list and marked as success?
+      const primary = localImages.find((img) => img.isPrimary);
+      if (primary && primary.status === "success") {
+        primarySucceeded = true;
       }
-      return { success: true, failedCount: 0 };
+
+      return {
+        success: newFailedIds.length === 0,
+        failedCount: newFailedIds.length,
+        failedIds: newFailedIds,
+        primarySucceeded,
+      };
     };
 
     useImperativeHandle(ref, () => ({ uploadImages }));
@@ -229,6 +257,46 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       return null;
     };
 
+    // Inline retry for a single failed image
+    const retryImage = async (imageId: string, productId: number) => {
+      const img = localImages.find((i) => i.id === imageId);
+      if (!img || img.status !== "failed") return;
+
+      setLocalImages((prev) =>
+        prev.map((p) => (p.id === imageId ? { ...p, status: "uploading" } : p))
+      );
+
+      try {
+        const formData = new FormData();
+        formData.append("image", img.file);
+        formData.append("isPrimary", String(img.isPrimary));
+
+        const res = await fetch(`/api/shopowner/products/${productId}/images`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        setLocalImages((prev) =>
+          prev.map((p) =>
+            p.id === imageId
+              ? { ...p, status: "success", serverId: data.image_id }
+              : p
+          )
+        );
+      } catch (err) {
+        console.error(`Retry failed for ${imageId}`, err);
+        setLocalImages((prev) =>
+          prev.map((p) => (p.id === imageId ? { ...p, status: "failed" } : p))
+        );
+      }
+    };
+
     return (
       <div className="md:space-y-6 space-y-8 bg-white md:p-6 rounded-lg">
         <div className="text-xl font-semibold text-black">Product Images</div>
@@ -236,8 +304,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         <InstructionsList
           items={[
             { text: "Maximum 6 images total" },
-            { text: "Images are automatically resized to 1000px and compressed to ~200KB" },
-            { text: "HEIC/HEIF images will be uploaded in original format and processed server-side" },
+            { text: "Images are compressed to ~200KB automatically" },
+            { text: "HEIC/HEIF images are uploaded in original format" },
             { text: "The first image added becomes the primary image" },
             { text: "Click the star icon on any image to make it primary" },
           ]}
@@ -268,6 +336,14 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
               <div className="absolute bottom-2 right-2 bg-black/50 rounded-full p-0.5">
                 <StatusIcon status={primaryImage.status} />
               </div>
+              {primaryImage.status === "failed" && (
+                <button
+                  onClick={() => retryImage(primaryImage.id, 0)}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/60 transition-colors"
+                >
+                  <RefreshCw className="w-8 h-8 text-white" />
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex flex-wrap gap-4">
@@ -359,6 +435,14 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 <div className="absolute bottom-2 right-2 bg-black/50 rounded-full p-0.5">
                   <StatusIcon status={image.status} />
                 </div>
+                {image.status === "failed" && (
+                  <button
+                    onClick={() => retryImage(image.id, 0)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/60 transition-colors"
+                  >
+                    <RefreshCw className="w-8 h-8 text-white" />
+                  </button>
+                )}
               </div>
             ))}
 
@@ -412,23 +496,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             <p className="text-xs text-gray-500 text-center">
               Uploading images {uploadProgress.current} of {uploadProgress.total}
             </p>
-          </div>
-        )}
-
-        {/* Retry Modal */}
-        {showRetryModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold mb-2">Upload Incomplete</h3>
-              <p className="text-gray-600 mb-4">
-                {failedImageIds.length} image(s) failed to upload. Please save the product again to retry.
-              </p>
-              <div className="flex justify-end">
-                <button onClick={() => setShowRetryModal(false)} className="px-4 py-2 bg-magenta-dark text-white rounded-lg">
-                  OK
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
