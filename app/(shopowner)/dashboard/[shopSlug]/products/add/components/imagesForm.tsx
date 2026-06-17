@@ -37,12 +37,13 @@ interface ImagesFormProps {
   initialImages?: ProductImage[];
   onImagesChange?: (images: ProductImage[]) => void;
   onError?: (message: string) => void;
+  onSuccess?: (message: string) => void;
 }
 
 const COMPRESSION_TIMEOUT_MS = 12000;
 
 const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
-  ({ initialImages = [], onImagesChange, onError }, ref) => {
+  ({ initialImages = [], onImagesChange, onError, onSuccess }, ref) => {
     const [localImages, setLocalImages] =
       useState<ProductImage[]>(initialImages);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -66,7 +67,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         type.includes("heic") ||
         type.includes("heif")
       ) {
-        console.warn("HEIC/HEIF detected – using original");
         return file;
       }
 
@@ -87,12 +87,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             ),
           ),
         ]);
-        console.log(
-          `✅ Compressed: ${(file.size / 1024).toFixed(1)}KB → ${(compressed.size / 1024).toFixed(1)}KB`,
-        );
         return compressed;
       } catch (err) {
-        console.warn("Compression failed or timed out – using original", err);
         return file;
       }
     };
@@ -117,7 +113,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         const filtered = localImages.filter((img) => !img.isPrimary);
         setLocalImages([newPrimary, ...filtered]);
       } catch (err) {
-        console.error("Error processing primary image:", err);
         onError?.("Failed to process image. Please try again.");
       } finally {
         setIsProcessing(false);
@@ -168,7 +163,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 
         setLocalImages((prev) => [...prev, ...newImages]);
       } catch (err) {
-        console.error("Error processing additional images:", err);
         onError?.("Failed to process some images. Please try again.");
       } finally {
         setIsProcessing(false);
@@ -182,43 +176,48 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       onError?.("");
     };
 
-    const setAsPrimary = async (id: string) => {
+    const setAsPrimary = (id: string) => {
       const img = localImages.find((i) => i.id === id);
-      if (!img) return;
-
-      // If the image is already uploaded, update primary status on the server
-      if (img.status === "success" && img.serverId) {
-        try {
-          // 👇 REMOVED "/set-primary" from the URL
-          const res = await fetch(`/api/shopowner/images/${img.serverId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isPrimary: true }),
-          });
-
-          if (!res.ok) {
-            throw new Error("Failed to update primary status");
-          }
-        } catch (err) {
-          console.error("Failed to set primary:", err);
-          onError?.("Failed to update primary image. Please try again.");
-          return;
-        }
+      if (!img) {
+        onError?.("Image not found.");
+        return;
       }
 
-      // Update local state
+      if (img.isPrimary) {
+        onError?.("This image is already the primary image.");
+        return;
+      }
+
       setLocalImages((prev) =>
         prev.map((i) => ({
           ...i,
           isPrimary: i.id === id,
         })),
       );
-    };
-    // 👇 NEW: Clear the failed primary image
-    const clearFailedPrimary = () => {
-      setLocalImages((prev) =>
-        prev.filter((img) => !(img.isPrimary && img.status === "failed")),
+
+      onSuccess?.(
+        "⭐ Primary image updated! It will be saved with the product.",
       );
+    };
+
+    // ✅ FIX: Remove failed primary completely, reset additional to pending
+    const clearFailedPrimary = () => {
+      setLocalImages((prev) => {
+        // Find and revoke URL for failed primary
+        const failedPrimary = prev.find((img) => img.isPrimary && img.status === "failed");
+        if (failedPrimary?.preview) {
+          URL.revokeObjectURL(failedPrimary.preview);
+        }
+
+        // Remove failed primary, reset ALL remaining images to pending
+        return prev
+          .filter((img) => !(img.isPrimary && img.status === "failed"))
+          .map((img) => ({
+            ...img,
+            status: "pending",
+            serverId: undefined,
+          }));
+      });
     };
 
     const uploadImages = async (productId: number) => {
@@ -277,7 +276,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             primarySucceeded = true;
           }
         } catch (err) {
-          console.error(`Failed to upload ${img.id}`, err);
           setLocalImages((prev) =>
             prev.map((p) => (p.id === img.id ? { ...p, status: "failed" } : p)),
           );
@@ -308,6 +306,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 
     const primaryImage = localImages.find((img) => img.isPrimary);
     const additionalImages = localImages.filter((img) => !img.isPrimary);
+
+    // ✅ Hide star icon when no primary or primary is failed
+    const hasValidPrimary = primaryImage && primaryImage.status !== "failed";
 
     const StatusIcon = ({ status }: { status?: string }) => {
       if (status === "uploading")
@@ -353,7 +354,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           ),
         );
       } catch (err) {
-        console.error(`Retry failed for ${imageId}`, err);
         setLocalImages((prev) =>
           prev.map((p) => (p.id === imageId ? { ...p, status: "failed" } : p)),
         );
@@ -370,7 +370,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             { text: "Images are compressed to ~200KB automatically" },
             { text: "HEIC/HEIF images are uploaded in original format" },
             { text: "The first image added becomes the primary image" },
-            { text: "Click the star icon on any image to make it primary" },
+            {
+              text: "Click the star icon on any image to make it primary (local only)",
+            },
           ]}
           variant="green"
         />
@@ -504,16 +506,19 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   className="object-cover"
                 />
                 <div className="absolute top-2 right-2 flex gap-1">
-                  <button
-                    onClick={() => setAsPrimary(image.id)}
-                    className="bg-yellow-500 text-white p-1.5 rounded-full shadow-md"
-                    title="Make primary"
-                  >
-                    <Star className="w-4 h-4" />
-                  </button>
+                  {/* ✅ Hide star icon when no valid primary */}
+                  {hasValidPrimary && (
+                    <button
+                      onClick={() => setAsPrimary(image.id)}
+                      className="bg-yellow-500 text-white p-1.5 rounded-full shadow-md hover:bg-yellow-600 transition-colors"
+                      title="Make primary (local only)"
+                    >
+                      <Star className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     onClick={() => removeImage(image.id)}
-                    className="bg-red-500 text-white p-1.5 rounded-full shadow-md"
+                    className="bg-red-500 text-white p-1.5 rounded-full shadow-md hover:bg-red-600 transition-colors"
                     title="Remove"
                   >
                     <Trash2 className="w-4 h-4" />
