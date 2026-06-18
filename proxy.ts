@@ -30,10 +30,7 @@ getValidShopSlugs();
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const actionHeader = request.headers.get('next-action') || request.headers.get('x-nextjs-action');
-  if (actionHeader && actionHeader.length < 10) {
-    return new NextResponse('Forbidden', { status: 403 });
-  }
+
 
   if (
     pathname.startsWith('/_next/static') ||
@@ -47,6 +44,7 @@ export async function proxy(request: NextRequest) {
   const hostname = host.split(':')[0];
   const isDev = process.env.NODE_ENV === 'development';
 
+  // Allow main domain to pass through
   if (hostname === 'paziatech.co.ke' || hostname === 'www.paziatech.co.ke') {
     return NextResponse.next();
   }
@@ -64,6 +62,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Handle shop subdomains
   if (subdomain && !excludedSubdomains.has(subdomain)) {
     const validSlugs = await getValidShopSlugs();
     if (validSlugs.includes(subdomain)) {
