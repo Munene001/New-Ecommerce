@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { RowDataPacket, } from 'mysql2';
+import { RowDataPacket } from 'mysql2';
 
 interface ShopRow extends RowDataPacket {
   shop_id: number;
@@ -42,7 +42,8 @@ export async function GET(
   const categoriesParam = searchParams.get('categories');
   const minPrice = searchParams.get('minPrice');
   const maxPrice = searchParams.get('maxPrice');
-  const sortBy = searchParams.get('sortBy') || 'newest';
+  // ✅ CHANGE: default to 'random' instead of 'newest'
+  const sortBy = searchParams.get('sortBy') || 'random';
   const inStock = searchParams.get('inStock') === 'true';
 
   try {
@@ -91,7 +92,7 @@ export async function GET(
       whereClause += ' AND p.in_stock = 1';
     }
 
-    // ORDER BY
+    // ORDER BY – ✅ added 'random' case, kept others intact
     let orderByClause = 'ORDER BY ';
     switch (sortBy) {
       case 'price_low':
@@ -104,8 +105,11 @@ export async function GET(
         orderByClause += 'p.created_at ASC';
         break;
       case 'newest':
-      default:
         orderByClause += 'p.created_at DESC';
+        break;
+      case 'random':
+      default:
+        orderByClause += 'RAND()';
         break;
     }
 

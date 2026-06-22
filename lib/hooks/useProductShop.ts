@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Product } from '../types/product';
 
-type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high';
+// ✅ Added 'random' to SortOption
+type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high' | 'random';
 type PriceRange = { min: number; max: number } | null;
 
 interface ShopFilters {
@@ -17,7 +18,7 @@ interface ShopFilters {
 
 interface UseShopProductsProps {
   initialProducts: Product[];
-  shopSlug: string | null | undefined; // can be null initially
+  shopSlug: string | null | undefined;
   initialTotalCount?: number;
   initialSearch?: string;
   initialCategories?: string[];
@@ -26,7 +27,6 @@ interface UseShopProductsProps {
   initialInStock?: boolean;
 }
 
-// Simple debounce hook
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -43,7 +43,7 @@ export function useShopProducts({
   initialSearch = '',
   initialCategories = [],
   initialPriceRange = null,
-  initialSortBy = 'newest',
+  initialSortBy = 'random', // ✅ changed default to 'random'
   initialInStock = false,
 }: UseShopProductsProps) {
   const router = useRouter();
@@ -54,7 +54,6 @@ export function useShopProducts({
   const [totalCount, setTotalCount] = useState(initialTotalCount || 0);
   const [hasMore, setHasMore] = useState(initialProducts.length < (initialTotalCount || 0));
 
-  // Raw search input (before debounce)
   const [searchInput, setSearchInput] = useState(initialSearch);
   const debouncedSearch = useDebounce(searchInput, 500);
 
@@ -68,12 +67,11 @@ export function useShopProducts({
 
   const isFirstRender = useRef(true);
 
-  // When debouncedSearch changes, update the committed filters.search
   useEffect(() => {
     setFilters(prev => ({ ...prev, search: debouncedSearch }));
   }, [debouncedSearch]);
 
-  // Sync filters to URL on change (shallow)
+  // Sync filters to URL
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -88,19 +86,15 @@ export function useShopProducts({
       params.set('minPrice', filters.priceRange.min.toString());
       params.set('maxPrice', filters.priceRange.max.toString());
     }
-    if (filters.sortBy !== 'newest') params.set('sortBy', filters.sortBy);
+    // ✅ Only add sortBy if it's NOT the default ('random')
+    if (filters.sortBy !== 'random') params.set('sortBy', filters.sortBy);
     if (filters.inStock) params.set('inStock', 'true');
 
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [filters, router]);
 
   const fetchProducts = useCallback(async (page: number, append: boolean = false) => {
-    console.log('fetchProducts called, shopSlug:', shopSlug);
-    
-    if (!shopSlug) {
-      console.log('shopSlug is falsy, aborting fetch');
-      return;
-    }
+    if (!shopSlug) return;
 
     setLoading(true);
     try {
@@ -115,16 +109,15 @@ export function useShopProducts({
         params.append('minPrice', filters.priceRange.min.toString());
         params.append('maxPrice', filters.priceRange.max.toString());
       }
-      if (filters.sortBy) params.append('sortBy', filters.sortBy);
+      // ✅ Always include sortBy (even 'random') – the API will handle it
+      params.append('sortBy', filters.sortBy);
       if (filters.inStock) params.append('inStock', 'true');
 
       const url = `/api/shops/${shopSlug}/products?${params}`;
-      console.log('Fetching URL:', url);
       const res = await fetch(url);
-      console.log('Response status:', res.status);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      console.log('Fetched data:', data);
+
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       setCurrentPage(data.pagination.currentPage);
       setHasMore(data.pagination.currentPage < data.pagination.totalPages);
@@ -136,16 +129,14 @@ export function useShopProducts({
     }
   }, [shopSlug, filters]);
 
-  // Fetch when filters change, but only if shopSlug is available
   useEffect(() => {
     if (shopSlug) {
       fetchProducts(1, false);
     }
   }, [filters, fetchProducts, shopSlug]);
 
-  const searchProducts = async (term: string) => {
-    setSearchInput(term);
-  };
+  // --- Public actions ---
+  const searchProducts = async (term: string) => setSearchInput(term);
 
   const toggleCategory = async (categoryId: string) => {
     setFilters(prev => {
@@ -181,7 +172,7 @@ export function useShopProducts({
       search: '',
       categories: [],
       priceRange: null,
-      sortBy: 'newest',
+      sortBy: 'random', // ✅ default to random
       inStock: false,
     });
   };
@@ -199,7 +190,7 @@ export function useShopProducts({
       search: '',
       categories: [],
       priceRange: null,
-      sortBy: 'newest',
+      sortBy: 'random', // ✅ default to random
       inStock: false,
     });
     setHasMore(initialProducts.length < (initialTotalCount || 0));

@@ -4,7 +4,7 @@ import { ArrowLeftRight, Check, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Range } from "react-range";
 
-type SortOption = "newest" | "oldest" | "price_low" | "price_high";
+type SortOption = "newest" | "oldest" | "price_low" | "price_high" | "random";
 
 interface PriceRange {
   min: number;

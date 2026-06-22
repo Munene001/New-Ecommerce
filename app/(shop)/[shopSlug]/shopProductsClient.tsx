@@ -193,7 +193,7 @@ export default function ShopProductsClient() {
               onRemoveSearch={() => searchProducts("")}
               onRemoveCategory={toggleCategory}
               onRemovePriceRange={clearPriceRange}
-              onRemoveSort={() => setSortBy("newest")}
+              onRemoveSort={() => setSortBy("random")}
               onRemoveInStock={toggleInStock}
               onClearAll={clearFilters}
               secondaryColor={shop.secondaryColor}
