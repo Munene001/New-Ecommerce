@@ -39,11 +39,12 @@ export default function ActiveFilterChips({
   onClearAll,
   secondaryColor,
 }: ActiveFilterChipsProps) {
+  // ✅ Changed: "random" is now the default, so it's not an active filter
   const hasActiveFilters =
     activeFilters.search ||
     activeFilters.categories.length > 0 ||
     activeFilters.priceRange ||
-    activeFilters.sortBy !== "newest" ||
+    activeFilters.sortBy !== "random" ||
     activeFilters.inStock;
 
   if (!hasActiveFilters) return null;
@@ -60,7 +61,7 @@ export default function ActiveFilterChips({
           />
         )}
 
-        {/* Category chips - with type-safe ID handling */}
+        {/* Category chips */}
         {activeFilters.categories.map((catId) => {
           const catIdStr = String(catId);
           const category = categories.find((c) => String(c.id) === catIdStr);
@@ -84,8 +85,8 @@ export default function ActiveFilterChips({
           />
         )}
 
-        {/* Sort chip */}
-        {activeFilters.sortBy !== "newest" && (
+        {/* ✅ Sort chip: only show if sort is explicitly chosen (not "random") */}
+        {activeFilters.sortBy !== "random" && (
           <FilterChip
             label={`Sort: ${
               activeFilters.sortBy === "price_low"
@@ -94,7 +95,7 @@ export default function ActiveFilterChips({
                 ? "Price high"
                 : activeFilters.sortBy === "oldest"
                 ? "Oldest"
-                : "Newest"
+                : "Newest" // handles "newest" (user explicitly selected it)
             }`}
             onRemove={onRemoveSort}
             color={secondaryColor}
