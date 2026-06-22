@@ -31,6 +31,8 @@ export interface ImagesFormRef {
     primarySucceeded: boolean;
   }>;
   clearFailedPrimary: () => void;
+  getImages: () => ProductImage[];
+  resetImages: () => void; // ✅ Add reset method
 }
 
 interface ImagesFormProps {
@@ -38,20 +40,26 @@ interface ImagesFormProps {
   onImagesChange?: (images: ProductImage[]) => void;
   onError?: (message: string) => void;
   onSuccess?: (message: string) => void;
+  onUploadProgress?: (current: number, total: number) => void;
 }
 
 const COMPRESSION_TIMEOUT_MS = 12000;
 
 const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
-  ({ initialImages = [], onImagesChange, onError, onSuccess }, ref) => {
-    const [localImages, setLocalImages] =
-      useState<ProductImage[]>(initialImages);
+  ({ 
+    initialImages = [], 
+    onImagesChange, 
+    onError, 
+    onSuccess,
+    onUploadProgress,
+  }, ref) => {
+    const [localImages, setLocalImages] = useState<ProductImage[]>(initialImages);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState({
-      current: 0,
-      total: 0,
-    });
+
+    // ✅ Update local state when initialImages changes (e.g., after reset)
+    useEffect(() => {
+      setLocalImages(initialImages);
+    }, [initialImages]);
 
     useEffect(() => {
       onImagesChange?.(localImages);
@@ -200,16 +208,13 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       );
     };
 
-    // ✅ FIX: Remove failed primary completely, reset additional to pending
     const clearFailedPrimary = () => {
       setLocalImages((prev) => {
-        // Find and revoke URL for failed primary
         const failedPrimary = prev.find((img) => img.isPrimary && img.status === "failed");
         if (failedPrimary?.preview) {
           URL.revokeObjectURL(failedPrimary.preview);
         }
 
-        // Remove failed primary, reset ALL remaining images to pending
         return prev
           .filter((img) => !(img.isPrimary && img.status === "failed"))
           .map((img) => ({
@@ -220,30 +225,46 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       });
     };
 
+    const getImages = () => localImages;
+
+    // ✅ Reset function - clears all images
+    const resetImages = () => {
+      // Revoke all object URLs to prevent memory leaks
+      localImages.forEach((img) => {
+        if (img.preview) {
+          URL.revokeObjectURL(img.preview);
+        }
+      });
+      setLocalImages([]);
+    };
+
     const uploadImages = async (productId: number) => {
       const pendingImages = localImages.filter(
         (img) => img.status !== "success",
       );
-      if (pendingImages.length === 0)
+      
+      if (pendingImages.length === 0) {
         return {
           success: true,
           failedCount: 0,
           failedIds: [],
           primarySucceeded: true,
         };
+      }
 
-      setIsUploading(true);
       const newFailedIds: string[] = [];
       let primarySucceeded = false;
 
       for (let i = 0; i < pendingImages.length; i++) {
         const img = pendingImages[i];
+        
         setLocalImages((prev) =>
           prev.map((p) =>
             p.id === img.id ? { ...p, status: "uploading" } : p,
           ),
         );
-        setUploadProgress({ current: i + 1, total: pendingImages.length });
+
+        onUploadProgress?.(i + 1, pendingImages.length);
 
         try {
           const formData = new FormData();
@@ -283,9 +304,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         }
       }
 
-      setIsUploading(false);
-      setUploadProgress({ current: 0, total: 0 });
-
       const primary = localImages.find((img) => img.isPrimary);
       if (primary && primary.status === "success") {
         primarySucceeded = true;
@@ -302,12 +320,12 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
     useImperativeHandle(ref, () => ({
       uploadImages,
       clearFailedPrimary,
+      getImages,
+      resetImages, // ✅ Expose reset function
     }));
 
     const primaryImage = localImages.find((img) => img.isPrimary);
     const additionalImages = localImages.filter((img) => !img.isPrimary);
-
-    // ✅ Hide star icon when no primary or primary is failed
     const hasValidPrimary = primaryImage && primaryImage.status !== "failed";
 
     const StatusIcon = ({ status }: { status?: string }) => {
@@ -506,7 +524,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   className="object-cover"
                 />
                 <div className="absolute top-2 right-2 flex gap-1">
-                  {/* ✅ Hide star icon when no valid primary */}
                   {hasValidPrimary && (
                     <button
                       onClick={() => setAsPrimary(image.id)}
@@ -538,7 +555,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
               </div>
             ))}
 
-            {additionalImages.length < 5 && !isUploading && !isProcessing && (
+            {additionalImages.length < 5 && !isProcessing && (
               <>
                 <input
                   type="file"
@@ -583,23 +600,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             )}
           </div>
         </div>
-
-        {isUploading && (
-          <div className="space-y-1 mt-4">
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-magenta-dark h-full transition-all duration-300"
-                style={{
-                  width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
-                }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 text-center">
-              Uploading images {uploadProgress.current} of{" "}
-              {uploadProgress.total}
-            </p>
-          </div>
-        )}
       </div>
     );
   },

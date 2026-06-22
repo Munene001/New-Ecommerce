@@ -1,15 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
-import PrimaryForm from "./components/primaryForm";
-import OptionalForm from "./components/optionalForm";
+import { 
+  CheckCircle, 
+  Circle, 
+  ArrowLeft,
+  ArrowRight,
+  AlertCircle
+} from "lucide-react";
+import BasicInfoForm from "./components/basicInfoForm";
+import PricingForm from "./components/pricingForm";
 import ImagesForm, {
   ImagesFormRef,
   ProductImage,
 } from "./components/imagesForm";
 import CategoryComponent from "./components/categoryComponent";
+import ReviewStep from "./components/reviewStep";
 import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
 import Button from "@/app/components/ui/button";
@@ -18,6 +26,7 @@ import SimpleToast from "@/app/components/ui/simpleToast";
 export default function AddProductPage() {
   const {
     activeIndex,
+    setActiveIndex,
     sections,
     formData,
     setFormData,
@@ -27,9 +36,13 @@ export default function AddProductPage() {
     showCategoryForm,
     setShowCategoryForm,
     attributeSchema,
+    variantAttributes,
+    selectedVariantAttrs,
+    toggleVariantAttribute,
     loadingSchema,
     loading,
     errors,
+    setErrors,
     shopSlug,
     shopId,
     shopType,
@@ -37,6 +50,7 @@ export default function AddProductPage() {
     modalState,
     showWarning,
     handleSubmit,
+    handlePublish,
     handleCategoryCreated,
     handleCategoryError,
     handleNext,
@@ -46,14 +60,19 @@ export default function AddProductPage() {
     addCategory,
     removeCategory,
     resetForm,
-    setActiveIndex,
+    addVariant,
+    removeVariant,
+    updateVariant,
+    canPublish,
+    calculateCompletion,
+    validateAllSteps,
   } = useProductForm();
 
   const imagesRef = useRef<ImagesFormRef>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [imagesFormKey, setImagesFormKey] = useState(0);
+  const [isAutoNavigating, setIsAutoNavigating] = useState(false);
 
-  // 👇 Toast state that matches SimpleToast props
   const [toastState, setToastState] = useState<{
     type: "success" | "error";
     text: string;
@@ -74,17 +93,29 @@ export default function AddProductPage() {
     message: "",
   });
 
-  // 👇 Handle success messages (green toast)
   const showSuccess = (message: string) => {
     setToastState({ type: "success", text: message });
     setTimeout(() => setToastState({ type: "error", text: "" }), 3000);
   };
 
-  // 👇 Handle error messages (red toast) - reuse the existing showWarning
   const showError = (message: string) => {
     setToastState({ type: "error", text: message });
     setTimeout(() => setToastState({ type: "error", text: "" }), 3000);
   };
+
+  const completion = calculateCompletion();
+
+  useEffect(() => {
+    if (isAutoNavigating) {
+      const formContainer = document.querySelector('.bg-white.rounded-lg.border');
+      if (formContainer) {
+        setTimeout(() => {
+          formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      }
+      setIsAutoNavigating(false);
+    }
+  }, [activeIndex, isAutoNavigating]);
 
   const handleSaveProduct = async () => {
     if (isSaving) return;
@@ -98,10 +129,9 @@ export default function AddProductPage() {
           isOpen: true,
           type: "error",
           title: "Error",
-          message:
-            result.error ||
-            "Failed to create product. Please check your inputs.",
+          message: result.error || "Failed to create product. Please check your inputs.",
         });
+        setIsSaving(false);
         return;
       }
 
@@ -122,7 +152,6 @@ export default function AddProductPage() {
 
         imagesRef.current?.clearFailedPrimary();
 
-        const updatedImages = formData.images.filter((img) => !img.isPrimary);
         setFormData((prev) => ({
           ...prev,
           images: prev.images.map((img) => ({
@@ -139,10 +168,12 @@ export default function AddProductPage() {
           message:
             "The primary image could not be uploaded. Please upload a new primary image from gallery or using camera, then click save again.",
         });
+        setIsSaving(false);
         return;
       }
 
       if (uploadResult.failedCount > 0) {
+        imagesRef.current?.resetImages();
         resetForm();
         setImagesFormKey((prev) => prev + 1);
         setActiveIndex(0);
@@ -153,9 +184,11 @@ export default function AddProductPage() {
           title: "Product Created (Partial Success)",
           message: `Product created successfully, but ${uploadResult.failedCount} image(s) failed to upload. You can retry failed images later from the product edit page.`,
         });
+        setIsSaving(false);
         return;
       }
 
+      imagesRef.current?.resetImages();
       resetForm();
       setImagesFormKey((prev) => prev + 1);
       setActiveIndex(0);
@@ -172,7 +205,115 @@ export default function AddProductPage() {
         isOpen: true,
         type: "error",
         title: "Error",
-        message: "An unexpected error occurred. Please try again.",
+        message: err instanceof Error ? err.message : "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePublishProduct = async () => {
+    if (isSaving) return;
+    
+    const isUploading = formData.images.some(img => img.status === "uploading");
+    if (isUploading) return;
+    
+    setIsSaving(true);
+
+    try {
+      const result = await handlePublish();
+
+      if (!result.success && result.errorStep !== undefined) {
+        setActiveIndex(result.errorStep);
+        setIsAutoNavigating(true);
+        const errorMessage = result.errorSummary || result.error || "Please complete required fields";
+        showError(errorMessage);
+        setIsSaving(false);
+        return;
+      }
+
+      if (!result.success || !result.productId) {
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Publish Failed",
+          message: result.error || "Failed to publish product. Please check your inputs.",
+        });
+        setIsSaving(false);
+        return;
+      }
+
+      const productId = result.productId;
+      const uploadResult = await imagesRef.current?.uploadImages(productId);
+
+      if (!uploadResult?.primarySucceeded) {
+        try {
+          await fetch(`/api/shopowner/products/${productId}`, {
+            method: "DELETE",
+          });
+        } catch (deleteError) {
+          console.error(
+            "Failed to delete product after primary image failure:",
+            deleteError,
+          );
+        }
+
+        imagesRef.current?.clearFailedPrimary();
+
+        setFormData((prev) => ({
+          ...prev,
+          images: prev.images.map((img) => ({
+            ...img,
+            status: "pending",
+            serverId: undefined,
+          })),
+        }));
+
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Primary Image Upload Failed",
+          message:
+            "The primary image could not be uploaded. Please upload a new primary image from gallery or using camera, then click save again.",
+        });
+        setIsSaving(false);
+        return;
+      }
+
+      if (uploadResult.failedCount > 0) {
+        imagesRef.current?.resetImages();
+        resetForm();
+        setImagesFormKey((prev) => prev + 1);
+        setActiveIndex(0);
+
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Product Published (Partial Success)",
+          message: `Product published successfully, but ${uploadResult.failedCount} image(s) failed to upload. You can retry failed images later from the product edit page.`,
+        });
+        setIsSaving(false);
+        return;
+      }
+
+      imagesRef.current?.resetImages();
+      resetForm();
+      setImagesFormKey((prev) => prev + 1);
+      setActiveIndex(0);
+
+      setResultModal({
+        isOpen: true,
+        type: "success",
+        title: "Success!",
+        message: "Product published successfully and is now live!",
+      });
+    } catch (err) {
+      console.error(err);
+      setResultModal({
+        isOpen: true,
+        type: "error",
+        title: "Error",
+        message: err instanceof Error ? err.message : "An unexpected error occurred. Please try again.",
       });
     } finally {
       setIsSaving(false);
@@ -180,32 +321,31 @@ export default function AddProductPage() {
   };
 
   const renderComponent = () => {
-    switch (activeIndex) {
-      case 0:
-        return (
-          <PrimaryForm
+    return (
+      <>
+        <div style={{ display: activeIndex === 0 ? 'block' : 'none' }}>
+          <BasicInfoForm
             formData={formData}
             setFormData={setFormData}
-            attributeSchema={attributeSchema}
+            attributeSchema={attributeSchema.filter((f) => f.variant !== true)}
             loadingSchema={loadingSchema}
             errors={errors}
           />
-        );
-      case 1:
-        return (
-          <OptionalForm
-            categories={categories}
-            selectedCategoryId={selectedCategoryId}
-            setSelectedCategoryId={setSelectedCategoryId}
+        </div>
+        <div style={{ display: activeIndex === 1 ? 'block' : 'none' }}>
+          <PricingForm
             formData={formData}
             setFormData={setFormData}
-            optionalAttributes={attributeSchema.filter((f) => !f.required)}
-            onAddCategory={addCategory}
-            onRemoveCategory={removeCategory}
+            variantAttributes={variantAttributes}
+            selectedVariantAttrs={selectedVariantAttrs}
+            toggleVariantAttribute={toggleVariantAttribute}
+            addVariant={addVariant}
+            removeVariant={removeVariant}
+            updateVariant={updateVariant}
+            errors={errors}
           />
-        );
-      case 2:
-        return (
+        </div>
+        <div style={{ display: activeIndex === 2 ? 'block' : 'none' }}>
           <ImagesForm
             key={imagesFormKey}
             ref={imagesRef}
@@ -216,15 +356,116 @@ export default function AddProductPage() {
             onError={showError}
             onSuccess={showSuccess}
           />
-        );
-      default:
-        return null;
-    }
+        </div>
+        <div style={{ display: activeIndex === 3 ? 'block' : 'none' }}>
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Categories</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Group your product into categories for better discoverability
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+              <div className="flex flex-wrap gap-2 mb-4">
+                {categories
+                  .filter((cat) => formData.categoryIds.includes(cat.id))
+                  .map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="bg-orange-50 border border-orange-200 text-gray-700 px-3 py-1.5 rounded-full flex items-center gap-2 text-sm"
+                    >
+                      <Icon icon="mdi:tag" className="w-3 h-3 text-orange-500" />
+                      <span>{cat.name}</span>
+                      <button
+                        onClick={() => removeCategory(cat.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <Icon icon="mdi:close" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+
+              {formData.categoryIds.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-2">
+                  No categories selected yet
+                </p>
+              )}
+
+              <div className="flex items-center gap-4 mt-4">
+                <div className="flex-1">
+                  <select
+                    value={selectedCategoryId}
+                    onChange={(e) => setSelectedCategoryId(Number(e.target.value) || "")}
+                    className="w-full px-4 py-3 border rounded-xl transition-all duration-200 font-[Poppins] text-gray-800 placeholder-gray-400 bg-white border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none"
+                  >
+                    <option value="">Select a category to add</option>
+                    {categories
+                      .filter((cat) => !formData.categoryIds.includes(cat.id))
+                      .map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedCategoryId) {
+                      addCategory(selectedCategoryId as number);
+                      setSelectedCategoryId("");
+                    }
+                  }}
+                  disabled={!selectedCategoryId}
+                  className="px-4 py-3 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 h-[52px]"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <Button
+                onClick={() => setShowCategoryForm(!showCategoryForm)}
+                variant="secondary"
+                className="flex flex-row items-center justify-center gap-2 w-full md:w-auto"
+              >
+                <Icon icon="mdi:plus-circle-outline" className="w-5 h-5" />
+                {showCategoryForm ? "Cancel" : "Create New Category"}
+              </Button>
+
+              {showCategoryForm && shopId && (
+                <div className="mt-4 p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <CategoryComponent
+                    shopId={shopId}
+                    onCategoryCreated={handleCategoryCreated}
+                    onCategoryError={handleCategoryError}
+                    onCancel={() => setShowCategoryForm(false)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: activeIndex === 4 ? 'block' : 'none' }}>
+          <ReviewStep
+            formData={formData}
+            completion={completion}
+            attributeSchema={attributeSchema}
+            onPublish={handlePublishProduct}
+            isPublishing={isSaving}
+          />
+        </div>
+      </>
+    );
   };
 
-  const onNextOrSave = async () => {
+  const handleNextOrSave = () => {
     if (activeIndex === sections.length - 1) {
-      await handleSaveProduct();
+      handleSaveProduct();
     } else {
       handleNext();
     }
@@ -234,8 +475,50 @@ export default function AddProductPage() {
     setResultModal((prev) => ({ ...prev, isOpen: false }));
   };
 
+  const getErrorStep = (): number | null => {
+    if (!errors || Object.keys(errors).length === 0) return null;
+    
+    const basicInfoKeys = ['productName', 'productSlug', 'attr.'];
+    const pricingKeys = ['price', 'discountPrice', 'variant_', 'variants'];
+    const imageKeys = ['images'];
+    
+    const errorKeys = Object.keys(errors);
+    
+    if (errorKeys.some(key => basicInfoKeys.some(k => key.includes(k)))) {
+      return 0;
+    }
+    if (errorKeys.some(key => pricingKeys.some(k => key.includes(k)))) {
+      return 1;
+    }
+    if (errorKeys.some(key => imageKeys.some(k => key.includes(k)))) {
+      return 2;
+    }
+    
+    return 0;
+  };
+
+  const getStepStatus = (index: number) => {
+    const stepKeys = ['basicInfo', 'pricing', 'images', 'categories', 'review'];
+    const step = completion.steps[stepKeys[index] as keyof typeof completion.steps];
+    const errorStep = getErrorStep();
+    
+    const hasErrorsOnThisStep = errorStep === index;
+    
+    if (!step) return { status: 'incomplete', hasErrors: false };
+    if (index === activeIndex) {
+      return { status: 'active', hasErrors: hasErrorsOnThisStep };
+    }
+    if (step.completed && !hasErrorsOnThisStep) {
+      return { status: 'completed', hasErrors: false };
+    }
+    if (hasErrorsOnThisStep) {
+      return { status: 'error', hasErrors: true };
+    }
+    return { status: 'incomplete', hasErrors: false };
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6 relative font-[Poppins]">
+    <div className="min-h-screen bg-gray-50 font-[Poppins]">
       <ResultModal
         isOpen={resultModal.isOpen}
         type={resultModal.type}
@@ -244,129 +527,185 @@ export default function AddProductPage() {
         onClose={handleModalClose}
       />
 
-      <div className="mb-6">
-        <Link
-          href={`/dashboard/${shopSlug}/products`}
-          className="inline-flex items-center text-gray-700 hover:text-black text-[16px] transition-colors font-[Poppins]"
-        >
-          <Icon icon="mdi:arrow-left" className="w-5 h-5 mr-2" />
-          Back to Products
-        </Link>
-      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        <div className="mb-6">
+          <Link
+            href={`/dashboard/${shopSlug}/products`}
+            className="inline-flex items-center text-gray-600 hover:text-black text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Products
+          </Link>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-black font-[Poppins]">
-          Add New Product
-        </h1>
-        <p className="hidden md:block text-magenta-dark mt-2 font-[Poppins]">
-          Shop: <span className="font-medium text-black">{shopSlug}</span> •
-          Type:{" "}
-          <span className="font-medium text-black">
-            {shopType || "Loading..."}
-          </span>
-        </p>
-      </div>
+          <div className="mt-4">
+            <h1 className="text-2xl font-semibold text-black">Add New Product</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Shop: <span className="font-medium text-black">{shopSlug}</span> • 
+              Type: <span className="font-medium text-black">{shopType || "Loading..."}</span>
+            </p>
+          </div>
+        </div>
 
-      <div className="mb-8">
-        <Button
-          onClick={() => setShowCategoryForm(!showCategoryForm)}
-          variant="secondary"
-          className="flex flex-row items-center justify-center gap-2"
-        >
-          <Icon icon="mdi:plus-circle-outline" className="w-5 h-5" />
-          {showCategoryForm ? "Cancel" : "Add New Category"}
-        </Button>
-
-        {showCategoryForm && shopId && (
-          <div className="mb-6 p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-            <CategoryComponent
-              shopId={shopId}
-              onCategoryCreated={handleCategoryCreated}
-              onCategoryError={handleCategoryError}
-              onCancel={() => setShowCategoryForm(false)}
+        <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700">Setup Progress</span>
+            <span className="text-sm font-bold text-orange-600">{completion.percentage}%</span>
+          </div>
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-orange-500 transition-all duration-500 rounded-full"
+              style={{ width: `${completion.percentage}%` }}
             />
           </div>
-        )}
+          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+            <span>{completion.completedSteps} of {completion.totalSteps} steps complete</span>
+            {completion.canPublish && (
+              <span className="inline-flex items-center gap-1 text-green-600">
+                <CheckCircle className="w-3 h-3" />
+                Ready to publish
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left Sidebar - Sticky */}
+          <div className="lg:w-64 flex-shrink-0">
+            <div className="bg-black rounded-lg shadow-sm sticky top-6 overflow-hidden">
+              <div className="p-4 border-b border-gray-800">
+                <h2 className="text-white font-semibold text-sm uppercase tracking-wider">Steps</h2>
+              </div>
+              <nav className="p-2 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+                {sections.map((section, index) => {
+                  const { status, hasErrors } = getStepStatus(index);
+                  const isActive = index === activeIndex;
+                  
+                  let icon;
+                  if (hasErrors && status !== 'active') {
+                    icon = <AlertCircle className="w-4 h-4 text-red-400" />;
+                  } else if (status === 'completed') {
+                    icon = <CheckCircle className="w-4 h-4 text-green-400" />;
+                  } else if (status === 'active') {
+                    icon = <Circle className="w-4 h-4 text-orange-400" />;
+                  } else {
+                    icon = <Circle className="w-4 h-4 text-gray-600" />;
+                  }
+
+                  return (
+                    <button
+                      key={section}
+                      onClick={() => handleTabClick(index)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                        isActive
+                          ? 'bg-orange-500/10 text-orange-400'
+                          : hasErrors && status !== 'active'
+                          ? 'text-red-400 hover:bg-red-900/10'
+                          : status === 'completed'
+                          ? 'text-gray-300 hover:bg-gray-800'
+                          : 'text-gray-500 hover:bg-gray-800'
+                      }`}
+                    >
+                      <span className="flex-shrink-0">{icon}</span>
+                      <span className="flex-1 text-left font-medium">
+                        {section}
+                        {status === 'completed' && (
+                          <span className="ml-2 text-green-400">✓</span>
+                        )}
+                        {hasErrors && status !== 'active' && (
+                          <span className="ml-2 text-red-400 text-xs">!</span>
+                        )}
+                      </span>
+                      {isActive && (
+                        <span className="w-1.5 h-6 bg-orange-400 rounded-full flex-shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+              
+              <div className="p-4 border-t border-gray-800 mt-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Complete</span>
+                  <span className="text-white font-medium">{completion.percentage}%</span>
+                </div>
+                <div className="w-full h-1 bg-gray-800 rounded-full mt-1 overflow-hidden">
+                  <div
+                    className="h-full bg-orange-500 transition-all duration-500 rounded-full"
+                    style={{ width: `${completion.percentage}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Content - Scrollable */}
+          <div className="flex-1 min-w-0">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              {renderComponent()}
+            </div>
+
+            <div className="flex justify-between mt-6">
+              <button
+                onClick={handlePrevious}
+                disabled={activeIndex === 0}
+                className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  activeIndex === 0
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Previous
+              </button>
+
+              {activeIndex === sections.length - 1 ? (
+                <button
+                  onClick={handleSaveProduct}
+                  disabled={isSaving}
+                  className="px-6 py-2.5 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isSaving ? (
+                    <>
+                      <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="mdi:content-save" className="w-4 h-4" />
+                      Save Draft
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={handleNextOrSave}
+                  disabled={loading || isSaving}
+                  className="px-6 py-2.5 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 flex items-center gap-2"
+                >
+                  {loading || isSaving ? (
+                    <>
+                      <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Next
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 👇 Single SimpleToast that handles both errors and success */}
       {toastState.text && (
         <SimpleToast
           message={toastState}
           onClose={() => setToastState({ type: "error", text: "" })}
         />
       )}
-
-      <div className="w-full mb-8">
-        <div className="flex">
-          <div className="md:w-[75%] w-full">
-            <div className="flex justify-between mb-1">
-              {sections.map((section, index) => (
-                <button
-                  key={section}
-                  onClick={() => handleTabClick(index)}
-                  className={`flex-1 text-center px-2 py-3 text-[18px] md:text-base font-[500] transition-colors font-[Poppins] ${
-                    index === activeIndex
-                      ? "text-black"
-                      : "text-gray-700 hover:text-gray-900"
-                  }`}
-                  style={{ width: `${100 / sections.length}%` }}
-                >
-                  {section}
-                  {index === 0 && (
-                    <span className="ml-1 text-red-500 text-xs">*</span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="relative w-full h-[10px] bg-gray-400">
-              <div
-                className="absolute h-[10px] bg-magenta-dark rounded-full transition-all duration-300"
-                style={{
-                  width: `${100 / sections.length}%`,
-                  left: `${(100 / sections.length) * activeIndex}%`,
-                }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm md:p-6 px-3 py-6">
-        {renderComponent()}
-      </div>
-
-      <div className="flex justify-between mt-8">
-        <button
-          onClick={handlePrevious}
-          disabled={activeIndex === 0}
-          className={`px-6 py-3 rounded-lg font-[Poppins] text-sm font-medium transition-colors ${
-            activeIndex === 0
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          Previous
-        </button>
-
-        <button
-          onClick={onNextOrSave}
-          disabled={loading || isSaving}
-          className="px-6 py-3 bg-black text-white rounded-lg font-[Poppins] text-sm font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300"
-        >
-          {loading || isSaving ? (
-            <span className="flex items-center gap-2">
-              <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
-              {activeIndex === sections.length - 1 ? "Saving..." : "Loading..."}
-            </span>
-          ) : activeIndex === sections.length - 1 ? (
-            "Save Product"
-          ) : (
-            "Next"
-          )}
-        </button>
-      </div>
     </div>
   );
 }
