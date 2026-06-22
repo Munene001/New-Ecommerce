@@ -5,7 +5,10 @@ import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import PrimaryForm from "./components/primaryForm";
 import OptionalForm from "./components/optionalForm";
-import ImagesForm, { ImagesFormRef, ProductImage } from "./components/imagesForm";
+import ImagesForm, {
+  ImagesFormRef,
+  ProductImage,
+} from "./components/imagesForm";
 import CategoryComponent from "./components/categoryComponent";
 import ResultModal from "./components/resultModal";
 import { useProductForm } from "./hooks/useProductForm";
@@ -48,7 +51,16 @@ export default function AddProductPage() {
 
   const imagesRef = useRef<ImagesFormRef>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [imagesFormKey, setImagesFormKey] = useState(0); // for resetting ImagesForm
+  const [imagesFormKey, setImagesFormKey] = useState(0);
+
+  // 👇 Toast state that matches SimpleToast props
+  const [toastState, setToastState] = useState<{
+    type: "success" | "error";
+    text: string;
+  }>({
+    type: "error",
+    text: "",
+  });
 
   const [resultModal, setResultModal] = useState<{
     isOpen: boolean;
@@ -62,43 +74,98 @@ export default function AddProductPage() {
     message: "",
   });
 
+  // 👇 Handle success messages (green toast)
+  const showSuccess = (message: string) => {
+    setToastState({ type: "success", text: message });
+    setTimeout(() => setToastState({ type: "error", text: "" }), 3000);
+  };
+
+  // 👇 Handle error messages (red toast) - reuse the existing showWarning
+  const showError = (message: string) => {
+    setToastState({ type: "error", text: message });
+    setTimeout(() => setToastState({ type: "error", text: "" }), 3000);
+  };
+
   const handleSaveProduct = async () => {
     if (isSaving) return;
     setIsSaving(true);
 
     try {
-      const productId = await handleSubmit();
-      if (!productId) {
+      const result = await handleSubmit();
+
+      if (!result.success || !result.productId) {
         setResultModal({
           isOpen: true,
           type: "error",
           title: "Error",
-          message: "Failed to create product. Please check your inputs.",
+          message:
+            result.error ||
+            "Failed to create product. Please check your inputs.",
         });
         return;
       }
 
+      const productId = result.productId;
       const uploadResult = await imagesRef.current?.uploadImages(productId);
-      if (uploadResult?.success) {
-        // Reset everything
-        resetForm();              // clears form data (including images in parent state)
-        setImagesFormKey((prev) => prev + 1); // forces ImagesForm to re-mount
-        setActiveIndex(0);        // go back to primary tab
-        
-        setResultModal({
-          isOpen: true,
-          type: "success",
-          title: "Success!",
-          message: "Product created and all images uploaded successfully. Form reset.",
-        });
-      } else {
+
+      if (!uploadResult?.primarySucceeded) {
+        try {
+          await fetch(`/api/shopowner/products/${productId}`, {
+            method: "DELETE",
+          });
+        } catch (deleteError) {
+          console.error(
+            "Failed to delete product after primary image failure:",
+            deleteError,
+          );
+        }
+
+        imagesRef.current?.clearFailedPrimary();
+
+        const updatedImages = formData.images.filter((img) => !img.isPrimary);
+        setFormData((prev) => ({
+          ...prev,
+          images: prev.images.map((img) => ({
+            ...img,
+            status: "pending",
+            serverId: undefined,
+          })),
+        }));
+
         setResultModal({
           isOpen: true,
           type: "error",
-          title: "Partial Success",
-          message: `Product created but ${uploadResult?.failedCount || 0} image(s) failed to upload. You can retry later.`,
+          title: "Primary Image Upload Failed",
+          message:
+            "The primary image could not be uploaded. Please upload a new primary image from gallery or using camera, then click save again.",
         });
+        return;
       }
+
+      if (uploadResult.failedCount > 0) {
+        resetForm();
+        setImagesFormKey((prev) => prev + 1);
+        setActiveIndex(0);
+
+        setResultModal({
+          isOpen: true,
+          type: "error",
+          title: "Product Created (Partial Success)",
+          message: `Product created successfully, but ${uploadResult.failedCount} image(s) failed to upload. You can retry failed images later from the product edit page.`,
+        });
+        return;
+      }
+
+      resetForm();
+      setImagesFormKey((prev) => prev + 1);
+      setActiveIndex(0);
+
+      setResultModal({
+        isOpen: true,
+        type: "success",
+        title: "Success!",
+        message: "Product created and all images uploaded successfully.",
+      });
     } catch (err) {
       console.error(err);
       setResultModal({
@@ -146,7 +213,8 @@ export default function AddProductPage() {
             onImagesChange={(images) =>
               setFormData((prev) => ({ ...prev, images: images as any }))
             }
-            onError={(message) => showWarning(message, "error")}
+            onError={showError}
+            onSuccess={showSuccess}
           />
         );
       default:
@@ -162,6 +230,10 @@ export default function AddProductPage() {
     }
   };
 
+  const handleModalClose = () => {
+    setResultModal((prev) => ({ ...prev, isOpen: false }));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 relative font-[Poppins]">
       <ResultModal
@@ -169,7 +241,7 @@ export default function AddProductPage() {
         type={resultModal.type}
         title={resultModal.title}
         message={resultModal.message}
-        onClose={() => setResultModal((prev) => ({ ...prev, isOpen: false }))}
+        onClose={handleModalClose}
       />
 
       <div className="mb-6">
@@ -217,7 +289,13 @@ export default function AddProductPage() {
         )}
       </div>
 
-      <SimpleToast message={tabWarning} onClose={() => {}} />
+      {/* 👇 Single SimpleToast that handles both errors and success */}
+      {toastState.text && (
+        <SimpleToast
+          message={toastState}
+          onClose={() => setToastState({ type: "error", text: "" })}
+        />
+      )}
 
       <div className="w-full mb-8">
         <div className="flex">

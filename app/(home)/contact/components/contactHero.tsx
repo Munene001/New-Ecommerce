@@ -14,7 +14,7 @@ const contactDetails = [
   {
     icon: <Mail className="w-5 h-5 text-orange-500" />,
     title: "Email",
-    value: "info@paziatech.com",
+    value: "hello@mail.paziatech.co.ke",
     detail: "We'll respond within 24h",
   },
   {
@@ -86,7 +86,7 @@ export default function ContactHeroSection() {
                       <h3 className="font-semibold text-gray-900 text-xs md:text-sm uppercase tracking-wide">
                         {detail.title}
                       </h3>
-                      <p className="text-black font-medium text-sm md:text-base mt-1">
+                      <p className="text-black font-medium text-sm md:text-sm mt-1">
                         {detail.value}
                       </p>
                       <p className="text-gray-700 text-xs mt-1">

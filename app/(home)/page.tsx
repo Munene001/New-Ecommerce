@@ -9,6 +9,7 @@ import FeaturesSection from "./components/Features/page";
 import SimpleFooter from "./components/footer";
 import HomeWhatsApp from "./components/homeWhatsapp";
 import { useShopOwnerTracking } from "@/lib/hooks/useShopOwnerTracking";
+import DataTransparencySection from "./components/dataTransparency";
 
 import Phase2 from "./components/phase2";
 import Image, { StaticImageData } from "next/image";
@@ -131,6 +132,7 @@ export default function Home() {
       <FeaturesSection />
 
       <Phase2 />
+      <DataTransparencySection/>
 
       <SimpleFooter />
       <HomeWhatsApp />

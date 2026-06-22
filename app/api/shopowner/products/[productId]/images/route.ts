@@ -59,7 +59,7 @@ export async function POST(
     const originalSizeKb = Math.round(buffer.length / 1024);
     
     // 5MB safety net (though frontend should compress)
-    if (originalSizeKb > 5000) {
+    if (originalSizeKb > 8000) {
       return NextResponse.json({ error: 'Image too large. Max 5MB.' }, { status: 400 });
     }
 

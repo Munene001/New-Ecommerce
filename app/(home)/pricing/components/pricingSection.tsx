@@ -12,7 +12,7 @@ const tiers = [
     yearlySave: null,
     description: "Experience all Basic features risk‑free.",
     features: [
-      "Up to 50 products",
+      "Up to 100 products",
       "Basic SEO (meta tags, sitemap, discount codes)",
       "M-Pesa Integration",
       "Email support",
