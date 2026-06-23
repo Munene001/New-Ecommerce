@@ -553,7 +553,8 @@ export function useProductForm() {
     };
   };
 
-  const handleSubmit = async (): Promise<{ success: boolean; productId?: number; error?: string }> => {
+  // FIXED: handleSubmit now accepts an optional status override
+  const handleSubmit = async (overrideStatus?: 'draft' | 'published'): Promise<{ success: boolean; productId?: number; error?: string }> => {
     let finalProductType = formData.productType;
     let finalPrice = formData.price;
     let finalDiscountPrice = formData.discountPrice;
@@ -584,6 +585,7 @@ export function useProductForm() {
       variants: finalVariants,
     };
 
+    // Basic validation for drafts, full validation for publish
     const validateConverted = (): boolean => {
       const errors: Record<string, string> = {};
       if (!tempFormData.productName.trim()) {
@@ -592,22 +594,27 @@ export function useProductForm() {
       if (!tempFormData.productSlug.trim()) {
         errors.productSlug = "Product slug is required";
       }
-      if (finalProductType === "simple") {
-        if (!finalPrice || Number(finalPrice) <= 0) {
-          errors.price = "Valid price is required";
+      
+      // Only validate price/image for publish, not for drafts
+      if (overrideStatus === 'published') {
+        if (finalProductType === "simple") {
+          if (!finalPrice || Number(finalPrice) <= 0) {
+            errors.price = "Valid price is required";
+          }
+          if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
+            errors.discountPrice = "Discount must be less than regular price";
+          }
         }
-        if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
-          errors.discountPrice = "Discount must be less than regular price";
+        if (tempFormData.images.length === 0) {
+          errors.images = "At least one image is required";
+        } else {
+          const hasPrimary = tempFormData.images.some((img) => img.isPrimary === true);
+          if (!hasPrimary) {
+            errors.images = "A primary image is required";
+          }
         }
       }
-      if (tempFormData.images.length === 0) {
-        errors.images = "At least one image is required";
-      } else {
-        const hasPrimary = tempFormData.images.some((img) => img.isPrimary === true);
-        if (!hasPrimary) {
-          errors.images = "A primary image is required";
-        }
-      }
+      
       setErrors(errors);
       return Object.keys(errors).length === 0;
     };
@@ -618,13 +625,15 @@ export function useProductForm() {
 
     setLoading(true);
     try {
+      const statusToSend = overrideStatus || tempFormData.status || 'draft';
+      
       const payload = {
         shopId,
         productName: tempFormData.productName,
         productSlug: tempFormData.productSlug,
         description: tempFormData.description,
         productType: finalProductType,
-        status: tempFormData.status,
+        status: statusToSend,
         attributes: finalAttributes,
         price: finalProductType === "simple" ? finalPrice : 0,
         discountPrice: finalProductType === "simple" ? finalDiscountPrice || null : null,
@@ -671,6 +680,11 @@ export function useProductForm() {
         }
       }
 
+      // Update local status if published
+      if (overrideStatus === 'published') {
+        setFormData(prev => ({ ...prev, status: 'published' }));
+      }
+
       return { success: true, productId };
     } catch (error) {
       console.error("Submit failed:", error);
@@ -683,6 +697,7 @@ export function useProductForm() {
     }
   };
 
+  // FIXED: handlePublish now calls handleSubmit with 'published' status
   const handlePublish = async (): Promise<{ 
     success: boolean; 
     productId?: number; 
@@ -722,13 +737,13 @@ export function useProductForm() {
       };
     }
     
-    const publishFormData: ProductFormData = {
-      ...formData,
-      status: "published" as const,
+    // Call handleSubmit with 'published' status override
+    const result = await handleSubmit('published');
+    return {
+      success: result.success,
+      productId: result.productId,
+      error: result.error,
     };
-    
-    setFormData(publishFormData);
-    return await handleSubmit();
   };
 
   const addVariant = () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { 
   CheckCircle, 
@@ -116,6 +116,18 @@ export default function AddProductPage() {
       setIsAutoNavigating(false);
     }
   }, [activeIndex, isAutoNavigating]);
+
+  // Fixed: Memoize onImagesChange and compare contents to kill infinite update cycles
+  const handleImagesChange = useCallback((newImages: ProductImage[]) => {
+    setFormData((prev) => {
+      // Stringify or compare counts to verify if state modification is actually needed
+      const currentIds = prev.images.map((img: any) => `${img.id || img.name}-${img.status}`).join(",");
+      const newIds = newImages.map((img: any) => `${img.id || img.name}-${img.status}`).join(",");
+      
+      if (currentIds === newIds) return prev; // Avoid setting state if identical
+      return { ...prev, images: newImages as any };
+    });
+  }, [setFormData]);
 
   const handleSaveProduct = async () => {
     if (isSaving) return;
@@ -350,9 +362,7 @@ export default function AddProductPage() {
             key={imagesFormKey}
             ref={imagesRef}
             initialImages={formData.images as ProductImage[]}
-            onImagesChange={(images) =>
-              setFormData((prev) => ({ ...prev, images: images as any }))
-            }
+            onImagesChange={handleImagesChange} // Fixed Reference Cycle
             onError={showError}
             onSuccess={showSuccess}
           />
@@ -569,7 +579,7 @@ export default function AddProductPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Sidebar - Sticky */}
+          {/* Left Sidebar */}
           <div className="lg:w-64 flex-shrink-0">
             <div className="bg-black rounded-lg shadow-sm sticky top-6 overflow-hidden">
               <div className="p-4 border-b border-gray-800">
@@ -638,7 +648,7 @@ export default function AddProductPage() {
             </div>
           </div>
 
-          {/* Right Content - Scrollable */}
+          {/* Right Content */}
           <div className="flex-1 min-w-0">
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
               {renderComponent()}
