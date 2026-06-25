@@ -420,8 +420,9 @@ export default async function ProductPage({ params }: PageProps) {
         price={product.price}
         discountPrice={product.discount_price}
         secondaryColor={secondaryColor}
+        in_stock={product.in_stock} // ← ONLY THIS LINE ADDED
       />
-     <TrackProductAnalytics productId={product.product_id} />
+      <TrackProductAnalytics productId={product.product_id} />
       <TrackProductView product={product} /> 
     </>
   );

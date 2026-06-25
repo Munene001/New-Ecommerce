@@ -1,4 +1,3 @@
-// context/shopCartContext.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
@@ -11,6 +10,7 @@ export interface CartItem {
   price: number;
   discount_price: number | null;
   quantity: number;
+  in_stock?: boolean; // ← ADD THIS
 }
 
 interface CartContextType {
@@ -32,7 +32,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
-  const { shop, trackEvent } = useShop(); // ← Added trackEvent
+  const { shop, trackEvent } = useShop();
   const { showToast } = useToast();
   const shopId = shop?.shopId;
   const storageKey = shopId ? `cart-${shopId}` : null;
@@ -40,14 +40,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const hasLoadedRef = useRef(false);
 
-  // Helper to safely show toast after render
   const safeShowToast = (message: string, type: 'success' | 'error') => {
     queueMicrotask(() => {
       showToast(message, type);
     });
   };
 
-  // Load cart from localStorage only once when storageKey is available
   useEffect(() => {
     if (!storageKey || hasLoadedRef.current) return;
     
@@ -78,7 +76,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   }, 0);
 
   const addToCart = (item: Omit<CartItem, "quantity">, quantity: number = 1) => {
-    // Track add_to_cart event
+    // ← ADD THIS CHECK
+    if (item.in_stock === false) {
+      safeShowToast(`${item.product_name} is out of stock`, 'error');
+      return;
+    }
+
     trackEvent('add_to_cart', {
       product_id: item.product_id
     });
@@ -111,6 +114,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       if (index === -1) return prev;
 
       const item = prev[index];
+      
+      // ← ADD THIS CHECK
+      if (newQuantity > item.quantity && item.in_stock === false) {
+        safeShowToast(`${item.product_name} is out of stock`, 'error');
+        return prev;
+      }
+
       if (newQuantity <= 0) {
         const filtered = prev.filter(i => i.product_id !== productId);
         safeShowToast(`${item.product_name} removed from cart`, 'success');
@@ -124,10 +134,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  // Update clearCart to accept silent parameter
   const clearCart = (silent: boolean = false) => {
     setItems([]);
-    // Only show toast if not silent
     if (!silent) {
       safeShowToast("Cart cleared", 'success');
     }

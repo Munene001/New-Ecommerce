@@ -86,6 +86,12 @@ export default function ProductSidebar({
   };
 
   const handleIncrement = () => {
+    // Check if product is in stock
+    if (!product.in_stock) {
+      showToast(`${product.product_name} is out of stock`, 'error');
+      return;
+    }
+
     if (cartItem) {
       updateQuantity(product.product_id, cartItem.quantity + 1);
     } else {
@@ -95,6 +101,7 @@ export default function ProductSidebar({
           product_name: product.product_name,
           price: product.price,
           discount_price: product.discount_price,
+          in_stock: product.in_stock,
         },
         1,
       );
@@ -271,17 +278,21 @@ export default function ProductSidebar({
             <button
               onClick={handleIncrement}
               className="px-3 py-2 hover:bg-gray-100"
+              disabled={!product.in_stock}
             >
               <Plus className="w-4 h-4 text-bold" />
             </button>
           </div>
           <Button
             onClick={handleIncrement}
-            className="flex-1 flex flex-row gap-3 justify-center items-center text-white"
+            className={`flex-1 flex flex-row gap-3 justify-center items-center text-white ${
+              !product.in_stock ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
             style={{ backgroundColor: secondaryColor }}
+            disabled={!product.in_stock}
           >
             <CartIcon cartIcon={shop?.cartIcon} />
-            {cartItem ? "Update Cart" : "Add to Cart"}
+            {!product.in_stock ? 'Out of Stock' : cartItem ? "Update Cart" : "Add to Cart"}
           </Button>
         </div>
 
