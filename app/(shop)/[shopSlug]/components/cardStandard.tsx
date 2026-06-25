@@ -8,6 +8,7 @@ import { ShoppingCart, ShoppingBag, ShoppingBasket } from "lucide-react";
 import ButtonCart from "@/app/components/ui/buttonCart";
 import { useCart } from '@/context/shopCartContext';
 import { useShop } from "@/app/(shop)/ShopContext";
+import { useToast } from '@/context/toastContext';
 import Image from "next/image";
 
 interface Props {
@@ -37,6 +38,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart(); 
   const { shop } = useShop();
+  const { showToast } = useToast();
 
   // Format price with commas and no decimals
   const formatPrice = (price: number) => {
@@ -77,11 +79,19 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); // prevent any parent link navigation
     e.stopPropagation();
+    
+    // Check if product is in stock
+    if (!product.in_stock) {
+      showToast(`${product.product_name} is out of stock`, 'error');
+      return;
+    }
+    
     addToCart({
       product_id: product.product_id,
       product_name: product.product_name,
       price: product.price,
       discount_price: product.discount_price,
+      in_stock: product.in_stock,
     }, 1); // default quantity 1
   };
 
@@ -151,14 +161,16 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
         <div className="mt-4 mb-1 w-full md:flex md:justify-center text-white">
           <ButtonCart
             onClick={handleAddToCart}
-            className="flex flex-row gap-[6px] justify-center items-center py-1 text-[14px] w-full md:w-[80%]"
+            className={`flex flex-row gap-[6px] justify-center items-center py-1 text-[14px] w-full md:w-[80%] ${
+              !product.in_stock ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
             style={{ backgroundColor: "var(--secondary)" }}
             disabled={!product.in_stock}
           >
             <span className="w-4 h-4 flex justify-center items-center animate-bounce" style={{ animationDuration: '2s' }}>
               <CartIcon cartIcon={shop?.cartIcon} />
             </span>
-            <span>Add To Cart</span>
+            <span>{!product.in_stock ? 'Out of Stock' : 'Add To Cart'}</span>
           </ButtonCart>
         </div>
       </div>

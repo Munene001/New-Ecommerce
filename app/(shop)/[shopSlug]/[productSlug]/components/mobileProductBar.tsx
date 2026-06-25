@@ -4,6 +4,7 @@ import { ShoppingCart, Minus, Plus, ShoppingBag, ShoppingBasket } from 'lucide-r
 import Button from '@/app/components/ui/button';
 import { useCart } from '@/context/shopCartContext';
 import { useShop } from "@/app/(shop)/ShopContext";
+import { useToast } from '@/context/toastContext';
 
 interface Props {
   productId: number;
@@ -12,6 +13,7 @@ interface Props {
   discountPrice: number | null;
   secondaryColor: string;
   maxQuantity?: number;
+  in_stock: boolean; // ADD THIS
 }
 
 // Move CartIcon component outside of the main component
@@ -36,14 +38,22 @@ export default function MobileProductBar({
   price,
   discountPrice,
   secondaryColor,
-  maxQuantity = 99
+  maxQuantity = 99,
+  in_stock // ADD THIS
 }: Props) {
   const { items, addToCart, updateQuantity } = useCart();
+  const { showToast } = useToast(); // ADD THIS
   const cartItem = items.find(i => i.product_id === productId);
   const displayQuantity = cartItem ? cartItem.quantity : 1;
   const { shop } = useShop();
 
   const handleIncrement = () => {
+    // ADD THIS CHECK
+    if (!in_stock) {
+      showToast(`${productName} is out of stock`, 'error');
+      return;
+    }
+
     if (cartItem) {
       if (cartItem.quantity < maxQuantity) {
         updateQuantity(productId, cartItem.quantity + 1);
@@ -54,6 +64,7 @@ export default function MobileProductBar({
         product_name: productName,
         price,
         discount_price: discountPrice,
+        in_stock: in_stock, // ADD THIS
       }, 1);
     }
   };
@@ -82,18 +93,21 @@ export default function MobileProductBar({
         <button
           onClick={handleIncrement}
           className="px-3 py-2 hover:bg-gray-100"
-          disabled={cartItem && cartItem.quantity >= maxQuantity}
+          disabled={cartItem && cartItem.quantity >= maxQuantity || !in_stock} // UPDATE THIS
         >
           <Plus className="w-4 h-4" />
         </button>
       </div>
       <Button
         onClick={handleIncrement}
-        className="flex-1 flex flex-row gap-3 justify-center items-center text-white px-0 py-0 border-0"
+        className={`flex-1 flex flex-row gap-3 justify-center items-center text-white px-0 py-0 border-0 ${
+          !in_stock ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         style={{ backgroundColor: secondaryColor }}
+        disabled={!in_stock} // ADD THIS
       >
         <CartIcon cartIcon={shop?.cartIcon} />
-        {cartItem ? 'Update Cart' : 'Add to Cart'}
+        {!in_stock ? 'Out of Stock' : cartItem ? 'Update Cart' : 'Add to Cart'} {/* UPDATE THIS */}
       </Button>
     </div>
   );
