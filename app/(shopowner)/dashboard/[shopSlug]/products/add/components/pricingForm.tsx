@@ -3,6 +3,7 @@
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 import InputField from "@/app/components/ui/inputField";
+import Switch from "@/app/components/ui/switch";
 import { ProductFormData, ProductVariant, Attribute } from "../types";
 import InstructionsList from "@/app/components/ui/instructionList";
 
@@ -34,10 +35,8 @@ export default function PricingForm({
   const isVariable = formData.productType === "variable";
   const hasErrors = Object.keys(errors).length > 0;
 
-  // ✅ Auto-add 2 variants when product becomes variable
   useEffect(() => {
     if (isVariable && formData.variants.length === 0) {
-      // Add 2 empty variants
       addVariant();
       addVariant();
     }
@@ -123,7 +122,6 @@ export default function PricingForm({
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h2 className="text-xl font-semibold text-gray-900">Pricing & Inventory</h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -166,7 +164,6 @@ export default function PricingForm({
         variant="green"
       />
 
-      {/* Questions Section */}
       <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 space-y-6">
         <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
           <Icon icon="mdi:question-mark-circle" className="w-5 h-5 text-orange-500" />
@@ -257,10 +254,24 @@ export default function PricingForm({
       {/* Simple Product Pricing */}
       {isSimple && (
         <div className="bg-white rounded-xl border-2 border-gray-200 p-6 space-y-6">
-          <div className="flex items-center gap-2">
-            <Icon icon="mdi:package" className="w-5 h-5 text-orange-500" />
-            <h3 className="text-md font-medium text-gray-800">Simple Product Pricing</h3>
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Single variation</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Icon icon="mdi:package" className="w-5 h-5 text-orange-500" />
+              <h3 className="text-md font-medium text-gray-800">Simple Product Pricing</h3>
+              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Single variation</span>
+            </div>
+            <Switch
+              checked={formData.inStock !== false}
+              onCheckedChange={(checked) => {
+                setFormData(prev => ({
+                  ...prev,
+                  inStock: checked,
+                  stockQuantity: checked ? (prev.stockQuantity || 1) : 0
+                }));
+              }}
+              label="In Stock"
+              labelPosition="left"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -292,11 +303,27 @@ export default function PricingForm({
               label="Stock Quantity"
               type="number"
               value={formData.stockQuantity}
-              onChange={handleNumberChange("stockQuantity")}
+              onChange={(e) => {
+                const value = typeof e === "object" && "target" in e ? Number(e.target.value) : Number(e);
+                setFormData(prev => ({
+                  ...prev,
+                  stockQuantity: value,
+                  inStock: value > 0
+                }));
+              }}
               placeholder="0"
               icon="mdi:package-variant-closed"
+              disabled={formData.inStock === false}
+              className="border-gray-400 focus:border-orange-500"
             />
           </div>
+
+          {formData.inStock === false && (
+            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg">
+              <Icon icon="mdi:alert-circle" className="w-5 h-5" />
+              <span className="text-sm">This product is marked as out of stock</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -311,7 +338,6 @@ export default function PricingForm({
                 {formData.variants.length} variants
               </span>
             </div>
-            {/* ✅ Changed from "Add Variant" to "Add Row" */}
             <button
               type="button"
               onClick={addVariant}
@@ -355,6 +381,9 @@ export default function PricingForm({
                       Stock
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      In Stock
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Action
                     </th>
                   </tr>
@@ -390,7 +419,7 @@ export default function PricingForm({
                           onChange={handleVariantPriceChange(index)}
                           placeholder="0.00"
                           error={errors[`variant_${index}_price`]}
-                          className="min-w-[80px]"
+                          className="min-w-[100px]"
                         />
                       </td>
                       <td className="px-4 py-2">
@@ -401,7 +430,7 @@ export default function PricingForm({
                           onChange={handleVariantDiscountChange(index)}
                           placeholder="0.00"
                           error={errors[`variant_${index}_discount`]}
-                          className="min-w-[80px]"
+                          className="min-w-[100px]"
                         />
                       </td>
                       <td className="px-4 py-2">
@@ -411,7 +440,23 @@ export default function PricingForm({
                           value={variant.stockQuantity}
                           onChange={handleVariantStockChange(index)}
                           placeholder="0"
-                          className="min-w-[60px]"
+                          className="min-w-[80px] border-gray-400 focus:border-orange-500"
+                          disabled={variant.inStock === false}
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <Switch
+                          checked={variant.inStock !== false}
+                          onCheckedChange={(checked) => {
+                            updateVariant(index, 'inStock', checked);
+                            if (!checked) {
+                              updateVariant(index, 'stockQuantity', 0);
+                            } else {
+                              if (variant.stockQuantity === 0) {
+                                updateVariant(index, 'stockQuantity', 1);
+                              }
+                            }
+                          }}
                         />
                       </td>
                       <td className="px-4 py-2">

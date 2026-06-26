@@ -20,7 +20,8 @@ export function useProductForm() {
     status: "draft",
     price: "",
     discountPrice: "",
-    stockQuantity: 0,
+    stockQuantity: 1,
+    inStock: true,
     attributes: {},
     variants: [],
     images: [],
@@ -183,7 +184,8 @@ export function useProductForm() {
       status: "draft",
       price: "",
       discountPrice: "",
-      stockQuantity: 0,
+      stockQuantity: 1,
+      inStock: true,
       attributes: initialAttributes,
       variants: [],
       images: [],
@@ -232,6 +234,9 @@ export function useProductForm() {
       ) {
         pricingErrors.discountPrice = "Discount price must be less than regular price";
       }
+      if (formData.inStock !== false && formData.stockQuantity < 0) {
+        pricingErrors.stockQuantity = "Stock quantity cannot be negative";
+      }
     } else {
       if (selectedVariantAttrs.length === 0) {
         pricingErrors.variants = "Select at least one attribute that varies";
@@ -251,6 +256,9 @@ export function useProductForm() {
         }
         if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
           pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
+        }
+        if (variant.inStock !== false && variant.stockQuantity < 0) {
+          pricingErrors[`variant_${i}_stock`] = `Variant ${i + 1}: Stock cannot be negative`;
         }
       }
     }
@@ -325,6 +333,10 @@ export function useProductForm() {
         pricingErrors.discountPrice = "Discount price must be less than regular price";
         errorMessages.push("Discount price must be less than regular price");
       }
+      if (formData.inStock !== false && formData.stockQuantity < 0) {
+        pricingErrors.stockQuantity = "Stock cannot be negative";
+        errorMessages.push("Stock cannot be negative");
+      }
     } else {
       if (selectedVariantAttrs.length === 0) {
         pricingErrors.variants = "Select at least one attribute that varies";
@@ -350,7 +362,7 @@ export function useProductForm() {
           pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
           errorMessages.push(`Variant ${i + 1}: Discount must be less than price`);
         }
-        if (variant.stockQuantity !== undefined && variant.stockQuantity < 0) {
+        if (variant.inStock !== false && variant.stockQuantity < 0) {
           pricingErrors[`variant_${i}_stock`] = `Variant ${i + 1}: Stock cannot be negative`;
           errorMessages.push(`Variant ${i + 1}: Stock cannot be negative`);
         }
@@ -553,17 +565,19 @@ export function useProductForm() {
     };
   };
 
-  // FIXED: handleSubmit now accepts an optional status override
-  const handleSubmit = async (overrideStatus?: 'draft' | 'published'): Promise<{ success: boolean; productId?: number; error?: string }> => {
+  const handleSubmit = async (overrideStatus?: 'draft' | 'published'): Promise<{ success: boolean; productId?: number; error?: string; fieldErrors?: Record<string, string>; errorStep?: number }> => {
     let finalProductType = formData.productType;
     let finalPrice = formData.price;
     let finalDiscountPrice = formData.discountPrice;
-    let finalStockQuantity = formData.stockQuantity;
+    let finalStockQuantity = formData.inStock !== false ? formData.stockQuantity : 0;
     let finalAttributes = { ...formData.attributes };
-    let finalVariants = formData.variants;
+    let finalVariants = formData.variants.map(v => ({
+      ...v,
+      stockQuantity: v.inStock !== false ? v.stockQuantity : 0
+    }));
 
     if (formData.productType === "variable" && formData.variants.length === 1) {
-      const singleVariant = formData.variants[0];
+      const singleVariant = finalVariants[0];
       finalProductType = "simple";
       finalPrice = singleVariant.price;
       finalDiscountPrice = singleVariant.discountPrice || "";
@@ -585,42 +599,78 @@ export function useProductForm() {
       variants: finalVariants,
     };
 
-    // Basic validation for drafts, full validation for publish
-    const validateConverted = (): boolean => {
-      const errors: Record<string, string> = {};
-      if (!tempFormData.productName.trim()) {
-        errors.productName = "Product name is required";
-      }
-      if (!tempFormData.productSlug.trim()) {
-        errors.productSlug = "Product slug is required";
-      }
-      
-      // Only validate price/image for publish, not for drafts
-      if (overrideStatus === 'published') {
-        if (finalProductType === "simple") {
-          if (!finalPrice || Number(finalPrice) <= 0) {
-            errors.price = "Valid price is required";
-          }
-          if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
-            errors.discountPrice = "Discount must be less than regular price";
-          }
-        }
-        if (tempFormData.images.length === 0) {
-          errors.images = "At least one image is required";
-        } else {
-          const hasPrimary = tempFormData.images.some((img) => img.isPrimary === true);
-          if (!hasPrimary) {
-            errors.images = "A primary image is required";
-          }
-        }
-      }
-      
-      setErrors(errors);
-      return Object.keys(errors).length === 0;
-    };
+    const fieldErrors: Record<string, string> = {};
+    let errorStep = -1;
 
-    if (!validateConverted()) {
-      return { success: false, error: "Please fix all validation errors." };
+    if (!tempFormData.productName.trim()) {
+      fieldErrors.productName = "Product name is required";
+    }
+    if (!tempFormData.productSlug.trim()) {
+      fieldErrors.productSlug = "Product slug is required";
+    }
+
+    if (overrideStatus === 'published') {
+      if (finalProductType === "simple") {
+        if (!finalPrice || Number(finalPrice) <= 0) {
+          fieldErrors.price = "Valid price is required";
+          errorStep = 1;
+        }
+        if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
+          fieldErrors.discountPrice = "Discount must be less than regular price";
+          errorStep = 1;
+        }
+        if (finalStockQuantity < 0) {
+          fieldErrors.stockQuantity = "Stock cannot be negative";
+          errorStep = 1;
+        }
+      } else {
+        if (selectedVariantAttrs.length === 0) {
+          fieldErrors.variants = "Select at least one attribute that varies";
+          errorStep = 1;
+        }
+        if (finalVariants.length === 0) {
+          fieldErrors.variants = "Add at least one variant";
+          errorStep = 1;
+        }
+        for (let i = 0; i < finalVariants.length; i++) {
+          const variant = finalVariants[i];
+          for (const attr of selectedVariantAttrs) {
+            if (!variant.attributes[attr] || variant.attributes[attr].toString().trim() === "") {
+              fieldErrors[`variant_${i}_${attr}`] = `Variant ${i + 1}: Missing ${attr}`;
+              errorStep = 1;
+            }
+          }
+          if (!variant.price || Number(variant.price) <= 0) {
+            fieldErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
+            errorStep = 1;
+          }
+          if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
+            fieldErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
+            errorStep = 1;
+          }
+        }
+      }
+
+      if (tempFormData.images.length === 0) {
+        fieldErrors.images = "At least one image is required";
+        errorStep = 2;
+      } else {
+        const hasPrimary = tempFormData.images.some((img) => img.isPrimary === true);
+        if (!hasPrimary) {
+          fieldErrors.images = "A primary image is required";
+          errorStep = 2;
+        }
+      }
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      return { 
+        success: false, 
+        error: "Please fix the highlighted fields",
+        fieldErrors,
+        errorStep: errorStep !== -1 ? errorStep : 0
+      };
     }
 
     setLoading(true);
@@ -649,8 +699,26 @@ export function useProductForm() {
       const productData = await productRes.json();
 
       if (!productRes.ok) {
-        const errorMessage = productData.error || "Failed to create product";
-        return { success: false, error: errorMessage };
+        let errorMessage = productData.error || "Failed to create product";
+        const fieldErrors: Record<string, string> = {};
+        
+        if (productData.field === 'productName' || productData.error?.includes('name already exists')) {
+          fieldErrors.productName = productData.error || "A product with this name already exists. Please use a different name.";
+          errorStep = 0;
+          errorMessage = "Product name already exists";
+        } else if (productData.error?.includes('slug')) {
+          fieldErrors.productSlug = "This product slug already exists. Please use a different slug.";
+          errorStep = 0;
+          errorMessage = "Product slug already exists";
+        }
+        
+        setErrors(fieldErrors);
+        return { 
+          success: false, 
+          error: errorMessage,
+          fieldErrors,
+          errorStep
+        };
       }
 
       const productId = productData.product_id;
@@ -680,7 +748,6 @@ export function useProductForm() {
         }
       }
 
-      // Update local status if published
       if (overrideStatus === 'published') {
         setFormData(prev => ({ ...prev, status: 'published' }));
       }
@@ -697,13 +764,13 @@ export function useProductForm() {
     }
   };
 
-  // FIXED: handlePublish now calls handleSubmit with 'published' status
   const handlePublish = async (): Promise<{ 
     success: boolean; 
     productId?: number; 
     error?: string;
     errorStep?: number;
     errorSummary?: string;
+    fieldErrors?: Record<string, string>;
   }> => {
     const validation = validateAllSteps();
     
@@ -726,6 +793,7 @@ export function useProductForm() {
         error: validation.errorSummary || `Please complete required fields in "${firstStepName}" section`,
         errorStep: validation.firstErrorStep,
         errorSummary: validation.errorSummary,
+        fieldErrors: firstStepErrors,
       };
     }
     
@@ -737,12 +805,13 @@ export function useProductForm() {
       };
     }
     
-    // Call handleSubmit with 'published' status override
     const result = await handleSubmit('published');
     return {
       success: result.success,
       productId: result.productId,
       error: result.error,
+      errorStep: result.errorStep,
+      fieldErrors: result.fieldErrors,
     };
   };
 
@@ -751,7 +820,8 @@ export function useProductForm() {
       attributes: {},
       price: "",
       discountPrice: "",
-      stockQuantity: 0,
+      stockQuantity: 1,
+      inStock: true,
     };
     setFormData((prev) => ({
       ...prev,
@@ -777,6 +847,15 @@ export function useProductForm() {
         newVariants[index].discountPrice = value;
       } else if (field === "stockQuantity") {
         newVariants[index].stockQuantity = value;
+      } else if (field === "inStock") {
+        newVariants[index].inStock = value;
+        if (value === false) {
+          newVariants[index].stockQuantity = 0;
+        } else {
+          if (newVariants[index].stockQuantity === 0) {
+            newVariants[index].stockQuantity = 1;
+          }
+        }
       }
       return { ...prev, variants: newVariants };
     });

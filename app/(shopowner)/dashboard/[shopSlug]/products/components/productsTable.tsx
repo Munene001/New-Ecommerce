@@ -115,6 +115,35 @@ export default function ProductsTable({
     return product.stock_quantity || 0;
   };
 
+  // ✅ Get the max viable price for variable products
+  const getMaxViablePrice = (product: Product): number | null => {
+    if (product.product_type !== "variable" || !product.variants || product.variants.length === 0) {
+      return null;
+    }
+
+    // Get all viable prices (discount price if available, otherwise regular price)
+    const viablePrices = product.variants.map((variant: any) => {
+      return variant.discount_price || variant.price;
+    });
+
+    return Math.max(...viablePrices);
+  };
+
+  // ✅ Get the display price for a product
+  const getDisplayPrice = (product: Product): string => {
+    if (product.product_type === "variable") {
+      const maxPrice = getMaxViablePrice(product);
+      if (maxPrice === null) return "N/A";
+      return `upto KES ${maxPrice}`;
+    }
+    
+    // Simple product
+    if (product.discount_price) {
+      return `KES ${product.discount_price}`;
+    }
+    return `KES ${product.price}`;
+  };
+
   const handleBulkDeleteClick = () => {
     setShowDeleteModal(true);
   };
@@ -262,28 +291,10 @@ export default function ProductsTable({
                     )}
                   </div>
 
+                  {/* ✅ UPDATED: Price column with "upto" for variable products */}
                   <div className="w-[12%] pr-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-gray-900 font-medium">
-                      {product.product_type === "variable" ? (
-                        <div className="text-xs flex flex-col items-center justify-center">
-                          <div>{product.display_price?.formatted || "N/A"}</div>
-                          {product.discount_price && (
-                            <div className="text-[#0FA965] text-xs">
-                              {product.discount_price}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          {product.discount_price ? (
-                            <span className="text-[#0FA965]">
-                              {product.discount_price}
-                            </span>
-                          ) : (
-                            product.price
-                          )}
-                        </div>
-                      )}
+                    <div className="text-gray-900 font-medium text-sm">
+                      {getDisplayPrice(product)}
                     </div>
                   </div>
 

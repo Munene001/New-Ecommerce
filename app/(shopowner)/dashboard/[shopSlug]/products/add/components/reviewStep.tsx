@@ -35,7 +35,6 @@ export default function ReviewStep({
   const primaryImage = formData.images.find((img) => img.isPrimary);
   const additionalImages = formData.images.filter((img) => !img.isPrimary);
 
-  // ✅ Derived state from formData - NO local upload state
   const totalImages = formData.images.length;
   const uploadedImages = formData.images.filter(img => img.status === "success").length;
   const failedImages = formData.images.filter(img => img.status === "failed");
@@ -53,7 +52,6 @@ export default function ReviewStep({
     return completed ? "text-green-700" : "text-orange-600";
   };
 
-  // ✅ Simple - just call the parent handler, no local state
   const handlePublish = () => {
     onPublish();
   };
@@ -329,7 +327,7 @@ export default function ReviewStep({
           Product Images ({formData.images.length})
         </h3>
 
-        {/* ✅ Upload progress derived from image statuses */}
+        {/* Upload progress derived from image statuses */}
         {isUploading && (
           <div className="space-y-2 bg-white rounded-lg p-4 border border-orange-200">
             <div className="flex items-center justify-between">
@@ -431,21 +429,11 @@ export default function ReviewStep({
         {!isUploading && (
           <div className="space-y-2">
             {failedImages.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Icon icon="mdi:alert-circle" className="w-5 h-5 text-red-500" />
-                  <span className="text-sm text-red-700">
-                    {failedImages.length} image(s) failed to upload
-                  </span>
-                </div>
-                <button 
-                  className="text-sm text-red-600 hover:text-red-700 font-medium"
-                  onClick={() => {
-                    // Retry logic would go here
-                  }}
-                >
-                  Retry All
-                </button>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                <Icon icon="mdi:alert-circle" className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <span className="text-sm text-red-700">
+                  {failedImages.length} image(s) failed to upload. Please go back to the Images step, remove the failed images, and re-add them.
+                </span>
               </div>
             )}
             
@@ -489,9 +477,9 @@ export default function ReviewStep({
           <button
             type="button"
             onClick={handlePublish}
-            disabled={!completion.canPublish || isPublishing || isUploading}
+            disabled={!completion.canPublish || isPublishing || isUploading || failedImages.length > 0}
             className={`px-8 py-3 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-              completion.canPublish && !isPublishing && !isUploading
+              completion.canPublish && !isPublishing && !isUploading && failedImages.length === 0
                 ? "bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-200"
                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
             }`}

@@ -45,16 +45,15 @@ export function useDashboardProducts(
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
   
-  // Single Source of Truth States
+  // Search & Filter state
   const [currentSearch, setCurrentSearch] = useState<string>('');
   const [currentCategory, setCurrentCategory] = useState<string>('');
   const [currentStatus, setCurrentStatus] = useState<string>(initialStatus);
-  const [appendMode, setAppendMode] = useState<boolean>(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // 1. Core Fetch Definition
-  const fetchProducts = useCallback(async (
+  // Core Data Fetcher
+  const fetchProductsData = useCallback(async (
     page: number,
     search: string,
     category: string,
@@ -76,8 +75,6 @@ export function useDashboardProducts(
         limit: '20',
         ...(search && { search }),
         ...(category && { category }),
-        // Note: Make sure your /api/shopowner/products endpoint returns global counts 
-        // for data.stats even when status parameter is passed!
         ...(status && status !== 'all' && { status })
       });
 
@@ -85,11 +82,8 @@ export function useDashboardProducts(
         signal: abortController.signal
       });
 
-      if (abortController.signal.aborted) return;
       if (!res.ok) throw new Error('Failed to fetch products');
-
       const data = await res.json();
-      if (abortController.signal.aborted) return;
 
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       
@@ -99,7 +93,7 @@ export function useDashboardProducts(
           totalInventoryItems: Number(data.stats.totalInventoryItems) || 0,
           totalInstock: Number(data.stats.totalInstock) || 0,
           totalOutOfStock: Number(data.stats.totalOutOfStock) || 0,
-          totalDrafts: Number(data.stats.totalDrafts) || 0, // Enforce strict numeric rendering
+          totalDrafts: Number(data.stats.totalDrafts) || 0,
         });
       }
       
@@ -117,69 +111,74 @@ export function useDashboardProducts(
     }
   }, [shopId]);
 
-  // 2. Action Handlers
- const refreshProducts = useCallback(() => {
-  setAppendMode(false);
-  // Force page 1 on background updates so it refreshes the view completely 
-  
-  fetchProducts(1, currentSearch, currentCategory, currentStatus, false);
-}, [currentSearch, currentCategory, currentStatus, fetchProducts]);
-
-  const searchProducts = useCallback((term: string) => {
-    setAppendMode(false);
+  // Handle standard background refreshes cleanly (forces page 1 reset safely)
+  const refreshProducts = useCallback(() => {
     setCurrentPage(1);
+    fetchProductsData(1, currentSearch, currentCategory, currentStatus, false);
+  }, [currentSearch, currentCategory, currentStatus, fetchProductsData]);
+
+  // Action Handlers
+  const searchProducts = useCallback((term: string) => {
     setCurrentSearch(term);
-  }, []);
+    setCurrentPage(1);
+    setProducts([]); // Flush array to trigger Skeleton rows immediately
+    fetchProductsData(1, term, currentCategory, currentStatus, false);
+  }, [currentCategory, currentStatus, fetchProductsData]);
 
   const filterByCategory = useCallback((categoryId: string) => {
-    setAppendMode(false);
-    setCurrentPage(1);
     setCurrentCategory(categoryId);
-  }, []);
+    setCurrentPage(1);
+    setProducts([]); // Flush array to trigger Skeleton rows immediately
+    fetchProductsData(1, currentSearch, categoryId, currentStatus, false);
+  }, [currentSearch, currentStatus, fetchProductsData]);
 
   const filterByStatus = useCallback((status: string) => {
-    setAppendMode(false);
-    setCurrentPage(1);
     setCurrentStatus(status);
-  }, []);
+    setCurrentPage(1);
+    setProducts([]); // Flush array to trigger Skeleton rows immediately
+    fetchProductsData(1, currentSearch, currentCategory, status, false);
+  }, [currentSearch, currentCategory, fetchProductsData]);
 
   const goToPage = useCallback((page: number) => {
     if (page < 1 || page > totalPages) return;
-    setAppendMode(false);
     setCurrentPage(page);
-  }, [totalPages]);
+    setProducts([]); // Flush on manual page turns if needed
+    fetchProductsData(page, currentSearch, currentCategory, currentStatus, false);
+  }, [totalPages, currentSearch, currentCategory, currentStatus, fetchProductsData]);
 
   const hasMore = currentPage < totalPages;
 
   const loadMoreProducts = useCallback(() => {
     if (loading || !hasMore) return;
-    setAppendMode(true);
-    setCurrentPage(prev => prev + 1);
-  }, [loading, hasMore]);
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    // Note: Do NOT flush products here because we want to append to the end of the scroll list
+    fetchProductsData(nextPage, currentSearch, currentCategory, currentStatus, true);
+  }, [loading, hasMore, currentPage, currentSearch, currentCategory, currentStatus, fetchProductsData]);
 
   const resetProducts = useCallback(() => {
-    setAppendMode(false);
-    setCurrentPage(1);
     setCurrentSearch('');
     setCurrentCategory('');
     setCurrentStatus('published');
-  }, []);
+    setCurrentPage(1);
+    setProducts([]); // Flush array to reset views cleanly
+    fetchProductsData(1, '', '', 'published', false);
+  }, [fetchProductsData]);
 
-  // 3. Master Sync Layer
+  // Initial load effect only
   useEffect(() => {
-    if (!shopId) return;
-    fetchProducts(currentPage, currentSearch, currentCategory, currentStatus, appendMode);
-
+    if (shopId) {
+      fetchProductsData(1, currentSearch, currentCategory, currentStatus, false);
+    }
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, [shopId, currentPage, currentSearch, currentCategory, currentStatus, appendMode, fetchProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
 
-  // 4. Background Poller Interval
+  // Smart Poller: ONLY run background refreshes if user is on page 1
   useEffect(() => {
-    if (!shopId) return;
+    if (!shopId || currentPage > 1) return;
     
     const interval = setInterval(() => {
       refreshProducts();
@@ -196,7 +195,7 @@ export function useDashboardProducts(
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [shopId, refreshProducts]);
+  }, [shopId, currentPage, refreshProducts]);
 
   return {
     products,

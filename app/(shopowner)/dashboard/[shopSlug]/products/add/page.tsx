@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { 
   CheckCircle, 
@@ -72,6 +72,7 @@ export default function AddProductPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [imagesFormKey, setImagesFormKey] = useState(0);
   const [isAutoNavigating, setIsAutoNavigating] = useState(false);
+  const [hasFailedImages, setHasFailedImages] = useState(false);
 
   const [toastState, setToastState] = useState<{
     type: "success" | "error";
@@ -105,6 +106,12 @@ export default function AddProductPage() {
 
   const completion = calculateCompletion();
 
+  // ✅ Check for failed images without causing re-renders
+  useEffect(() => {
+    const failed = formData.images.some(img => img.status === "failed");
+    setHasFailedImages(failed);
+  }, [formData.images]);
+
   useEffect(() => {
     if (isAutoNavigating) {
       const formContainer = document.querySelector('.bg-white.rounded-lg.border');
@@ -117,14 +124,20 @@ export default function AddProductPage() {
     }
   }, [activeIndex, isAutoNavigating]);
 
-  // Fixed: Memoize onImagesChange and compare contents to kill infinite update cycles
+  // ✅ Stable callback - only updates when images actually change
   const handleImagesChange = useCallback((newImages: ProductImage[]) => {
     setFormData((prev) => {
-      // Stringify or compare counts to verify if state modification is actually needed
-      const currentIds = prev.images.map((img: any) => `${img.id || img.name}-${img.status}`).join(",");
-      const newIds = newImages.map((img: any) => `${img.id || img.name}-${img.status}`).join(",");
+      // Deep compare by creating a stable key
+      const prevKey = prev.images.map((img: any) => 
+        `${img.id}-${img.status}-${img.isPrimary}-${img.serverId || ''}`
+      ).join('|');
       
-      if (currentIds === newIds) return prev; // Avoid setting state if identical
+      const newKey = newImages.map((img) => 
+        `${img.id}-${img.status}-${img.isPrimary}-${img.serverId || ''}`
+      ).join('|');
+      
+      if (prevKey === newKey) return prev;
+      
       return { ...prev, images: newImages as any };
     });
   }, [setFormData]);
@@ -156,10 +169,7 @@ export default function AddProductPage() {
             method: "DELETE",
           });
         } catch (deleteError) {
-          console.error(
-            "Failed to delete product after primary image failure:",
-            deleteError,
-          );
+          console.error("Failed to delete product after primary image failure:", deleteError);
         }
 
         imagesRef.current?.clearFailedPrimary();
@@ -173,29 +183,19 @@ export default function AddProductPage() {
           })),
         }));
 
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Primary Image Upload Failed",
-          message:
-            "The primary image could not be uploaded. Please upload a new primary image from gallery or using camera, then click save again.",
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError("Primary image upload failed. Please remove and re-add the primary image.");
+        
         setIsSaving(false);
         return;
       }
 
       if (uploadResult.failedCount > 0) {
-        imagesRef.current?.resetImages();
-        resetForm();
-        setImagesFormKey((prev) => prev + 1);
-        setActiveIndex(0);
-
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Product Created (Partial Success)",
-          message: `Product created successfully, but ${uploadResult.failedCount} image(s) failed to upload. You can retry failed images later from the product edit page.`,
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
+        
         setIsSaving(false);
         return;
       }
@@ -264,10 +264,7 @@ export default function AddProductPage() {
             method: "DELETE",
           });
         } catch (deleteError) {
-          console.error(
-            "Failed to delete product after primary image failure:",
-            deleteError,
-          );
+          console.error("Failed to delete product after primary image failure:", deleteError);
         }
 
         imagesRef.current?.clearFailedPrimary();
@@ -281,29 +278,19 @@ export default function AddProductPage() {
           })),
         }));
 
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Primary Image Upload Failed",
-          message:
-            "The primary image could not be uploaded. Please upload a new primary image from gallery or using camera, then click save again.",
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError("Primary image upload failed. Please remove and re-add the primary image.");
+        
         setIsSaving(false);
         return;
       }
 
       if (uploadResult.failedCount > 0) {
-        imagesRef.current?.resetImages();
-        resetForm();
-        setImagesFormKey((prev) => prev + 1);
-        setActiveIndex(0);
-
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Product Published (Partial Success)",
-          message: `Product published successfully, but ${uploadResult.failedCount} image(s) failed to upload. You can retry failed images later from the product edit page.`,
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
+        
         setIsSaving(false);
         return;
       }
@@ -362,7 +349,7 @@ export default function AddProductPage() {
             key={imagesFormKey}
             ref={imagesRef}
             initialImages={formData.images as ProductImage[]}
-            onImagesChange={handleImagesChange} // Fixed Reference Cycle
+            onImagesChange={handleImagesChange}
             onError={showError}
             onSuccess={showSuccess}
           />
@@ -556,6 +543,26 @@ export default function AddProductPage() {
           </div>
         </div>
 
+        {hasFailedImages && activeIndex !== 2 && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                Some images failed to upload
+              </p>
+              <p className="text-sm text-red-600 mt-1">
+                Please go to the Images step, remove the failed images, and re-add them.
+              </p>
+              <button
+                onClick={() => setActiveIndex(2)}
+                className="mt-2 text-sm text-red-600 hover:text-red-700 font-medium underline"
+              >
+                Go to Images
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">Setup Progress</span>
@@ -569,10 +576,16 @@ export default function AddProductPage() {
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
             <span>{completion.completedSteps} of {completion.totalSteps} steps complete</span>
-            {completion.canPublish && (
+            {completion.canPublish && !hasFailedImages && (
               <span className="inline-flex items-center gap-1 text-green-600">
                 <CheckCircle className="w-3 h-3" />
                 Ready to publish
+              </span>
+            )}
+            {hasFailedImages && (
+              <span className="inline-flex items-center gap-1 text-red-600">
+                <AlertCircle className="w-3 h-3" />
+                Fix image errors
               </span>
             )}
           </div>
@@ -671,13 +684,22 @@ export default function AddProductPage() {
               {activeIndex === sections.length - 1 ? (
                 <button
                   onClick={handleSaveProduct}
-                  disabled={isSaving}
-                  className="px-6 py-2.5 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                  disabled={isSaving || hasFailedImages}
+                  className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                    hasFailedImages
+                      ? "bg-red-100 text-red-500 cursor-not-allowed"
+                      : "bg-gray-600 text-white hover:bg-gray-700"
+                  }`}
                 >
                   {isSaving ? (
                     <>
                       <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
                       Saving...
+                    </>
+                  ) : hasFailedImages ? (
+                    <>
+                      <AlertCircle className="w-4 h-4" />
+                      Fix Image Errors
                     </>
                   ) : (
                     <>

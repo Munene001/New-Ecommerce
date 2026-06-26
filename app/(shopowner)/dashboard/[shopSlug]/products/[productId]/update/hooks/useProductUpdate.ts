@@ -1,11 +1,11 @@
-// app/(shopowner)/dashboard/[shopSlug]/products/update/hooks/useProductUpdate.ts
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
 import { useAuth } from "@/context/authcontext";
-import { Attribute, Category, ProductFormData, ProductVariant } from "../../../add/types";
+import { Attribute, Category, ProductFormData, ProductVariant, ProductImage } from "../../../add/types";
+import { validateBasicInfo, validatePricing, validateImages, validateAllSteps, getErrorStep } from "../utils/validation";
 
 export function useProductUpdate() {
   const { shopId, shopType, shopSlug } = useShop();
@@ -15,10 +15,12 @@ export function useProductUpdate() {
   const router = useRouter();
 
   const warningRef = useRef<HTMLDivElement>(null);
-  
+  const imagesLoadedRef = useRef(false);
+  const isInitialFetchRef = useRef(false);
+
   const [activeIndex, setActiveIndex] = useState(0);
   const sections = ["Basic Info", "Pricing & Inventory", "Images", "Categories", "Review & Publish"];
-  
+
   const [formData, setFormData] = useState<ProductFormData>({
     productName: "",
     productSlug: "",
@@ -27,26 +29,27 @@ export function useProductUpdate() {
     status: "draft",
     price: "",
     discountPrice: "",
-    stockQuantity: 0,
+    stockQuantity: 1,
+    inStock: true,
     attributes: {},
     variants: [],
     images: [],
     categoryIds: [],
   });
-  
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
   const [showCategoryForm, setShowCategoryForm] = useState(false);
-  
+
   const [attributeSchema, setAttributeSchema] = useState<Attribute[]>([]);
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [variantAttributes, setVariantAttributes] = useState<Attribute[]>([]);
   const [selectedVariantAttrs, setSelectedVariantAttrs] = useState<string[]>([]);
-  
+
   const [loading, setLoading] = useState(false);
   const [isLoadingProduct, setIsLoadingProduct] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     type: 'success' | 'error';
@@ -59,10 +62,9 @@ export function useProductUpdate() {
     message: ''
   });
 
-  const [tabWarning, setTabWarning] = useState<{text: string; type: 'success' | 'error'} | null>(null);
+  const [tabWarning, setTabWarning] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
       router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
@@ -96,8 +98,10 @@ export function useProductUpdate() {
     }, 100);
   };
 
-  // Fetch product data
   const fetchProduct = useCallback(async () => {
+    if (isInitialFetchRef.current) return;
+    isInitialFetchRef.current = true;
+
     setIsLoadingProduct(true);
     try {
       const productRes = await fetch(`/api/shopowner/products/${productId}`);
@@ -108,25 +112,23 @@ export function useProductUpdate() {
       if (!categoriesRes.ok) throw new Error('Failed to fetch product categories');
       const categoryData = await categoriesRes.json();
 
-      const attributes = typeof productData.attributes === 'string' 
-        ? JSON.parse(productData.attributes) 
+      const attributes = typeof productData.attributes === 'string'
+        ? JSON.parse(productData.attributes)
         : productData.attributes || {};
 
-      // Set product type and variants
       const productType = productData.product_type || 'simple';
       const variants = productData.variants || [];
-      
-      // Determine selected variant attributes from existing variants
+
       let selectedAttrs: string[] = [];
       if (productType === 'variable' && variants.length > 0) {
         const attrKeys = new Set<string>();
         variants.forEach((v: any) => {
-          Object.keys(v.attributes || {}).forEach(key => attrKeys.add(key));
+          Object.keys(v.attributes || {}).forEach((key: string) => attrKeys.add(key));
         });
         selectedAttrs = Array.from(attrKeys);
       }
 
-      setFormData({
+      setFormData((prev) => ({
         productName: productData.product_name || "",
         productSlug: productData.product_slug || "",
         description: productData.description || "",
@@ -134,19 +136,21 @@ export function useProductUpdate() {
         status: productData.status || 'draft',
         price: productType === 'variable' ? "0" : (productData.price?.toString() || ""),
         discountPrice: productType === 'variable' ? "" : (productData.discount_price?.toString() || ""),
-        stockQuantity: productType === 'variable' ? 0 : (productData.stock_quantity || 0),
+        stockQuantity: productType === 'variable' ? 0 : (productData.stock_quantity || 1),
+        inStock: productType === 'variable' ? true : (productData.stock_quantity > 0),
         attributes: attributes,
         variants: variants.map((v: any) => ({
           attributes: v.attributes || {},
           price: v.price?.toString() || "0",
           discountPrice: v.discount_price?.toString() || "",
-          stockQuantity: v.stock_quantity || 0,
+          stockQuantity: v.stock_quantity || 1,
+          inStock: v.stock_quantity > 0,
         })),
-        images: [], // Images will be loaded separately by ImagesForm
+        // 🛠️ FIX: Preserve images previously registered in state instead of resetting to []
+        images: prev.images,
         categoryIds: categoryData.map((c: { category_id: number }) => c.category_id)
-      });
+      }));
 
-      // Set selected variant attributes
       if (selectedAttrs.length > 0) {
         setSelectedVariantAttrs(selectedAttrs);
       }
@@ -164,13 +168,16 @@ export function useProductUpdate() {
     }
   }, [productId]);
 
+  const markImagesLoaded = useCallback(() => {
+    imagesLoadedRef.current = true;
+  }, []);
+
   useEffect(() => {
     if (productId && shopId && isAuthenticated) {
       fetchProduct();
     }
   }, [productId, shopId, isAuthenticated, fetchProduct]);
 
-  // Fetch attribute schema
   const fetchAttributeSchema = async (type: string) => {
     setLoadingSchema(true);
     try {
@@ -194,14 +201,13 @@ export function useProductUpdate() {
     }
   }, [shopType, isAuthenticated]);
 
-  // Fetch categories
   const fetchCategories = async (id: number) => {
     try {
       const res = await fetch(`/api/shopowner/categories?shopId=${id}`);
       const data = await res.json();
-      setCategories(data.map((c: { category_id: number; category_name: string }) => ({ 
-        id: c.category_id, 
-        name: c.category_name 
+      setCategories(data.map((c: { category_id: number; category_name: string }) => ({
+        id: c.category_id,
+        name: c.category_name
       })));
     } catch (error) {
       console.error("Failed to fetch categories:", error);
@@ -215,7 +221,7 @@ export function useProductUpdate() {
   }, [shopId, isAuthenticated]);
 
   const handleCategoryCreated = (newCategory: Category) => {
-    setCategories(prev => [...prev, newCategory]);
+    setCategories((prev) => [...prev, newCategory]);
     setShowCategoryForm(false);
     showWarning("Category created successfully!", 'success');
   };
@@ -224,222 +230,19 @@ export function useProductUpdate() {
     showWarning(errorMessage, 'error');
   };
 
-  // Validation functions
-  const validateBasicInfo = (): boolean => {
-    const basicErrors: Record<string, string> = {};
-    if (!formData.productName.trim()) {
-      basicErrors.productName = "Product name is required";
-    }
-    if (!formData.productSlug.trim()) {
-      basicErrors.productSlug = "Product slug is required";
-    }
-    attributeSchema
-      .filter((f) => f.required && f.variant !== true)
-      .forEach((field) => {
-        const value = formData.attributes[field.name];
-        if (field.type === "boolean") return;
-        if (!value || value.toString().trim() === "") {
-          basicErrors[`attr.${field.name}`] = `${field.label} is required`;
-        }
-      });
-    setErrors(basicErrors);
-    return Object.keys(basicErrors).length === 0;
-  };
-
-  const validatePricing = (): boolean => {
-    const pricingErrors: Record<string, string> = {};
+  const validateStep = (index: number): boolean => {
+    let stepErrors: Record<string, string> = {};
     
-    if (formData.productType === "simple") {
-      if (!formData.price || Number(formData.price) <= 0) {
-        pricingErrors.price = "Valid price is required";
-      }
-      if (formData.discountPrice && Number(formData.discountPrice) < 0) {
-        pricingErrors.discountPrice = "Discount price cannot be negative";
-      }
-      if (
-        formData.discountPrice &&
-        Number(formData.discountPrice) >= Number(formData.price)
-      ) {
-        pricingErrors.discountPrice = "Discount price must be less than regular price";
-      }
-    } else {
-      if (selectedVariantAttrs.length === 0) {
-        pricingErrors.variants = "Select at least one attribute that varies";
-      }
-      if (formData.variants.length === 0) {
-        pricingErrors.variants = "Add at least one variant";
-      }
-      for (let i = 0; i < formData.variants.length; i++) {
-        const variant = formData.variants[i];
-        for (const attr of selectedVariantAttrs) {
-          if (!variant.attributes[attr] || variant.attributes[attr].toString().trim() === "") {
-            pricingErrors[`variant_${i}_${attr}`] = `Variant ${i + 1}: Missing ${attr}`;
-          }
-        }
-        if (!variant.price || Number(variant.price) <= 0) {
-          pricingErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
-        }
-        if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
-          pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
-        }
-      }
-    }
-    setErrors(pricingErrors);
-    return Object.keys(pricingErrors).length === 0;
-  };
-
-  const validateImages = (): boolean => {
-    const imageErrors: Record<string, string> = {};
-    if (formData.images.length === 0) {
-      imageErrors.images = "At least one image is required";
-    } else {
-      const hasPrimary = formData.images.some((img) => img.isPrimary === true);
-      if (!hasPrimary) {
-        imageErrors.images = "A primary image is required";
-      }
-    }
-    setErrors(imageErrors);
-    return Object.keys(imageErrors).length === 0;
-  };
-
-  const validateAllSteps = (): {
-    hasErrors: boolean;
-    firstErrorStep: number;
-    stepErrors: Record<string, Record<string, string>>;
-    stepNames: string[];
-    errorSummary: string;
-  } => {
-    const stepErrors: Record<string, Record<string, string>> = {};
-    let firstErrorStep = -1;
-    const errorMessages: string[] = [];
-    
-    const basicErrors: Record<string, string> = {};
-    if (!formData.productName.trim()) {
-      basicErrors.productName = "Product name is required";
-      errorMessages.push("Product name is required");
-    }
-    if (!formData.productSlug.trim()) {
-      basicErrors.productSlug = "Product slug is required";
-      errorMessages.push("Product slug is required");
-    }
-    attributeSchema
-      .filter((f) => f.required && f.variant !== true)
-      .forEach((field) => {
-        const value = formData.attributes[field.name];
-        if (field.type === "boolean") return;
-        if (!value || value.toString().trim() === "") {
-          basicErrors[`attr.${field.name}`] = `${field.label} is required`;
-          errorMessages.push(`${field.label} is required`);
-        }
-      });
-    
-    if (Object.keys(basicErrors).length > 0) {
-      stepErrors.basicInfo = basicErrors;
-      if (firstErrorStep === -1) firstErrorStep = 0;
-    }
-
-    const pricingErrors: Record<string, string> = {};
-    if (formData.productType === "simple") {
-      if (!formData.price || Number(formData.price) <= 0) {
-        pricingErrors.price = "Valid price is required";
-        errorMessages.push("Valid price is required");
-      }
-      if (formData.discountPrice && Number(formData.discountPrice) < 0) {
-        pricingErrors.discountPrice = "Discount price cannot be negative";
-        errorMessages.push("Discount price cannot be negative");
-      }
-      if (
-        formData.discountPrice &&
-        Number(formData.discountPrice) >= Number(formData.price)
-      ) {
-        pricingErrors.discountPrice = "Discount price must be less than regular price";
-        errorMessages.push("Discount price must be less than regular price");
-      }
-    } else {
-      if (selectedVariantAttrs.length === 0) {
-        pricingErrors.variants = "Select at least one attribute that varies";
-        errorMessages.push("Select at least one attribute that varies");
-      }
-      if (formData.variants.length === 0) {
-        pricingErrors.variants = "Add at least one variant";
-        errorMessages.push("Add at least one variant");
-      }
-      for (let i = 0; i < formData.variants.length; i++) {
-        const variant = formData.variants[i];
-        for (const attr of selectedVariantAttrs) {
-          if (!variant.attributes[attr] || variant.attributes[attr].toString().trim() === "") {
-            pricingErrors[`variant_${i}_${attr}`] = `Variant ${i + 1}: Missing ${attr}`;
-            errorMessages.push(`Variant ${i + 1}: Missing ${attr}`);
-          }
-        }
-        if (!variant.price || Number(variant.price) <= 0) {
-          pricingErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
-          errorMessages.push(`Variant ${i + 1}: Price must be greater than 0`);
-        }
-        if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
-          pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
-          errorMessages.push(`Variant ${i + 1}: Discount must be less than price`);
-        }
-        if (variant.stockQuantity !== undefined && variant.stockQuantity < 0) {
-          pricingErrors[`variant_${i}_stock`] = `Variant ${i + 1}: Stock cannot be negative`;
-          errorMessages.push(`Variant ${i + 1}: Stock cannot be negative`);
-        }
-      }
+    if (index === 0) {
+      stepErrors = validateBasicInfo(formData, attributeSchema);
+    } else if (index === 1) {
+      stepErrors = validatePricing(formData, selectedVariantAttrs);
+    } else if (index === 2) {
+      stepErrors = validateImages(formData.images);
     }
     
-    if (Object.keys(pricingErrors).length > 0) {
-      stepErrors.pricing = pricingErrors;
-      if (firstErrorStep === -1) firstErrorStep = 1;
-    }
-
-    const imageErrors: Record<string, string> = {};
-    if (formData.images.length === 0) {
-      imageErrors.images = "At least one image is required";
-      errorMessages.push("At least one product image is required");
-    } else {
-      const hasPrimary = formData.images.some((img) => img.isPrimary === true);
-      if (!hasPrimary) {
-        imageErrors.images = "A primary image is required";
-        errorMessages.push("A primary image is required");
-      }
-    }
-    
-    if (Object.keys(imageErrors).length > 0) {
-      stepErrors.images = imageErrors;
-      if (firstErrorStep === -1) firstErrorStep = 2;
-    }
-
-    let errorSummary = "";
-    if (firstErrorStep !== -1) {
-      const stepKeyMap: Record<string, string> = {
-        "Basic Info": "basicInfo",
-        "Pricing & Inventory": "pricing",
-        "Images": "images",
-        "Categories": "categories",
-        "Review & Publish": "review"
-      };
-      
-      const stepName = sections[firstErrorStep];
-      const stepKey = stepKeyMap[stepName] || stepName.toLowerCase().replace(/ & /g, '').replace(/ /g, '');
-      const firstErrors = stepErrors[stepKey] || {};
-      const errorList = Object.values(firstErrors);
-      
-      if (errorList.length === 1) {
-        errorSummary = errorList[0];
-      } else if (errorList.length <= 3) {
-        errorSummary = errorList.join("; ");
-      } else {
-        errorSummary = `${errorList.length} errors in "${stepName}" section`;
-      }
-    }
-
-    return {
-      hasErrors: firstErrorStep !== -1,
-      firstErrorStep,
-      stepErrors,
-      stepNames: sections,
-      errorSummary,
-    };
+    setErrors(stepErrors);
+    return Object.keys(stepErrors).length === 0;
   };
 
   const calculateCompletion = () => {
@@ -451,16 +254,16 @@ export function useProductUpdate() {
       review: { completed: false, items: [] as string[] },
     };
 
-    const basicItems = [];
+    const basicItems: string[] = [];
     if (formData.productName.trim()) {
       basicItems.push("Product name filled");
     }
     if (formData.productSlug.trim()) {
       basicItems.push("Product slug filled");
     }
-    const requiredAttrs = attributeSchema.filter((f) => f.required && f.variant !== true);
+    const requiredAttrs = attributeSchema.filter((f: Attribute) => f.required && f.variant !== true);
     let attrCount = 0;
-    requiredAttrs.forEach((field) => {
+    requiredAttrs.forEach((field: Attribute) => {
       const value = formData.attributes[field.name];
       if (field.type === "boolean" || (value && value.toString().trim() !== "")) {
         attrCount++;
@@ -472,7 +275,7 @@ export function useProductUpdate() {
     const basicComplete = basicItems.length >= 2 && attrCount === requiredAttrs.length;
     stepDetails.basicInfo = { completed: basicComplete, items: basicItems };
 
-    const pricingItems = [];
+    const pricingItems: string[] = [];
     if (formData.productType === "simple") {
       if (formData.price && Number(formData.price) > 0) {
         pricingItems.push("Price set");
@@ -506,23 +309,23 @@ export function useProductUpdate() {
         pricingItems.push("All variants complete");
       }
     }
-    const pricingComplete = formData.productType === "simple" 
+    const pricingComplete = formData.productType === "simple"
       ? pricingItems.length >= 2
       : formData.variants.length >= 1 && pricingItems.length >= 2;
     stepDetails.pricing = { completed: pricingComplete, items: pricingItems };
 
-    const imageItems = [];
-    const hasPrimary = formData.images.some((img) => img.isPrimary === true);
+    const imageItems: string[] = [];
+    const hasPrimary = formData.images.some((img: ProductImage) => img.isPrimary === true);
     if (hasPrimary) {
       imageItems.push("Primary image uploaded");
     }
-    const additionalCount = formData.images.filter((img) => img.isPrimary !== true).length;
+    const additionalCount = formData.images.filter((img: ProductImage) => img.isPrimary !== true).length;
     if (additionalCount > 0) {
       imageItems.push(`${additionalCount} additional images`);
     }
     stepDetails.images = { completed: hasPrimary, items: imageItems };
 
-    const categoryItems = [];
+    const categoryItems: string[] = [];
     if (formData.categoryIds.length > 0) {
       categoryItems.push(`${formData.categoryIds.length} categories selected`);
     } else {
@@ -530,13 +333,13 @@ export function useProductUpdate() {
     }
     stepDetails.categories = { completed: true, items: categoryItems };
 
-    const reviewItems = [];
+    const reviewItems: string[] = [];
     const nameFilled = !!formData.productName.trim();
     const slugFilled = !!formData.productSlug.trim();
     const priceValid = formData.productType === "simple" ? (formData.price && Number(formData.price) > 0) : true;
-    const hasPrimaryImage = formData.images.some((img) => img.isPrimary === true);
+    const hasPrimaryImage = formData.images.some((img: ProductImage) => img.isPrimary === true);
     const allValid: boolean = !!(nameFilled && slugFilled && priceValid && hasPrimaryImage);
-    
+
     if (allValid) {
       reviewItems.push("All validations passed");
     } else {
@@ -552,14 +355,14 @@ export function useProductUpdate() {
       1,
       allValid ? 1 : 0
     ];
-    
+
     let totalWeight = 0;
     let completedWeight = 0;
     for (let i = 0; i < stepWeights.length; i++) {
       totalWeight += stepWeights[i];
       completedWeight += stepCompletions[i] * stepWeights[i];
     }
-    
+
     const percentage = Math.round((completedWeight / totalWeight) * 100);
 
     return {
@@ -571,13 +374,13 @@ export function useProductUpdate() {
     };
   };
 
-  // Variant management
   const addVariant = () => {
     const newVariant: ProductVariant = {
       attributes: {},
       price: "",
       discountPrice: "",
-      stockQuantity: 0,
+      stockQuantity: 1,
+      inStock: true,
     };
     setFormData((prev) => ({
       ...prev,
@@ -588,7 +391,7 @@ export function useProductUpdate() {
   const removeVariant = (index: number) => {
     setFormData((prev) => ({
       ...prev,
-      variants: prev.variants.filter((_, i) => i !== index),
+      variants: prev.variants.filter((_, i: number) => i !== index),
     }));
   };
 
@@ -603,30 +406,41 @@ export function useProductUpdate() {
         newVariants[index].discountPrice = value;
       } else if (field === "stockQuantity") {
         newVariants[index].stockQuantity = value;
+      } else if (field === "inStock") {
+        newVariants[index].inStock = value;
+        if (value === false) {
+          newVariants[index].stockQuantity = 0;
+        } else {
+          if (newVariants[index].stockQuantity === 0) {
+            newVariants[index].stockQuantity = 1;
+          }
+        }
       }
       return { ...prev, variants: newVariants };
     });
   };
 
   const toggleVariantAttribute = (attrName: string) => {
-    setSelectedVariantAttrs((prev) =>
+    setSelectedVariantAttrs((prev: string[]) =>
       prev.includes(attrName)
-        ? prev.filter((a) => a !== attrName)
+        ? prev.filter((a: string) => a !== attrName)
         : [...prev, attrName]
     );
   };
 
-  // Submit handlers
-  const handleSubmit = async (overrideStatus?: 'draft' | 'published'): Promise<{ success: boolean; productId?: number; error?: string }> => {
+  const handleSubmit = async (overrideStatus?: 'draft' | 'published'): Promise<{ success: boolean; productId?: number; error?: string; fieldErrors?: Record<string, string>; errorStep?: number }> => {
     let finalProductType = formData.productType;
     let finalPrice = formData.price;
     let finalDiscountPrice = formData.discountPrice;
-    let finalStockQuantity = formData.stockQuantity;
+    let finalStockQuantity = formData.inStock !== false ? formData.stockQuantity : 0;
     let finalAttributes = { ...formData.attributes };
-    let finalVariants = formData.variants;
+    let finalVariants = formData.variants.map((v: ProductVariant) => ({
+      ...v,
+      stockQuantity: v.inStock !== false ? v.stockQuantity : 0
+    }));
 
     if (formData.productType === "variable" && formData.variants.length === 1) {
-      const singleVariant = formData.variants[0];
+      const singleVariant = finalVariants[0];
       finalProductType = "simple";
       finalPrice = singleVariant.price;
       finalDiscountPrice = singleVariant.discountPrice || "";
@@ -648,46 +462,84 @@ export function useProductUpdate() {
       variants: finalVariants,
     };
 
-    const validateConverted = (): boolean => {
-      const errors: Record<string, string> = {};
-      if (!tempFormData.productName.trim()) {
-        errors.productName = "Product name is required";
-      }
-      if (!tempFormData.productSlug.trim()) {
-        errors.productSlug = "Product slug is required";
-      }
-      
-      if (overrideStatus === 'published') {
-        if (finalProductType === "simple") {
-          if (!finalPrice || Number(finalPrice) <= 0) {
-            errors.price = "Valid price is required";
-          }
-          if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
-            errors.discountPrice = "Discount must be less than regular price";
-          }
-        }
-        if (tempFormData.images.length === 0) {
-          errors.images = "At least one image is required";
-        } else {
-          const hasPrimary = tempFormData.images.some((img) => img.isPrimary === true);
-          if (!hasPrimary) {
-            errors.images = "A primary image is required";
-          }
-        }
-      }
-      
-      setErrors(errors);
-      return Object.keys(errors).length === 0;
-    };
+    const fieldErrors: Record<string, string> = {};
+    let errorStep = -1;
 
-    if (!validateConverted()) {
-      return { success: false, error: "Please fix all validation errors." };
+    if (!tempFormData.productName.trim()) {
+      fieldErrors.productName = "Product name is required";
+    }
+    if (!tempFormData.productSlug.trim()) {
+      fieldErrors.productSlug = "Product slug is required";
+    }
+
+    if (overrideStatus === 'published') {
+      if (finalProductType === "simple") {
+        if (!finalPrice || Number(finalPrice) <= 0) {
+          fieldErrors.price = "Valid price is required";
+          errorStep = 1;
+        }
+        if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
+          fieldErrors.discountPrice = "Discount must be less than regular price";
+          errorStep = 1;
+        }
+        if (finalStockQuantity < 0) {
+          fieldErrors.stockQuantity = "Stock cannot be negative";
+          errorStep = 1;
+        }
+      } else {
+        if (selectedVariantAttrs.length === 0) {
+          fieldErrors.variants = "Select at least one attribute that varies";
+          errorStep = 1;
+        }
+        if (finalVariants.length === 0) {
+          fieldErrors.variants = "Add at least one variant";
+          errorStep = 1;
+        }
+        for (let i = 0; i < finalVariants.length; i++) {
+          const variant = finalVariants[i];
+          for (const attr of selectedVariantAttrs) {
+            if (!variant.attributes[attr] || variant.attributes[attr].toString().trim() === "") {
+              fieldErrors[`variant_${i}_${attr}`] = `Variant ${i + 1}: Missing ${attr}`;
+              errorStep = 1;
+            }
+          }
+          if (!variant.price || Number(variant.price) <= 0) {
+            fieldErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
+            errorStep = 1;
+          }
+          if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
+            fieldErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
+            errorStep = 1;
+          }
+        }
+      }
+
+      if (tempFormData.images.length === 0) {
+        fieldErrors.images = "At least one image is required";
+        errorStep = 2;
+      } else {
+        const hasPrimary = tempFormData.images.some((img: ProductImage) => img.isPrimary === true);
+        if (!hasPrimary) {
+          fieldErrors.images = "A primary image is required";
+          errorStep = 2;
+        }
+      }
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      return {
+        success: false,
+        error: "Please fix the highlighted fields",
+        fieldErrors,
+        errorStep: errorStep !== -1 ? errorStep : 0
+      };
     }
 
     setLoading(true);
     try {
       const statusToSend = overrideStatus || tempFormData.status || 'draft';
-      
+
       const payload = {
         productName: tempFormData.productName,
         productSlug: tempFormData.productSlug,
@@ -709,8 +561,26 @@ export function useProductUpdate() {
       const productData = await productRes.json();
 
       if (!productRes.ok) {
-        const errorMessage = productData.error || "Failed to update product";
-        return { success: false, error: errorMessage };
+        let errorMessage = productData.error || "Failed to update product";
+        const fieldErrors: Record<string, string> = {};
+
+        if (productData.field === 'productName' || productData.error?.includes('name already exists')) {
+          fieldErrors.productName = productData.error || "A product with this name already exists. Please use a different name.";
+          errorStep = 0;
+          errorMessage = "Product name already exists";
+        } else if (productData.error?.includes('slug')) {
+          fieldErrors.productSlug = "This product slug already exists. Please use a different slug.";
+          errorStep = 0;
+          errorMessage = "Product slug already exists";
+        }
+
+        setErrors(fieldErrors);
+        return {
+          success: false,
+          error: errorMessage,
+          fieldErrors,
+          errorStep
+        };
       }
 
       const updatedProductId = productData.product_id;
@@ -718,7 +588,7 @@ export function useProductUpdate() {
       if (tempFormData.categoryIds.length > 0) {
         try {
           await Promise.all(
-            tempFormData.categoryIds.map(async (categoryId) => {
+            tempFormData.categoryIds.map(async (categoryId: number) => {
               const catRes = await fetch(
                 `/api/shopowner/products/${updatedProductId}/categories`,
                 {
@@ -741,7 +611,7 @@ export function useProductUpdate() {
       }
 
       if (overrideStatus === 'published') {
-        setFormData(prev => ({ ...prev, status: 'published' }));
+        setFormData((prev) => ({ ...prev, status: 'published' }));
       }
 
       return { success: true, productId: updatedProductId };
@@ -756,61 +626,53 @@ export function useProductUpdate() {
     }
   };
 
-  const handlePublish = async (): Promise<{ 
-    success: boolean; 
-    productId?: number; 
+  const handlePublish = async (): Promise<{
+    success: boolean;
+    productId?: number;
     error?: string;
     errorStep?: number;
     errorSummary?: string;
+    fieldErrors?: Record<string, string>;
   }> => {
-    const validation = validateAllSteps();
-    
+    const validation = validateAllSteps(formData, attributeSchema, selectedVariantAttrs, sections);
+
     if (validation.hasErrors) {
-      const firstStepName = validation.stepNames[validation.firstErrorStep];
-      const stepKeyMap: Record<string, string> = {
-        "Basic Info": "basicInfo",
-        "Pricing & Inventory": "pricing",
-        "Images": "images",
-        "Categories": "categories",
-        "Review & Publish": "review"
-      };
-      const stepKey = stepKeyMap[firstStepName] || firstStepName.toLowerCase().replace(/ & /g, '').replace(/ /g, '');
-      const firstStepErrors = validation.stepErrors[stepKey] || {};
-      
+      const firstStepErrors = validation.stepErrors[Object.keys(validation.stepErrors)[0]] || {};
       setErrors(firstStepErrors);
-      
-      return { 
-        success: false, 
-        error: validation.errorSummary || `Please complete required fields in "${firstStepName}" section`,
+      return {
+        success: false,
+        error: validation.errorSummary || "Please complete required fields",
         errorStep: validation.firstErrorStep,
         errorSummary: validation.errorSummary,
+        fieldErrors: firstStepErrors,
       };
     }
-    
+
     const completion = calculateCompletion();
     if (!completion.canPublish) {
-      return { 
-        success: false, 
-        error: "Please complete all required fields before publishing." 
+      return {
+        success: false,
+        error: "Please complete all required fields before publishing."
       };
     }
-    
+
     const result = await handleSubmit('published');
     return {
       success: result.success,
       productId: result.productId,
       error: result.error,
+      errorStep: result.errorStep,
+      fieldErrors: result.fieldErrors,
     };
   };
 
-  // Navigation
   const handleNext = () => {
-    if (activeIndex === 0 && !validateBasicInfo()) {
-      showWarning("Please fill out all required fields before proceeding", 'error');
-      return;
-    }
-    if (activeIndex === 1 && !validatePricing()) {
-      showWarning("Please fix pricing errors before proceeding", 'error');
+    if (!validateStep(activeIndex)) {
+      const errorStep = getErrorStep(errors);
+      if (errorStep !== null) {
+        setActiveIndex(errorStep);
+      }
+      showWarning("Please fix the errors before proceeding", 'error');
       return;
     }
     setTabWarning(null);
@@ -832,14 +694,11 @@ export function useProductUpdate() {
   };
 
   const closeModal = () => {
-    setModalState(prev => ({ ...prev, isOpen: false }));
+    setModalState((prev) => ({ ...prev, isOpen: false }));
   };
 
-  const resetForm = () => {
-    // Reset form state (keeps product data)
-  };
+  const resetForm = () => {};
 
-  // Category management
   const addCategory = (categoryId: number) => {
     if (formData.categoryIds.includes(categoryId)) {
       showWarning("Category already added", "error");
@@ -856,7 +715,7 @@ export function useProductUpdate() {
   const removeCategory = (categoryId: number) => {
     setFormData((prev) => ({
       ...prev,
-      categoryIds: prev.categoryIds.filter((id) => id !== categoryId),
+      categoryIds: prev.categoryIds.filter((id: number) => id !== categoryId),
     }));
     showWarning("Category removed", "success");
   };
@@ -904,6 +763,6 @@ export function useProductUpdate() {
     removeVariant,
     updateVariant,
     calculateCompletion,
-    validateAllSteps,
+    markImagesLoaded,
   };
 }

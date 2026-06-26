@@ -8,7 +8,6 @@ import {
   Trash2,
   X,
   Loader2,
-  RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
 import imageCompression from "browser-image-compression";
@@ -32,7 +31,7 @@ export interface ImagesFormRef {
   }>;
   clearFailedPrimary: () => void;
   getImages: () => ProductImage[];
-  resetImages: () => void; // ✅ Add reset method
+  resetImages: () => void;
 }
 
 interface ImagesFormProps {
@@ -56,9 +55,24 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
     const [localImages, setLocalImages] = useState<ProductImage[]>(initialImages);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // ✅ Update local state when initialImages changes (e.g., after reset)
+    // ✅ Clean up blob URLs on unmount
     useEffect(() => {
-      setLocalImages(initialImages);
+      return () => {
+        localImages.forEach((img) => {
+          if (img.preview && img.preview.startsWith('blob:')) {
+            URL.revokeObjectURL(img.preview);
+          }
+        });
+      };
+    }, []);
+
+    useEffect(() => {
+      // ✅ Only update if images actually changed
+      const currentIds = localImages.map(img => img.id).join(',');
+      const newIds = initialImages.map(img => img.id).join(',');
+      if (currentIds !== newIds) {
+        setLocalImages(initialImages);
+      }
     }, [initialImages]);
 
     useEffect(() => {
@@ -120,6 +134,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         };
         const filtered = localImages.filter((img) => !img.isPrimary);
         setLocalImages([newPrimary, ...filtered]);
+        onError?.("");
       } catch (err) {
         onError?.("Failed to process image. Please try again.");
       } finally {
@@ -170,6 +185,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         }
 
         setLocalImages((prev) => [...prev, ...newImages]);
+        onError?.("");
       } catch (err) {
         onError?.("Failed to process some images. Please try again.");
       } finally {
@@ -179,7 +195,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 
     const removeImage = (id: string) => {
       const img = localImages.find((i) => i.id === id);
-      if (img?.preview) URL.revokeObjectURL(img.preview);
+      if (img?.preview && img.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(img.preview);
+      }
       setLocalImages((prev) => prev.filter((i) => i.id !== id));
       onError?.("");
     };
@@ -206,12 +224,13 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       onSuccess?.(
         "⭐ Primary image updated! It will be saved with the product.",
       );
+      onError?.("");
     };
 
     const clearFailedPrimary = () => {
       setLocalImages((prev) => {
         const failedPrimary = prev.find((img) => img.isPrimary && img.status === "failed");
-        if (failedPrimary?.preview) {
+        if (failedPrimary?.preview && failedPrimary.preview.startsWith('blob:')) {
           URL.revokeObjectURL(failedPrimary.preview);
         }
 
@@ -227,11 +246,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 
     const getImages = () => localImages;
 
-    // ✅ Reset function - clears all images
     const resetImages = () => {
-      // Revoke all object URLs to prevent memory leaks
       localImages.forEach((img) => {
-        if (img.preview) {
+        if (img.preview && img.preview.startsWith('blob:')) {
           URL.revokeObjectURL(img.preview);
         }
       });
@@ -321,12 +338,13 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       uploadImages,
       clearFailedPrimary,
       getImages,
-      resetImages, // ✅ Expose reset function
+      resetImages,
     }));
 
     const primaryImage = localImages.find((img) => img.isPrimary);
     const additionalImages = localImages.filter((img) => !img.isPrimary);
     const hasValidPrimary = primaryImage && primaryImage.status !== "failed";
+    const hasFailedImages = localImages.some((img) => img.status === "failed");
 
     const StatusIcon = ({ status }: { status?: string }) => {
       if (status === "uploading")
@@ -340,47 +358,23 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       return null;
     };
 
-    const retryImage = async (imageId: string, productId: number) => {
-      const img = localImages.find((i) => i.id === imageId);
-      if (!img || img.status !== "failed") return;
-
-      setLocalImages((prev) =>
-        prev.map((p) => (p.id === imageId ? { ...p, status: "uploading" } : p)),
-      );
-
-      try {
-        const formData = new FormData();
-        formData.append("image", img.file);
-        formData.append("isPrimary", String(img.isPrimary));
-
-        const res = await fetch(`/api/shopowner/products/${productId}/images`, {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || `HTTP ${res.status}`);
-        }
-
-        setLocalImages((prev) =>
-          prev.map((p) =>
-            p.id === imageId
-              ? { ...p, status: "success", serverId: data.image_id }
-              : p,
-          ),
-        );
-      } catch (err) {
-        setLocalImages((prev) =>
-          prev.map((p) => (p.id === imageId ? { ...p, status: "failed" } : p)),
-        );
-      }
-    };
-
     return (
       <div className="md:space-y-6 space-y-8 bg-white md:p-6 rounded-lg">
         <div className="text-xl font-semibold text-black">Product Images</div>
+
+        {hasFailedImages && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                Some images failed to upload
+              </p>
+              <p className="text-sm text-red-600 mt-1">
+                Please remove the failed images and re-add them.
+              </p>
+            </div>
+          </div>
+        )}
 
         <InstructionsList
           items={[
@@ -403,16 +397,26 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
 
           {primaryImage ? (
             <div className="relative w-40 h-40 border rounded-lg overflow-hidden bg-gray-100">
-              <Image
-                src={primaryImage.preview}
-                alt="Primary"
-                fill
-                className="object-cover"
-              />
+              {primaryImage.preview && primaryImage.preview.startsWith('blob:') ? (
+                <Image
+                  src={primaryImage.preview}
+                  alt="Primary"
+                  fill
+                  className="object-cover"
+                  onError={() => {
+                    // If image fails to load, remove it
+                    removeImage(primaryImage.id);
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                  <span className="text-sm text-gray-400">Invalid image</span>
+                </div>
+              )}
               <div className="absolute top-2 right-2 flex gap-1">
                 <button
                   onClick={() => removeImage(primaryImage.id)}
-                  className="bg-red-500 text-white p-1.5 rounded-full shadow-md"
+                  className="bg-red-500 text-white p-1.5 rounded-full shadow-md hover:bg-red-600 transition-colors"
                   title="Remove"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -425,12 +429,11 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 <StatusIcon status={primaryImage.status} />
               </div>
               {primaryImage.status === "failed" && (
-                <button
-                  onClick={() => retryImage(primaryImage.id, 0)}
-                  className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/60 transition-colors"
-                >
-                  <RefreshCw className="w-8 h-8 text-white" />
-                </button>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                  <div className="bg-red-500 text-white text-xs px-3 py-1 rounded-full">
+                    Upload Failed
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -517,14 +520,23 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                 key={image.id}
                 className="relative aspect-square border rounded-lg overflow-hidden bg-gray-100"
               >
-                <Image
-                  src={image.preview}
-                  alt="Additional"
-                  fill
-                  className="object-cover"
-                />
+                {image.preview && image.preview.startsWith('blob:') ? (
+                  <Image
+                    src={image.preview}
+                    alt="Additional"
+                    fill
+                    className="object-cover"
+                    onError={() => {
+                      removeImage(image.id);
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                    <span className="text-sm text-gray-400">Invalid</span>
+                  </div>
+                )}
                 <div className="absolute top-2 right-2 flex gap-1">
-                  {hasValidPrimary && (
+                  {hasValidPrimary && image.status !== "failed" && (
                     <button
                       onClick={() => setAsPrimary(image.id)}
                       className="bg-yellow-500 text-white p-1.5 rounded-full shadow-md hover:bg-yellow-600 transition-colors"
@@ -545,12 +557,11 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
                   <StatusIcon status={image.status} />
                 </div>
                 {image.status === "failed" && (
-                  <button
-                    onClick={() => retryImage(image.id, 0)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/60 transition-colors"
-                  >
-                    <RefreshCw className="w-8 h-8 text-white" />
-                  </button>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                    <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                      Failed
+                    </div>
+                  </div>
                 )}
               </div>
             ))}

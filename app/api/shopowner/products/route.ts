@@ -114,7 +114,6 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = (page - 1) * limit;
 
-    // Build conditional where clause for the specific visual pagination rows
     let whereClause = 'WHERE p.shop_id = ?';
     const queryParams: (string | number)[] = [shopId];
 
@@ -202,7 +201,6 @@ export async function GET(req: NextRequest) {
         break;
     }
 
-    // Fixed: Compute true global dashboard aggregates for this specific shop independently
     const [statsResult] = await pool.query<StatsResult[]>(
       `WITH global_shop_products AS (
         SELECT p.product_id, p.product_type, p.status, p.stock_quantity
@@ -506,9 +504,15 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('Product creation error:', error);
-    const mysqlError = error as { code?: string };
+    const mysqlError = error as { code?: string; sqlMessage?: string };
     if (mysqlError.code === 'ER_DUP_ENTRY') {
-      return NextResponse.json({ error: 'Product slug already exists' }, { status: 409 });
+      if (mysqlError.sqlMessage?.includes('product_slug')) {
+        return NextResponse.json({ 
+          error: 'A product with this name already exists. Please use a different name.',
+          field: 'productName'
+        }, { status: 409 });
+      }
+      return NextResponse.json({ error: 'Duplicate entry' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }

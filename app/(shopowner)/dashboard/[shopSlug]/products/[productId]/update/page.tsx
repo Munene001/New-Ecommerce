@@ -1,23 +1,19 @@
-// app/(shopowner)/dashboard/[shopSlug]/products/update/page.tsx
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
-import { 
-  CheckCircle, 
-  Circle, 
-  ArrowLeft,
-  ArrowRight,
-  AlertCircle
-} from "lucide-react";
+import { ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
 import BasicInfoForm from "../../add/components/basicInfoForm";
 import PricingForm from "../../add/components/pricingForm";
 import UpdateImagesForm from "./components/updateImageForm";
-import { UpdateImagesFormRef, ProductImage } from "./components/updateImageForm";
+import { UpdateImagesFormRef } from "./components/updateImageForm";
+import { ProductImage } from "../../add/types";
 import CategoryComponent from "../../add/components/categoryComponent";
 import ReviewStep from "../../add/components/reviewStep";
 import ResultModal from "../../add/components/resultModal";
+import UpdateSidebar from "./components/updateSideBar";
+import UpdateActionButtons from "./components/updateActionButtons";
 import { useProductUpdate } from "./hooks/useProductUpdate";
 import Button from "@/app/components/ui/button";
 import SimpleToast from "@/app/components/ui/simpleToast";
@@ -65,13 +61,14 @@ export default function UpdateProductPage() {
     isLoadingProduct,
     productId,
     calculateCompletion,
-    validateAllSteps,
+    markImagesLoaded,
   } = useProductUpdate();
 
   const imagesRef = useRef<UpdateImagesFormRef>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [imagesFormKey, setImagesFormKey] = useState(0);
   const [isAutoNavigating, setIsAutoNavigating] = useState(false);
+  const [hasFailedImages, setHasFailedImages] = useState(false);
+  const prevImagesRef = useRef<ProductImage[]>(formData.images as ProductImage[]);
 
   const [toastState, setToastState] = useState<{
     type: "success" | "error";
@@ -106,6 +103,14 @@ export default function UpdateProductPage() {
   const completion = calculateCompletion();
 
   useEffect(() => {
+    if (prevImagesRef.current !== formData.images) {
+      const failed = formData.images.some((img: ProductImage) => img.status === "failed");
+      setHasFailedImages(failed);
+      prevImagesRef.current = formData.images as ProductImage[];
+    }
+  }, [formData.images]);
+
+  useEffect(() => {
     if (isAutoNavigating) {
       const formContainer = document.querySelector('.bg-white.rounded-lg.border');
       if (formContainer) {
@@ -117,20 +122,37 @@ export default function UpdateProductPage() {
     }
   }, [activeIndex, isAutoNavigating]);
 
-  // Handle images change from UpdateImagesForm
+  // ✅ Memoized callback to prevent unnecessary re-renders
   const handleImagesChange = useCallback((newImages: ProductImage[]) => {
-    setFormData((prev) => ({
-      ...prev,
-      images: newImages as any
-    }));
-  }, [setFormData]);
+    markImagesLoaded();
+    setFormData((prev) => {
+      // ✅ Deep compare to avoid unnecessary updates
+      const prevKey = prev.images.map((img: ProductImage) =>
+        `${img.id}-${img.isPrimary}-${img.status}`
+      ).join('|');
+
+      const newKey = newImages.map((img: ProductImage) =>
+        `${img.id}-${img.isPrimary}-${img.status}`
+      ).join('|');
+
+      if (prevKey === newKey) return prev;
+      return { ...prev, images: newImages };
+    });
+  }, [setFormData, markImagesLoaded]);
+
+  // ✅ Memoize props to prevent unnecessary re-renders
+  const imagesFormProps = useMemo(() => ({
+    productId: parseInt(productId, 10),
+    onImagesChange: handleImagesChange,
+    onError: showError,
+    onSuccess: showSuccess,
+  }), [productId, handleImagesChange, showError, showSuccess]);
 
   const handleSaveProduct = async () => {
     if (isSaving) return;
     setIsSaving(true);
 
     try {
-      // First, update the product
       const result = await handleSubmit('draft');
 
       if (!result.success || !result.productId) {
@@ -144,28 +166,21 @@ export default function UpdateProductPage() {
         return;
       }
 
-      // Then handle images
       const productIdNum = parseInt(productId, 10);
       const uploadResult = await imagesRef.current?.saveImages(productIdNum);
 
       if (!uploadResult?.primarySucceeded) {
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Primary Image Required",
-          message: "A primary image is required. Please set one before saving.",
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError("Primary image upload failed. Please remove and re-add the primary image.");
         setIsSaving(false);
         return;
       }
 
       if (uploadResult.failedCount > 0) {
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Product Updated (Partial Success)",
-          message: `Product updated successfully, but ${uploadResult.failedCount} image(s) failed to upload.`,
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
         setIsSaving(false);
         return;
       }
@@ -194,7 +209,6 @@ export default function UpdateProductPage() {
     setIsSaving(true);
 
     try {
-      // First, publish the product
       const result = await handlePublish();
 
       if (!result.success && result.errorStep !== undefined) {
@@ -217,28 +231,21 @@ export default function UpdateProductPage() {
         return;
       }
 
-      // Then handle images
       const productIdNum = parseInt(productId, 10);
       const uploadResult = await imagesRef.current?.saveImages(productIdNum);
 
       if (!uploadResult?.primarySucceeded) {
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Primary Image Required",
-          message: "A primary image is required. Please set one before publishing.",
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError("Primary image upload failed. Please remove and re-add the primary image.");
         setIsSaving(false);
         return;
       }
 
       if (uploadResult.failedCount > 0) {
-        setResultModal({
-          isOpen: true,
-          type: "error",
-          title: "Product Published (Partial Success)",
-          message: `Product published successfully, but ${uploadResult.failedCount} image(s) failed to upload.`,
-        });
+        setActiveIndex(2);
+        setIsAutoNavigating(true);
+        showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
         setIsSaving(false);
         return;
       }
@@ -260,6 +267,25 @@ export default function UpdateProductPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const getStepStatuses = () => {
+    return sections.map((_, index) => {
+      const stepKeys = ['basicInfo', 'pricing', 'images', 'categories', 'review'];
+      const step = completion.steps[stepKeys[index] as keyof typeof completion.steps];
+      const hasErrors = index === activeIndex && Object.keys(errors).length > 0;
+      
+      if (index === activeIndex) {
+        return { status: 'active' as const, hasErrors };
+      }
+      if (step?.completed && !hasErrors) {
+        return { status: 'completed' as const, hasErrors: false };
+      }
+      if (hasErrors) {
+        return { status: 'error' as const, hasErrors: true };
+      }
+      return { status: 'incomplete' as const, hasErrors: false };
+    });
   };
 
   const renderComponent = () => {
@@ -284,7 +310,7 @@ export default function UpdateProductPage() {
           <BasicInfoForm
             formData={formData}
             setFormData={setFormData}
-            attributeSchema={attributeSchema.filter((f) => f.variant !== true)}
+            attributeSchema={attributeSchema.filter((f: any) => f.variant !== true)}
             loadingSchema={loadingSchema}
             errors={errors}
           />
@@ -304,12 +330,9 @@ export default function UpdateProductPage() {
         </div>
         <div style={{ display: activeIndex === 2 ? 'block' : 'none' }}>
           <UpdateImagesForm
-            key={imagesFormKey}
+            key="images-form"
             ref={imagesRef}
-            productId={parseInt(productId, 10)}
-            onImagesChange={handleImagesChange}
-            onError={showError}
-            onSuccess={showSuccess}
+            {...imagesFormProps}
           />
         </div>
         <div style={{ display: activeIndex === 3 ? 'block' : 'none' }}>
@@ -418,60 +441,6 @@ export default function UpdateProductPage() {
     );
   };
 
-  const handleNextOrSave = () => {
-    if (activeIndex === sections.length - 1) {
-      handleSaveProduct();
-    } else {
-      handleNext();
-    }
-  };
-
-  const handleModalClose = () => {
-    setResultModal((prev) => ({ ...prev, isOpen: false }));
-  };
-
-  const getErrorStep = (): number | null => {
-    if (!errors || Object.keys(errors).length === 0) return null;
-    
-    const basicInfoKeys = ['productName', 'productSlug', 'attr.'];
-    const pricingKeys = ['price', 'discountPrice', 'variant_', 'variants'];
-    const imageKeys = ['images'];
-    
-    const errorKeys = Object.keys(errors);
-    
-    if (errorKeys.some(key => basicInfoKeys.some(k => key.includes(k)))) {
-      return 0;
-    }
-    if (errorKeys.some(key => pricingKeys.some(k => key.includes(k)))) {
-      return 1;
-    }
-    if (errorKeys.some(key => imageKeys.some(k => key.includes(k)))) {
-      return 2;
-    }
-    
-    return 0;
-  };
-
-  const getStepStatus = (index: number) => {
-    const stepKeys = ['basicInfo', 'pricing', 'images', 'categories', 'review'];
-    const step = completion.steps[stepKeys[index] as keyof typeof completion.steps];
-    const errorStep = getErrorStep();
-    
-    const hasErrorsOnThisStep = errorStep === index;
-    
-    if (!step) return { status: 'incomplete', hasErrors: false };
-    if (index === activeIndex) {
-      return { status: 'active', hasErrors: hasErrorsOnThisStep };
-    }
-    if (step.completed && !hasErrorsOnThisStep) {
-      return { status: 'completed', hasErrors: false };
-    }
-    if (hasErrorsOnThisStep) {
-      return { status: 'error', hasErrors: true };
-    }
-    return { status: 'incomplete', hasErrors: false };
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 font-[Poppins]">
       <ResultModal
@@ -479,7 +448,7 @@ export default function UpdateProductPage() {
         type={resultModal.type}
         title={resultModal.title}
         message={resultModal.message}
-        onClose={handleModalClose}
+        onClose={closeModal}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -495,12 +464,13 @@ export default function UpdateProductPage() {
           <div className="mt-4">
             <h1 className="text-2xl font-semibold text-black">Update Product</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Shop: <span className="font-medium text-black">{shopSlug}</span> • 
+              Shop: <span className="font-medium text-black">{shopSlug}</span> •
               Type: <span className="font-medium text-black">{shopType || "Loading..."}</span>
             </p>
           </div>
         </div>
 
+        {/* ✅ Progress Bar */}
         <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">Setup Progress</span>
@@ -514,143 +484,69 @@ export default function UpdateProductPage() {
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
             <span>{completion.completedSteps} of {completion.totalSteps} steps complete</span>
-            {completion.canPublish && (
+            {completion.canPublish && !hasFailedImages && (
               <span className="inline-flex items-center gap-1 text-green-600">
                 <CheckCircle className="w-3 h-3" />
                 Ready to publish
               </span>
             )}
+            {hasFailedImages && (
+              <span className="inline-flex items-center gap-1 text-red-600">
+                <AlertCircle className="w-3 h-3" />
+                Fix image errors
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Sidebar */}
-          <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-black rounded-lg shadow-sm sticky top-6 overflow-hidden">
-              <div className="p-4 border-b border-gray-800">
-                <h2 className="text-white font-semibold text-sm uppercase tracking-wider">Steps</h2>
-              </div>
-              <nav className="p-2 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
-                {sections.map((section, index) => {
-                  const { status, hasErrors } = getStepStatus(index);
-                  const isActive = index === activeIndex;
-                  
-                  let icon;
-                  if (hasErrors && status !== 'active') {
-                    icon = <AlertCircle className="w-4 h-4 text-red-400" />;
-                  } else if (status === 'completed') {
-                    icon = <CheckCircle className="w-4 h-4 text-green-400" />;
-                  } else if (status === 'active') {
-                    icon = <Circle className="w-4 h-4 text-orange-400" />;
-                  } else {
-                    icon = <Circle className="w-4 h-4 text-gray-600" />;
-                  }
-
-                  return (
-                    <button
-                      key={section}
-                      onClick={() => handleTabClick(index)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                        isActive
-                          ? 'bg-orange-500/10 text-orange-400'
-                          : hasErrors && status !== 'active'
-                          ? 'text-red-400 hover:bg-red-900/10'
-                          : status === 'completed'
-                          ? 'text-gray-300 hover:bg-gray-800'
-                          : 'text-gray-500 hover:bg-gray-800'
-                      }`}
-                    >
-                      <span className="flex-shrink-0">{icon}</span>
-                      <span className="flex-1 text-left font-medium">
-                        {section}
-                        {status === 'completed' && (
-                          <span className="ml-2 text-green-400">✓</span>
-                        )}
-                        {hasErrors && status !== 'active' && (
-                          <span className="ml-2 text-red-400 text-xs">!</span>
-                        )}
-                      </span>
-                      {isActive && (
-                        <span className="w-1.5 h-6 bg-orange-400 rounded-full flex-shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-              
-              <div className="p-4 border-t border-gray-800 mt-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-400">Complete</span>
-                  <span className="text-white font-medium">{completion.percentage}%</span>
-                </div>
-                <div className="w-full h-1 bg-gray-800 rounded-full mt-1 overflow-hidden">
-                  <div
-                    className="h-full bg-orange-500 transition-all duration-500 rounded-full"
-                    style={{ width: `${completion.percentage}%` }}
-                  />
-                </div>
-              </div>
+        {hasFailedImages && activeIndex !== 2 && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                Some images failed to upload
+              </p>
+              <p className="text-sm text-red-600 mt-1">
+                Please go to the Images step, remove the failed images, and re-add them.
+              </p>
+              <button
+                onClick={() => setActiveIndex(2)}
+                className="mt-2 text-sm text-red-600 hover:text-red-700 font-medium underline"
+              >
+                Go to Images
+              </button>
             </div>
           </div>
+        )}
 
-          {/* Right Content */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          <UpdateSidebar
+            sections={sections}
+            activeIndex={activeIndex}
+            stepStatuses={getStepStatuses()}
+            percentage={completion.percentage}
+            completedSteps={completion.completedSteps}
+            totalSteps={completion.totalSteps}
+            canPublish={completion.canPublish}
+            hasFailedImages={hasFailedImages}
+            onTabClick={handleTabClick}
+          />
+
           <div className="flex-1 min-w-0">
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
               {renderComponent()}
             </div>
 
-            <div className="flex justify-between mt-6">
-              <button
-                onClick={handlePrevious}
-                disabled={activeIndex === 0}
-                className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                  activeIndex === 0
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Previous
-              </button>
-
-              {activeIndex === sections.length - 1 ? (
-                <button
-                  onClick={handleSaveProduct}
-                  disabled={isSaving}
-                  className="px-6 py-2.5 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {isSaving ? (
-                    <>
-                      <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Icon icon="mdi:content-save" className="w-4 h-4" />
-                      Update Draft
-                    </>
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={handleNextOrSave}
-                  disabled={loading || isSaving}
-                  className="px-6 py-2.5 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 flex items-center gap-2"
-                >
-                  {loading || isSaving ? (
-                    <>
-                      <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      Next
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+            <UpdateActionButtons
+              activeIndex={activeIndex}
+              totalSections={sections.length}
+              isSaving={isSaving}
+              loading={loading}
+              hasFailedImages={hasFailedImages}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+              onSave={handleSaveProduct}
+            />
           </div>
         </div>
       </div>
