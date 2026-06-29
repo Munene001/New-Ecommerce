@@ -74,7 +74,6 @@ export default function Filter({
     return `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${minPercent}%, ${shopData.secondaryColor} ${minPercent}%, ${shopData.secondaryColor} ${maxPercent}%, #e5e7eb ${maxPercent}%, #e5e7eb 100%)`;
   };
 
-  // Wrapper functions that close modal after action
   const handleToggleCategory = async (categoryId: string) => {
     await onToggleCategory(categoryId);
     if (onClose) onClose();
@@ -96,13 +95,12 @@ export default function Filter({
   };
 
   return (
-    <div className="bg-white bg-[url('/assets/maze-special.svg')]  bg-repeat bg-[length:400px_auto] p-4 rounded-lg border border-gray-200 sticky top-4">
+    <div className="bg-white bg-[url('/assets/maze-special.svg')] bg-repeat bg-[length:400px_auto] p-4 rounded-lg border border-gray-200 sticky top-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-semibold text-lg rounded-sm text-black border border-gray-700 p-2 flex items-center gap-2">
           <ArrowLeftRight size={20} style={{ color: shopData.secondaryColor }} />
           <span>Filter</span>
         </h2>
-      
       </div>
 
       <div className="space-y-6">
@@ -116,40 +114,34 @@ export default function Filter({
               max={maxLimit}
               values={localPriceRange}
               onChange={(values) => setLocalPriceRange(values as [number, number])}
-              renderTrack={({ props, children }) => {
-                const { style, ...trackProps } = props;
-                return (
-                  <div
-                    {...trackProps}
-                    className="h-1 w-full rounded"
-                    style={{
-                      ...style,
-                      background: getTrackBackground(),
-                    }}
-                  >
-                    {children}
-                  </div>
-                );
-              }}
-              renderThumb={({ props }) => {
-                const { style, ...thumbProps } = props;
-                return (
-                  <div
-                    {...thumbProps}
-                    className="h-4 w-4 rounded-full shadow-md"
-                    style={{
-                      ...style,
-                      backgroundColor: shopData.secondaryColor,
-                      border: `2px solid ${shopData.secondaryColor}`,
-                    }}
-                  />
-                );
-              }}
+              renderTrack={({ props, children }) => (
+                <div
+                  {...props}
+                  className="h-1 w-full rounded"
+                  style={{
+                    ...props.style,
+                    background: getTrackBackground(),
+                  }}
+                >
+                  {children}
+                </div>
+              )}
+              renderThumb={({ props }) => (
+                <div
+                  {...props}
+                  className="h-4 w-4 rounded-full shadow-md"
+                  style={{
+                    ...props.style,
+                    backgroundColor: shopData.secondaryColor,
+                    border: `2px solid ${shopData.secondaryColor}`,
+                  }}
+                />
+              )}
             />
           </div>
           <div className="flex justify-between text-sm mt-2">
             <span className="text-gray-700">Ksh {localPriceRange[0].toLocaleString()}</span>
-            <span className="text-gray-700">{localPriceRange[1].toLocaleString()}</span>
+            <span className="text-gray-700">Ksh {localPriceRange[1].toLocaleString()}</span>
           </div>
           <button
             onClick={handleApplyPriceRange}

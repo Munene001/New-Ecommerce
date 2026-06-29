@@ -233,7 +233,7 @@ export default function PricingForm({
                   <div className="mt-3 ml-0 md:ml-6">
                     <InputField
                       name={`single.${attr.name}`}
-                      label={`Single ${label}`}
+                      label={`Single ${label} (Optional)`}
                       value={formData.attributes[attr.name] as string || ""}
                       onChange={handleSingleAttributeChange(attr.name)}
                       placeholder={`Enter single ${label.toLowerCase()}`}
@@ -277,7 +277,7 @@ export default function PricingForm({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <InputField
               name="price"
-              label="Price (KES)"
+              label="Price (KES) (Required)"
               type="number"
               value={formData.price}
               onChange={handleChange}
@@ -300,7 +300,7 @@ export default function PricingForm({
 
             <InputField
               name="stockQuantity"
-              label="Stock Quantity"
+              label="Stock Quantity (Required)"
               type="number"
               value={formData.stockQuantity}
               onChange={(e) => {
@@ -372,13 +372,13 @@ export default function PricingForm({
                       );
                     })}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Price <span className="text-orange-500">*</span>
+                      Price (Required)
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Discount
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock
+                      Stock (Required)
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       In Stock

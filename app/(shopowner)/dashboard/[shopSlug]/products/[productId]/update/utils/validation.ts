@@ -1,4 +1,4 @@
-import { Attribute, ProductFormData, ProductImage, } from "../../../add/types";
+import { Attribute, ProductFormData, ProductImage } from "../../../add/types";
 
 export const validateBasicInfo = (
   formData: ProductFormData,
@@ -76,13 +76,17 @@ export const validatePricing = (
   return errors;
 };
 
+// ✅ FIX: Filter out deleted images before validation
 export const validateImages = (images: ProductImage[]): Record<string, string> => {
   const errors: Record<string, string> = {};
   
-  if (images.length === 0) {
+  // Filter out deleted images
+  const visibleImages = images.filter(img => img.status !== "deleted");
+  
+  if (visibleImages.length === 0) {
     errors.images = "At least one image is required";
   } else {
-    const hasPrimary = images.some((img: ProductImage) => img.isPrimary === true);
+    const hasPrimary = visibleImages.some((img: ProductImage) => img.isPrimary === true);
     if (!hasPrimary) {
       errors.images = "A primary image is required";
     }

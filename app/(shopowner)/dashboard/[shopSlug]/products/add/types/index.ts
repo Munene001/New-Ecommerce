@@ -17,7 +17,7 @@ export interface ProductImage {
   file?: File;
   preview: string;
   isPrimary: boolean;
-  status?: "pending" | "uploading" | "success" | "failed";
+  status?: "pending" | "uploading" | "success" | "failed" | "deleted";
   serverId?: number;
   size_kb?: number;
 }

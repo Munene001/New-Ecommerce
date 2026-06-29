@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { Icon } from "@iconify/react";
 import { useState, useRef, useEffect } from "react";
@@ -67,11 +67,11 @@ export default function InputField({
     setIsOpen(false);
   };
 
-  const baseInputClass = `w-full px-4 py-3 border rounded-xl transition-all duration-200 font-[Poppins] text-gray-700 placeholder-gray-500 bg-white ${
+  const baseInputClass = `w-full px-4 py-3 border rounded-xl transition-all duration-200 font-[Poppins] text-gray-900 placeholder-gray-400 bg-white ${
     error 
-      ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
+      ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
       : isFocused 
-        ? 'border-orange-400 ring-2 ring-orange-100' 
+        ? 'border-black ring-2 ring-black/10' 
         : 'border-gray-300 hover:border-gray-400'
   } ${disabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''} ${inputClassName}`;
 
@@ -94,14 +94,14 @@ export default function InputField({
 
       case 'checkbox':
         return (
-          <label className="flex items-center gap-3 text-gray-600 cursor-pointer group">
+          <label className="flex items-center gap-3 text-gray-700 cursor-pointer group">
             <input
               type="checkbox"
               name={name}
               checked={value as boolean || false}
               onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
               disabled={disabled}
-              className="w-5 h-5 rounded-md border-2 border-gray-400 text-orange-500 focus:ring-2 focus:ring-orange-200 focus:ring-offset-2 transition-all duration-200 disabled:cursor-not-allowed"
+              className="w-5 h-5 rounded-md border-2 border-gray-400 text-black focus:ring-2 focus:ring-black/20 focus:ring-offset-2 transition-all duration-200 disabled:cursor-not-allowed"
             />
             <span className="text-sm select-none">{placeholder || 'Yes'}</span>
           </label>
@@ -132,19 +132,19 @@ export default function InputField({
               disabled={disabled}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              className={`${baseInputClass} text-left flex items-center justify-between ${isOpen ? 'border-orange-400 ring-2 ring-orange-100' : ''}`}
+              className={`${baseInputClass} text-left flex items-center justify-between ${isOpen ? 'border-black ring-2 ring-black/10' : ''}`}
             >
-              <span className={`truncate ${!selectedOption ? 'text-gray-500' : 'text-gray-700'}`}>
+              <span className={`truncate ${!selectedOption ? 'text-gray-400' : 'text-gray-900'}`}>
                 {selectedOption ? selectedOption.name : placeholder || 'Select an option'}
               </span>
               <Icon
                 icon={isOpen ? "mdi:chevron-up" : "mdi:chevron-down"}
-                className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'text-orange-500' : 'text-gray-500'}`}
+                className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'text-black' : 'text-gray-500'}`}
               />
             </button>
 
             {isOpen && !disabled && (
-              <div className="absolute z-50 w-full mt-2 bg-white border border-gray-300 rounded-xl shadow-lg overflow-hidden">
+              <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                 <div className="max-h-60 overflow-y-auto py-2">
                   {options.length > 0 ? (
                     options.map((option) => (
@@ -153,12 +153,12 @@ export default function InputField({
                         onClick={() => handleSelect(option.id)}
                         className={`px-4 py-3 text-sm cursor-pointer transition-all duration-150 flex items-center gap-2 ${
                           value === option.id 
-                            ? 'bg-orange-50 text-orange-600 font-medium' 
+                            ? 'bg-gray-100 text-black font-medium' 
                             : 'text-gray-600 hover:bg-gray-50 hover:pl-5'
                         }`}
                       >
                         {value === option.id && (
-                          <Icon icon="mdi:check" className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                          <Icon icon="mdi:check" className="w-4 h-4 text-black flex-shrink-0" />
                         )}
                         <span className={value === option.id ? '' : 'ml-6'}>{option.name}</span>
                       </div>
@@ -180,16 +180,16 @@ export default function InputField({
             <input
               type="color"
               name={name}
-              value={value as string || '#f54a00'}
+              value={value as string || '#000000'}
               onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
               disabled={disabled}
               className="w-14 h-14 rounded-xl border-2 border-gray-300 cursor-pointer bg-white p-1"
             />
             <input
               type="text"
-              value={value as string || '#f54a00'}
+              value={value as string || '#000000'}
               onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
-              placeholder="#f54a00"
+              placeholder="#000000"
               disabled={disabled}
               className={baseInputClass}
               name={name}
@@ -203,7 +203,7 @@ export default function InputField({
             {icon && (
               <Icon 
                 icon={icon} 
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5"
+                className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${disabled ? 'text-gray-400' : 'text-gray-500'}`}
               />
             )}
             <input
@@ -225,9 +225,9 @@ export default function InputField({
   return (
     <div className={className}>
       {label && type !== 'checkbox' && (
-        <label className={`block text-sm font-medium text-gray-600 mb-1.5 ${labelClassName}`}>
+        <label className={`block text-sm font-medium text-gray-700 mb-1.5 ${labelClassName}`}>
           {label}
-          {required && <span className="text-orange-500 ml-0.5">*</span>}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
       )}
       {renderInput()}

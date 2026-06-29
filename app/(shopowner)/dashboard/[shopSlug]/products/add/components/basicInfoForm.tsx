@@ -131,8 +131,12 @@ export default function BasicInfoForm({
     return "text";
   };
 
-  const requiredAttributes = attributeSchema.filter((f) => f.required);
+  // ✅ Separate required and optional attributes (filter out variant attributes)
+  const productAttributes = attributeSchema.filter((f) => f.variant !== true);
+  const requiredAttributes = productAttributes.filter((f) => f.required);
+  const optionalAttributes = productAttributes.filter((f) => !f.required);
   const hasRequiredAttributes = requiredAttributes.length > 0;
+  const hasOptionalAttributes = optionalAttributes.length > 0;
 
   // ✅ Check if there are any errors for this step
   const hasErrors = Object.keys(errors).length > 0;
@@ -184,48 +188,157 @@ export default function BasicInfoForm({
         variant="green"
       />
 
-      {/* Main Form Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Product Name */}
-        <InputField
-          name="productName"
-          label="Product Name"
-          value={formData.productName}
-          onChange={handleNameChange}
-          error={errors.productName}
-          placeholder="e.g., Summer T-Shirt"
-          required
-          icon="mdi:package-variant"
-        />
+      {/* ✅ Required Section */}
+      <div className="bg-gray-50 rounded-xl border-2 border-gray-300 p-6">
+        <h3 className="text-md font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <Icon icon="mdi:asterisk-circle" className="w-5 h-5 text-orange-500" />
+          Required Information
+          <span className="text-sm font-normal text-gray-400">
+            (fields marked with <span className="text-orange-500">*</span>)
+          </span>
+        </h3>
 
-        {/* Product Slug */}
-        <InputField
-          name="productSlug"
-          label="Product Slug"
-          value={formData.productSlug}
-          onChange={handleChange}
-          error={errors.productSlug}
-          placeholder="summer-t-shirt"
-          required
-          icon="mdi:link"
-          helpText="URL-friendly version of the product name"
-        />
+        <div className="space-y-6">
+          {/* Product Name */}
+          <InputField
+            name="productName"
+            label="Product Name"
+            value={formData.productName}
+            onChange={handleNameChange}
+            error={errors.productName}
+            placeholder="e.g., Summer T-Shirt"
+            required
+            icon="mdi:package-variant"
+          />
+
+          {/* Required Attributes */}
+          {hasRequiredAttributes && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              {requiredAttributes.map((field) => {
+                const isSelect = field.type === "select";
+                const isTextarea = field.type === "textarea";
+                const isCheckbox = field.type === "boolean";
+                const value = formData.attributes[field.name] ?? (isCheckbox ? false : "");
+                const errorKey = `attr.${field.name}`;
+
+                return (
+                  <div
+                    key={field.name}
+                    className={isTextarea ? "md:col-span-2" : ""}
+                  >
+                    <InputField
+                      name={`attr.${field.name}`}
+                      label={field.label}
+                      type={getFormFieldType(field.type)}
+                      value={value}
+                      onChange={
+                        field.type === "select"
+                          ? createDropdownHandler(`attr.${field.name}`)
+                          : handleChange
+                      }
+                      error={errors[errorKey]}
+                      placeholder={`Enter ${field.label.toLowerCase()}`}
+                      options={field.options?.map((opt) => ({
+                        id: opt,
+                        name: opt,
+                      }))}
+                      rows={field.type === "textarea" ? 3 : undefined}
+                      required
+                      className="border-gray-400 focus:border-orange-500"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Description */}
-      <InputField
-        name="description"
-        label="Description"
-        type="textarea"
-        value={formData.description}
-        onChange={handleChange}
-        placeholder="Describe your product in detail..."
-        rows={4}
-        helpText="Optional - helps customers understand your product"
-      />
+      {/* ✅ Optional Section - includes Description and Optional Attributes */}
+      <div className="bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-300 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-md font-medium text-gray-600 flex items-center gap-2">
+            <Icon icon="mdi:tag-outline" className="w-5 h-5 text-gray-400" />
+            Optional Information
+            <span className="text-sm font-normal text-gray-400">
+              (optional fields)
+            </span>
+          </h3>
+          <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">
+            Optional
+          </span>
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          These fields are not required but help provide more product details
+        </p>
 
-      {/* Dynamic Attributes */}
-      {loadingSchema ? (
+        <div className="space-y-6">
+          {/* ✅ Description - Now in Optional section */}
+          <div className="relative">
+            <InputField
+              name="description"
+              label="Description"
+              type="textarea"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder="Describe your product in detail..."
+              rows={4}
+              className="border-gray-300 focus:border-orange-400 bg-white/80"
+            />
+            <span className="absolute top-0 right-0 text-xs text-gray-400 bg-white/80 px-2 py-1 rounded border border-gray-200">
+              Optional
+            </span>
+          </div>
+
+          {/* Optional Attributes */}
+          {hasOptionalAttributes && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              {optionalAttributes.map((field) => {
+                const isSelect = field.type === "select";
+                const isTextarea = field.type === "textarea";
+                const isCheckbox = field.type === "boolean";
+                const value = formData.attributes[field.name] ?? (isCheckbox ? false : "");
+                const errorKey = `attr.${field.name}`;
+
+                return (
+                  <div
+                    key={field.name}
+                    className={isTextarea ? "md:col-span-2" : ""}
+                  >
+                    <div className="relative">
+                      <InputField
+                        name={`attr.${field.name}`}
+                        label={field.label}
+                        type={getFormFieldType(field.type)}
+                        value={value}
+                        onChange={
+                          field.type === "select"
+                            ? createDropdownHandler(`attr.${field.name}`)
+                            : handleChange
+                        }
+                        error={errors[errorKey]}
+                        placeholder={`Optional - enter ${field.label.toLowerCase()}`}
+                        options={field.options?.map((opt) => ({
+                          id: opt,
+                          name: opt,
+                        }))}
+                        rows={field.type === "textarea" ? 3 : undefined}
+                        className="border-gray-300 focus:border-orange-400 bg-white/80"
+                      />
+                      <span className="absolute top-0 right-0 text-xs text-gray-400 bg-white/80 px-2 py-1 rounded border border-gray-200">
+                        Optional
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loadingSchema && (
         <div className="flex items-center justify-center py-8">
           <Icon
             icon="mdi:loading"
@@ -234,65 +347,6 @@ export default function BasicInfoForm({
           <span className="ml-2 text-gray-500 font-[Poppins]">
             Loading attributes...
           </span>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {attributeSchema.length > 0 ? (
-            <>
-              {hasRequiredAttributes && (
-                <div>
-                  <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center gap-2">
-                    <Icon icon="mdi:tag-outline" className="w-5 h-5 text-orange-500" />
-                    Product Attributes
-                    <span className="text-sm font-normal text-gray-400">
-                      ({requiredAttributes.length} required)
-                    </span>
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {requiredAttributes.map((field) => {
-                      const isSelect = field.type === "select";
-                      const isTextarea = field.type === "textarea";
-                      const isCheckbox = field.type === "boolean";
-                      const value = formData.attributes[field.name] ?? (isCheckbox ? false : "");
-                      const errorKey = `attr.${field.name}`;
-
-                      return (
-                        <div
-                          key={field.name}
-                          className={isTextarea ? "md:col-span-2" : ""}
-                        >
-                          <InputField
-                            name={`attr.${field.name}`}
-                            label={field.label}
-                            type={getFormFieldType(field.type)}
-                            value={value}
-                            onChange={
-                              field.type === "select"
-                                ? createDropdownHandler(`attr.${field.name}`)
-                                : handleChange
-                            }
-                            error={errors[errorKey]}
-                            placeholder={`Enter ${field.label.toLowerCase()}`}
-                            options={field.options?.map((opt) => ({
-                              id: opt,
-                              name: opt,
-                            }))}
-                            rows={field.type === "textarea" ? 3 : undefined}
-                            required
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-              <Icon icon="mdi:info-outline" className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-500">No attributes configured for this shop type</p>
-            </div>
-          )}
         </div>
       )}
     </div>

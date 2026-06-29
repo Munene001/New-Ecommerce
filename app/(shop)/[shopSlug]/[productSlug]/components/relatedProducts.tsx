@@ -1,11 +1,11 @@
+// app/(shop)/[shopSlug]/[productSlug]/components/relatedProducts.tsx
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-
 import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-
 import ProductCardStandard from '../../components/cardStandard';
+import { Product } from '@/lib/types/product';
 
 interface RelatedProduct {
   product_id: number;
@@ -13,15 +13,8 @@ interface RelatedProduct {
   product_slug: string;
   price: number;
   discount_price: number | null;
-  in_stock?: boolean;
-  description?: string;
-  attributes?: Record<string, string | number | boolean | string[] | null>;
-  images?: Array<{
-    image_id: number;
-    image_path: string;
-    is_primary: boolean;
-    created_at: string;
-  }>;
+  stock_quantity: number;
+  product_type: 'simple' | 'variable';
 }
 
 interface Props {
@@ -49,7 +42,6 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
   const scrollTo = useCallback((index: number) => emblaApi && emblaApi.scrollTo(index), [emblaApi]);
 
-  // Update state based on embla API
   const updateCarouselState = useCallback(() => {
     if (!emblaApi) return;
     setSelectedIndex(emblaApi.selectedScrollSnap());
@@ -57,20 +49,15 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
     setNextBtnEnabled(emblaApi.canScrollNext());
   }, [emblaApi]);
 
-  // Set up embla event listeners
   useEffect(() => {
     if (!emblaApi) return;
     
-    // Initial state update - this is necessary to sync React state with the carousel
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     updateCarouselState();
     setScrollSnaps(emblaApi.scrollSnapList());
     
-    // Set up event listeners
     emblaApi.on('select', updateCarouselState);
     emblaApi.on('reInit', updateCarouselState);
     
-    // Cleanup
     return () => {
       emblaApi.off('select', updateCarouselState);
       emblaApi.off('reInit', updateCarouselState);
@@ -79,14 +66,42 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
 
   if (products.length === 0) return null;
 
-  // Convert RelatedProduct to match Product type expected by ProductCardStandard
-  const normalizedProducts = products.map(product => ({
-    ...product,
-    in_stock: true,
-    description: '',
-    attributes: {},
-    images: [],
-  }));
+  const normalizedProducts: Product[] = products.map(product => {
+    const stockQuantity = product.stock_quantity ?? 0;
+    const productType = product.product_type || 'simple';
+    
+    return {
+      product_id: product.product_id,
+      shop_id: 0,
+      shop_type: '',
+      product_name: product.product_name,
+      product_slug: product.product_slug,
+      description: '',
+      price: product.price,
+      discount_price: product.discount_price,
+      stock_quantity: stockQuantity,
+      product_type: productType,
+      status: 'published',
+      attributes: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      images: [],
+      variants: [],
+      display_price: {
+        min: product.discount_price || product.price,
+        max: product.discount_price || product.price,
+        formatted: `${product.discount_price || product.price}`,
+        isRange: false
+      },
+      stock_info: {
+        type: 'simple',
+        total: stockQuantity,
+        quantity: stockQuantity
+      },
+      in_stock: stockQuantity > 0,
+      can_publish: false
+    };
+  });
 
   return (
     <div className="mt-8 relative">
@@ -94,7 +109,6 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
         Related Products
       </h2>
 
-      {/* Carousel viewport */}
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex gap-4 sm:gap-5 px-2">
           {normalizedProducts.map(product => (
@@ -111,7 +125,6 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
         </div>
       </div>
 
-      {/* Navigation Arrows - visible on md and up */}
       {prevBtnEnabled && (
         <button
           onClick={scrollPrev}
@@ -131,7 +144,6 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
         </button>
       )}
 
-      {/* Dots for mobile */}
       {scrollSnaps.length > 1 && (
         <div className="flex justify-center gap-1.5 mt-4 md:hidden">
           {scrollSnaps.map((_, index) => (

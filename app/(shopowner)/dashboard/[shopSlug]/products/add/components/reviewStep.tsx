@@ -23,6 +23,7 @@ interface ReviewStepProps {
   attributeSchema: Attribute[];
   onPublish: () => void;
   isPublishing: boolean;
+  isUpdate?: boolean; // ✅ New prop to determine if we're in update mode
 }
 
 export default function ReviewStep({
@@ -31,14 +32,17 @@ export default function ReviewStep({
   attributeSchema,
   onPublish,
   isPublishing,
+  isUpdate = false, // ✅ Default to false (add mode)
 }: ReviewStepProps) {
-  const primaryImage = formData.images.find((img) => img.isPrimary);
-  const additionalImages = formData.images.filter((img) => !img.isPrimary);
+  // ✅ Filter out deleted images
+  const visibleImages = formData.images.filter(img => img.status !== "deleted");
+  const primaryImage = visibleImages.find((img) => img.isPrimary);
+  const additionalImages = visibleImages.filter((img) => !img.isPrimary);
 
-  const totalImages = formData.images.length;
-  const uploadedImages = formData.images.filter(img => img.status === "success").length;
-  const failedImages = formData.images.filter(img => img.status === "failed");
-  const isUploading = formData.images.some(img => img.status === "uploading");
+  const totalImages = visibleImages.length;
+  const uploadedImages = visibleImages.filter(img => img.status === "success").length;
+  const failedImages = visibleImages.filter(img => img.status === "failed");
+  const isUploading = visibleImages.some(img => img.status === "uploading");
 
   const getStepIcon = (completed: boolean) => {
     return completed ? (
@@ -60,9 +64,9 @@ export default function ReviewStep({
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Review & Publish</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Review & {isUpdate ? "Update" : "Publish"}</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Review your product details before publishing
+          Review your product details before {isUpdate ? "updating" : "publishing"}
         </p>
       </div>
 
@@ -87,12 +91,12 @@ export default function ReviewStep({
               }`}
             >
               {completion.canPublish
-                ? "✅ Product is ready to publish!"
-                : "⚠️ Some items need attention before publishing"}
+                ? `✅ Product is ready to ${isUpdate ? "update" : "publish"}!`
+                : "⚠️ Some items need attention before proceeding"}
             </p>
             <p className="text-sm text-gray-500">
               {completion.canPublish
-                ? "All required fields are complete. Click 'Publish' to make it live."
+                ? `All required fields are complete. Click '${isUpdate ? "Update" : "Publish"}' to ${isUpdate ? "update" : "make it live"}.`
                 : `${completion.completedSteps} of ${completion.totalSteps} steps complete (${completion.percentage}%)`}
             </p>
           </div>
@@ -320,11 +324,11 @@ export default function ReviewStep({
         </div>
       </div>
 
-      {/* Images Display with Upload Progress - derived from formData */}
+      {/* Images Display with Upload Progress - ✅ Filter out deleted images */}
       <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 space-y-4">
         <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
           <Icon icon="mdi:image" className="w-4 h-4 text-orange-500" />
-          Product Images ({formData.images.length})
+          Product Images ({visibleImages.length})
         </h3>
 
         {/* Upload progress derived from image statuses */}
@@ -352,7 +356,7 @@ export default function ReviewStep({
           </div>
         )}
 
-        {formData.images.length === 0 ? (
+        {visibleImages.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">No images uploaded</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -415,13 +419,6 @@ export default function ReviewStep({
                 )}
               </div>
             ))}
-
-            {/* Empty slots */}
-            {formData.images.length === 0 && (
-              <div className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
-                <Icon icon="mdi:image-off" className="w-8 h-8 text-gray-400" />
-              </div>
-            )}
           </div>
         )}
 
@@ -451,7 +448,7 @@ export default function ReviewStep({
         )}
       </div>
 
-      {/* Publish Button - State controlled by parent via props */}
+      {/* Publish/Update Button */}
       <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
@@ -459,16 +456,18 @@ export default function ReviewStep({
               {isUploading ? (
                 "📤 Uploading images..."
               ) : completion.canPublish ? (
-                "🎉 All set! Your product is ready to go live."
+                `🎉 All set! Your product is ready to ${isUpdate ? "update" : "go live"}.`
               ) : (
-                "📝 Complete all required fields to publish"
+                "📝 Complete all required fields to proceed"
               )}
             </p>
             <p className="text-sm text-gray-400">
               {isUploading ? (
                 `Please wait while we upload your images (${uploadedImages}/${totalImages})`
               ) : completion.canPublish ? (
-                "Click publish to make this product visible to customers."
+                isUpdate 
+                  ? "Click update to save your changes."
+                  : "Click publish to make this product visible to customers."
               ) : (
                 `${completion.completedSteps} of ${completion.totalSteps} steps complete`
               )}
@@ -492,12 +491,12 @@ export default function ReviewStep({
             ) : isPublishing ? (
               <>
                 <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
-                Publishing...
+                {isUpdate ? "Updating..." : "Publishing..."}
               </>
             ) : (
               <>
-                <Icon icon="mdi:rocket-launch" className="w-4 h-4" />
-                Publish Product
+                <Icon icon={isUpdate ? "mdi:content-save" : "mdi:rocket-launch"} className="w-4 h-4" />
+                {isUpdate ? "Update Product" : "Publish Product"}
               </>
             )}
           </button>

@@ -58,28 +58,36 @@ async function getShopIdFromProduct(productId: number): Promise<number | null> {
 function validateProduct(product: any): string[] {
   const errors: string[] = [];
 
-  if (!product.product_name || product.product_name.trim() === '') {
+  // Check for both camelCase and snake_case field names
+  const productName = product.product_name || product.productName;
+  const productSlug = product.product_slug || product.productSlug;
+  const productType = product.product_type || product.productType;
+  const productAttributes = product.attributes;
+  const productVariants = product.variants;
+  const productPrice = product.price;
+
+  if (!productName || productName.trim() === '') {
     errors.push('Product name is required');
   }
 
-  if (!product.product_slug || product.product_slug.trim() === '') {
+  if (!productSlug || productSlug.trim() === '') {
     errors.push('Product slug is required');
   }
 
-  if (!product.attributes || Object.keys(product.attributes).length === 0) {
+  if (!productAttributes || Object.keys(productAttributes).length === 0) {
     errors.push('Product attributes are required');
   }
 
-  if (product.product_type === 'simple') {
-    if (!product.price || product.price <= 0) {
+  if (productType === 'simple') {
+    if (!productPrice || productPrice <= 0) {
       errors.push('Price must be greater than 0');
     }
-  } else if (product.product_type === 'variable') {
-    if (!product.variants || product.variants.length < 2) {
+  } else if (productType === 'variable') {
+    if (!productVariants || productVariants.length < 2) {
       errors.push('Variable products must have at least 2 variants');
     } else {
-      for (let i = 0; i < product.variants.length; i++) {
-        const variant = product.variants[i];
+      for (let i = 0; i < productVariants.length; i++) {
+        const variant = productVariants[i];
         if (!variant.price || variant.price <= 0) {
           errors.push(`Variant ${i + 1}: Price must be greater than 0`);
         }
@@ -302,13 +310,25 @@ export async function PUT(
       }
     }
 
-    // If status is changing to 'published', validate first
+    // ✅ FIX: Normalize product for validation - support both camelCase and snake_case
     if (status === 'published') {
-      const validationErrors = validateProduct({
+      // Create a normalized product object that the validation function can understand
+      const productForValidation = {
+        // Include all body fields
         ...body,
-        product_type: productType,
-        variants
-      });
+        // Explicitly map camelCase to snake_case for validation
+        product_name: body.productName,
+        product_slug: body.productSlug,
+        product_type: body.productType,
+        // Keep variants as they are
+        variants: body.variants,
+        // Keep attributes as they are
+        attributes: body.attributes,
+        // Keep price as is
+        price: body.price
+      };
+      
+      const validationErrors = validateProduct(productForValidation);
       
       if (validationErrors.length > 0) {
         return NextResponse.json({ 
@@ -339,7 +359,7 @@ export async function PUT(
         productType === 'variable' ? null : (discountPrice || null),
         productType === 'variable' ? 0 : (stockQuantity || 0),
         productType,
-        status || 'draft', // Keep existing status if not provided
+        status || 'draft',
         JSON.stringify(attributes),
         productIdNum
       ]

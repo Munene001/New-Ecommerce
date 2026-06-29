@@ -1,8 +1,8 @@
-// app/(shop)/[shopSlug]/components/ProductCardStandard.tsx
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Product } from "@/lib/types/product";
 import { ShoppingCart, ShoppingBag, ShoppingBasket } from "lucide-react";
 import ButtonCart from "@/app/components/ui/buttonCart";
@@ -19,7 +19,6 @@ interface CartIconProps {
   cartIcon?: string;
 }
 
-// Move CartIcon component outside of the main component
 const CartIcon = ({ cartIcon }: CartIconProps) => {
   switch (cartIcon) {
     case 'bag':
@@ -32,13 +31,13 @@ const CartIcon = ({ cartIcon }: CartIconProps) => {
 };
 
 export default function ProductCardStandard({ product, shopSlug }: Props) {
+  const router = useRouter();
   const [imageUrl, setImageUrl] = useState<string>('');
   const [imageError, setImageError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart(); 
   const { shop } = useShop();
 
-  // Format price with commas and no decimals
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-KE', {
       minimumFractionDigits: 0,
@@ -46,14 +45,72 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
     }).format(price);
   };
   
-  // Calculate discount percentage
-  const calculateDiscountPercentage = () => {
+  const getDisplayPrice = () => {
+    if (product.product_type === 'variable') {
+      const priceInfo = product.display_price;
+      return {
+        isVariable: true,
+        display: priceInfo.formatted,
+        min: priceInfo.min,
+        max: priceInfo.max,
+        isRange: priceInfo.isRange,
+        hasDiscount: false,
+        originalPrice: 0
+      };
+    }
+    
+    const price = product.discount_price || product.price;
+    const hasDiscount = !!product.discount_price && product.discount_price < product.price;
+    return {
+      isVariable: false,
+      display: formatPrice(price),
+      price: price,
+      hasDiscount: hasDiscount,
+      originalPrice: product.price
+    };
+  };
+
+  const isInStock = () => {
+    if (product.product_type === 'variable') {
+      return product.stock_info.total > 0;
+    }
+    return product.stock_quantity > 0;
+  };
+
+  const getDiscountPercentage = () => {
+    if (product.product_type === 'variable') return 0;
     if (!product.discount_price || !product.price) return 0;
     const discount = ((product.price - product.discount_price) / product.price) * 100;
     return Math.round(discount);
   };
-  
-  // Fetch primary image with appropriate size
+
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (product.product_type === 'variable') {
+      router.push(`/${shopSlug}/${product.product_slug}`);
+    } else {
+      addToCart({
+        product_id: product.product_id,
+        product_name: product.product_name,
+        price: product.price,
+        discount_price: product.discount_price,
+      }, 1);
+    }
+  };
+
+  const getButtonText = () => {
+    if (product.product_type === 'variable') {
+      return 'Select Options';
+    }
+    return 'Add To Cart';
+  };
+
+  const isButtonDisabled = () => {
+    return !isInStock();
+  };
+
   useEffect(() => {
     const fetchPrimaryImage = async () => {
       try {
@@ -71,23 +128,13 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
     }
   }, [product.product_id]);
 
-  const discountPercentage = calculateDiscountPercentage();
   const finalImageUrl = imageError || !imageUrl ? '/placeholder.jpg' : imageUrl;
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault(); // prevent any parent link navigation
-    e.stopPropagation();
-    addToCart({
-      product_id: product.product_id,
-      product_name: product.product_name,
-      price: product.price,
-      discount_price: product.discount_price,
-    }, 1); // default quantity 1
-  };
+  const displayPrice = getDisplayPrice();
+  const inStock = isInStock();
+  const discountPercentage = getDiscountPercentage();
 
   return (
     <div className="w-full font-[Poppins] bg-gray-50 p-2 rounded-sm flex flex-col h-full">
-      {/* Image – clickable to product */}
       <Link
         href={`/${shopSlug}/${product.product_slug}`}
         className="block no-underline text-inherit group flex-shrink-0"
@@ -96,12 +143,14 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
           ref={containerRef}
           className="relative w-full aspect-[245/266] max-w-[260px] flex items-center justify-center bg-gray-100 overflow-hidden box-border rounded-sm"
         >
-          {/* Discount Badge */}
-          {product.discount_price && discountPercentage > 0 && (
+          {!displayPrice.isVariable && displayPrice.hasDiscount && discountPercentage > 0 && (
             <div className="absolute top-2 left-2 z-10 text-white text-xs font-bold font-[Poppins] px-2 py-1 bg-red-600">
               -{discountPercentage}% 
             </div>
           )}
+          
+         
+
           <div className="relative w-full h-full">
             <Image
               src={finalImageUrl}
@@ -116,9 +165,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
         </div>
       </Link>
 
-      {/* Product details container - grows to fill space */}
       <div className="mt-4 flex flex-col flex-grow">
-        {/* Top section with product details that can expand */}
         <div className="space-y-1 px-1 flex-grow">
           <Link
             href={`/${shopSlug}/${product.product_slug}`}
@@ -130,35 +177,46 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
           </Link>
 
           <div className="flex flex-row mt-1 text-[14px] items-center gap-2 font-[inter] font-semibold text-[#034810]">
-            {product.discount_price ? (
+            {displayPrice.isVariable ? (
+              <span className="text-base text-[#034810] font-semibold">
+                ksh {displayPrice.display}
+              </span>
+            ) : displayPrice.hasDiscount ? (
               <>
                 <span className="text-base">
-                  <span className="">ksh</span> {formatPrice(product.discount_price)}
+                  ksh {displayPrice.display}
                 </span>
                 <span className="italic line-through text-sm">
-                  {formatPrice(product.price)}
+                  {formatPrice(displayPrice.originalPrice)}
                 </span>
               </>
             ) : (
               <span className="text-base text-[#034810] font-semibold">
-                <span className="">ksh</span> {formatPrice(product.price)}
+                ksh {displayPrice.display}
               </span>
             )}
           </div>
+
+          {!inStock && (
+            <div className="text-xs text-red-500 font-medium mt-1">
+              Out of Stock
+            </div>
+          )}
         </div>
 
-        {/* Cart button - fixed at bottom, full width on mobile, 80% width and centered on md+ */}
         <div className="mt-4 mb-1 w-full md:flex md:justify-center text-white">
           <ButtonCart
-            onClick={handleAddToCart}
+            onClick={handleButtonClick}
             className="flex flex-row gap-[6px] justify-center items-center py-1 text-[14px] w-full md:w-[80%]"
-            style={{ backgroundColor: "var(--secondary)" }}
-            disabled={!product.in_stock}
+            style={{ 
+              backgroundColor: isButtonDisabled() ? "#9CA3AF" : "var(--secondary)"
+            }}
+            disabled={isButtonDisabled()}
           >
             <span className="w-4 h-4 flex justify-center items-center animate-bounce" style={{ animationDuration: '2s' }}>
               <CartIcon cartIcon={shop?.cartIcon} />
             </span>
-            <span>Add To Cart</span>
+            <span>{getButtonText()}</span>
           </ButtonCart>
         </div>
       </div>

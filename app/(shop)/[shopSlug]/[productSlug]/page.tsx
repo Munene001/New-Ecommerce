@@ -1,18 +1,25 @@
-// app/[shopSlug]/[productSlug]/page.tsx
+// app/(shop)/[shopSlug]/[productSlug]/page.tsx
 
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
-import { Metadata } from 'next';
+import { Metadata } from "next";
 import pool from "@/lib/db";
 import ProductGallery from "./components/productGallery";
-import ProductSidebar from "./components/productSideBar";
+import ProductWrapper from "./components/productWrapper";
 import ProductTabs from "./components/productTabs";
 import RecentlyViewed from "./components/recentlyViewed";
-import MobileProductBar from "./components/mobileProductBar";
+import MobileProductWrapper from "./components/mobileProductWrapper";
 import PageBar from "@/app/components/layout/pageBar";
 import TrackProductView from "./components/trackProduct";
 import RelatedProducts from "./components/relatedProducts";
-import { TrackProductAnalytics } from './components/trackProductView';
+import { TrackProductAnalytics } from "./components/trackProductView";
+import {
+  Product,
+  ProductImage,
+  ProductVariant,
+  DisplayPrice,
+  StockInfo,
+} from "@/lib/types/product";
 
 interface PageProps {
   params: Promise<{
@@ -26,13 +33,7 @@ type ProductAttributes = Record<
   string | number | boolean | string[] | null
 >;
 
-interface ProductImage {
-  id: number;
-  path: string;
-  is_primary: boolean;
-}
-
-interface Reply {
+interface ReviewReply {
   review_id: number;
   user_id: number;
   user_name: string;
@@ -49,18 +50,7 @@ interface Review {
   comment: string;
   created_at: string;
   is_owner_reply: boolean;
-  replies: Reply[];
-}
-
-interface Product {
-  product_id: number;
-  product_name: string;
-  description: string;
-  price: number;
-  discount_price: number | null;
-  in_stock: boolean;
-  attributes: ProductAttributes;
-  product_slug: string;
+  replies: ReviewReply[];
 }
 
 interface RelatedProduct {
@@ -69,27 +59,29 @@ interface RelatedProduct {
   product_slug: string;
   price: number;
   discount_price: number | null;
+  stock_quantity: number;
+  product_type: 'simple' | 'variable';
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { shopSlug, productSlug } = await params;
 
-  // Get shopId directly from database
   const [shopRows] = await pool.query(
     `SELECT shop_id FROM shops WHERE shop_slug = ?`,
-    [shopSlug]
+    [shopSlug],
   );
-  
+
   if (!shopRows || (shopRows as unknown[]).length === 0) {
     return {
-      title: 'Product Not Found',
-      description: 'The requested product could not be found.',
+      title: "Product Not Found",
+      description: "The requested product could not be found.",
     };
   }
-  
+
   const shopId = (shopRows as unknown[])[0] as { shop_id: number };
 
-  // Fetch product data
   const [productRows] = await pool.query(
     `SELECT 
         p.product_name,
@@ -97,16 +89,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         p.product_id
      FROM products p
      WHERE p.product_slug = ? AND p.shop_id = ?`,
-    [productSlug, shopId.shop_id]
+    [productSlug, shopId.shop_id],
   );
-  
+
   if (!productRows || (productRows as unknown[]).length === 0) {
     return {
-      title: 'Product Not Found',
-      description: 'The requested product could not be found.',
+      title: "Product Not Found",
+      description: "The requested product could not be found.",
     };
   }
-  
+
   const product = (productRows as unknown[])[0] as {
     product_name: string;
     description: string;
@@ -124,10 +116,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: product.description,
       images: [imageUrl],
       url: productUrl,
-      type: 'website',
+      type: "website",
     },
     twitter: {
-      card: 'summary_large_image',
+      card: "summary_large_image",
       title: product.product_name,
       description: product.description,
       images: [imageUrl],
@@ -138,51 +130,107 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductPage({ params }: PageProps) {
   const { shopSlug, productSlug } = await params;
 
-  // 1. Fetch shop data (includes secondaryColor and shopType)
   const shopApiUrl = new URL(
     `/api/shops/${shopSlug}`,
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
   );
   const shopRes = await fetch(shopApiUrl.toString(), {
     next: { revalidate: 60 },
   });
-  
+
   if (!shopRes.ok) notFound();
-  
+
   const shopData = await shopRes.json();
   const shopId = shopData.shopId;
   const secondaryColor = shopData.secondaryColor || "#000000";
 
-  // 2. Fetch product
   const [productRows] = await pool.query(
     `SELECT 
         p.product_id,
+        p.shop_id,
+        p.shop_type,
         p.product_name,
+        p.product_slug,
         p.description,
         p.price,
         p.discount_price,
-        p.in_stock,
+        p.stock_quantity,
+        p.product_type,
+        p.status,
         p.attributes,
-        p.product_slug 
+        p.created_at,
+        p.updated_at,
+        (
+          SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'image_id', pi.image_id,
+              'image_path', pi.image_path,
+              'is_primary', pi.is_primary,
+              'created_at', pi.created_at
+            )
+          )
+          FROM product_images pi
+          WHERE pi.product_id = p.product_id
+        ) as images,
+        (
+          SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'variant_id', pv.variant_id,
+              'attributes', pv.attributes,
+              'price', pv.price,
+              'discount_price', pv.discount_price,
+              'stock_quantity', pv.stock_quantity,
+              'created_at', pv.created_at,
+              'updated_at', pv.updated_at
+            )
+          )
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as variants,
+        (
+          SELECT MIN(COALESCE(pv.discount_price, pv.price))
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as min_effective_price,
+        (
+          SELECT MAX(pv.price)
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as max_regular_price,
+        (
+          SELECT SUM(pv.stock_quantity)
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as total_stock
      FROM products p
      WHERE p.product_slug = ? AND p.shop_id = ?`,
-    [productSlug, shopId]
+    [productSlug, shopId],
   );
-  
+
   if (!productRows || (productRows as unknown[]).length === 0) notFound();
-  
-  const productData = (productRows as unknown[])[0] as {
+
+  const row = (productRows as unknown[])[0] as {
     product_id: number;
+    shop_id: number;
+    shop_type: string;
     product_name: string;
+    product_slug: string;
     description: string;
     price: number;
     discount_price: number | null;
-    in_stock: boolean;
+    stock_quantity: number;
+    product_type: "simple" | "variable";
+    status: "draft" | "published";
     attributes: string | ProductAttributes;
-    product_slug: string;
+    created_at: string;
+    updated_at: string;
+    images: string | null;
+    variants: string | null;
+    min_effective_price: number | null;
+    max_regular_price: number | null;
+    total_stock: number | null;
   };
 
-  // 3. Fetch images
   const [imageRows] = await pool.query(
     `SELECT 
         image_id,
@@ -191,10 +239,9 @@ export default async function ProductPage({ params }: PageProps) {
      FROM product_images 
      WHERE product_id = ?
      ORDER BY is_primary DESC, image_id ASC`,
-    [productData.product_id]
+    [row.product_id],
   );
 
-  // 4. Fetch reviews (main and replies)
   const [reviewRows] = await pool.query(
     `SELECT 
       r.review_id,
@@ -210,15 +257,14 @@ export default async function ProductPage({ params }: PageProps) {
     JOIN users u ON r.user_id = u.user_id
     WHERE r.product_id = ?
     ORDER BY COALESCE(r.parent_review_id, r.review_id), r.created_at ASC`,
-    [productData.product_id]
+    [row.product_id],
   );
 
-  // Build a map: main review id -> review object with replies array
   const reviewsMap = new Map<number, Review>();
   const mainReviews: Review[] = [];
 
-  for (const row of reviewRows as unknown[]) {
-    const typedRow = row as {
+  for (const reviewRow of reviewRows as unknown[]) {
+    const typedRow = reviewRow as {
       review_id: number;
       user_id: number;
       parent_review_id: number | null;
@@ -229,7 +275,7 @@ export default async function ProductPage({ params }: PageProps) {
       full_name: string;
       email: string;
     };
-    
+
     if (typedRow.parent_review_id === null) {
       const reviewObj: Review = {
         review_id: typedRow.review_id,
@@ -258,104 +304,177 @@ export default async function ProductPage({ params }: PageProps) {
     }
   }
 
-  // Compute average rating and total reviews AFTER building mainReviews
   const totalReviews = mainReviews.length;
   const avgRating = totalReviews
-    ? mainReviews.reduce((sum: number, rev: Review) => sum + rev.rating, 0) / totalReviews
+    ? mainReviews.reduce((sum: number, rev: Review) => sum + rev.rating, 0) /
+      totalReviews
     : 0;
 
-  // 5. Parse attributes
   let parsedAttributes: ProductAttributes = {};
-  if (productData.attributes) {
-    const raw = productData.attributes;
-    parsedAttributes = typeof raw === "string" ? JSON.parse(raw) : raw as ProductAttributes;
+  if (row.attributes) {
+    const raw = row.attributes;
+    parsedAttributes =
+      typeof raw === "string" ? JSON.parse(raw) : (raw as ProductAttributes);
   }
 
-  // 6. Fetch related products 
+  const images: ProductImage[] = (imageRows as unknown[]).map(
+    (imgRow: unknown) => {
+      const typed = imgRow as {
+        image_id: number;
+        image_path: string;
+        is_primary: boolean;
+      };
+      return {
+        image_id: typed.image_id,
+        image_path: typed.image_path,
+        is_primary: typed.is_primary,
+        created_at: new Date().toISOString(),
+      };
+    },
+  );
+
+  const variants: ProductVariant[] = row.variants
+    ? (typeof row.variants === "string" ? JSON.parse(row.variants) : row.variants)
+    : [];
+
+  let displayPrice: DisplayPrice;
+  if (row.product_type === "variable" && row.min_effective_price !== null) {
+    const min = row.min_effective_price;
+    const max = row.max_regular_price || min;
+    displayPrice = {
+      min,
+      max,
+      formatted: min === max ? `${min}` : `${min} - ${max}`,
+      isRange: min !== max,
+    };
+  } else {
+    const price = row.discount_price || row.price;
+    displayPrice = {
+      min: price,
+      max: price,
+      formatted: `${price}`,
+      isRange: false,
+    };
+  }
+
+  let stockInfo: StockInfo;
+  if (row.product_type === "variable") {
+    stockInfo = {
+      type: "varies",
+      total: row.total_stock || 0,
+    };
+  } else {
+    stockInfo = {
+      type: "simple",
+      total: row.stock_quantity,
+      quantity: row.stock_quantity,
+    };
+  }
+
+  const product: Product = {
+    product_id: row.product_id,
+    shop_id: row.shop_id,
+    shop_type: row.shop_type,
+    product_name: row.product_name,
+    product_slug: row.product_slug,
+    description: row.description,
+    price: row.product_type === "variable" ? 0 : row.price,
+    discount_price: row.product_type === "variable" ? null : row.discount_price,
+    stock_quantity: row.product_type === "variable" ? 0 : row.stock_quantity,
+    product_type: row.product_type,
+    status: row.status,
+    attributes: parsedAttributes,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    images: images,
+    variants: variants,
+    display_price: displayPrice,
+    stock_info: stockInfo,
+    in_stock:
+      row.product_type === "variable"
+        ? (row.total_stock || 0) > 0
+        : row.stock_quantity > 0,
+    can_publish: false,
+  };
+
   const [categoryRows] = await pool.query(
     `SELECT category_id FROM product_categories WHERE product_id = ?`,
-    [productData.product_id]
+    [row.product_id],
   );
-  
-  const categoryIds = (categoryRows as unknown[]).map(row => (row as { category_id: number }).category_id);
+
+  const categoryIds = (categoryRows as unknown[]).map(
+    (catRow) => (catRow as { category_id: number }).category_id,
+  );
 
   let relatedProducts: RelatedProduct[] = [];
 
   if (categoryIds.length > 0) {
-    const placeholders = categoryIds.map(() => '?').join(',');
+    const placeholders = categoryIds.map(() => "?").join(",");
     const [relatedRows] = await pool.query(
-      `SELECT DISTINCT p.product_id, p.product_name, p.product_slug, p.price, p.discount_price
+      `SELECT DISTINCT p.product_id, p.product_name, p.product_slug, p.price, p.discount_price, p.stock_quantity, p.product_type
        FROM products p
        JOIN product_categories pc ON p.product_id = pc.product_id
        WHERE p.shop_id = ? 
          AND p.product_id != ?
          AND pc.category_id IN (${placeholders})
+         AND p.status = 'published'
        ORDER BY RAND()
        LIMIT 6`,
-      [shopId, productData.product_id, ...categoryIds]
+      [shopId, row.product_id, ...categoryIds],
     );
     relatedProducts = relatedRows as RelatedProduct[];
   }
 
   if (relatedProducts.length < 6) {
     const needed = 6 - relatedProducts.length;
-    const excludeIds = [productData.product_id, ...relatedProducts.map(p => p.product_id)];
-    const excludePlaceholders = excludeIds.map(() => '?').join(',');
+    const excludeIds = [
+      row.product_id,
+      ...relatedProducts.map((p) => p.product_id),
+    ];
+    const excludePlaceholders = excludeIds.map(() => "?").join(",");
     const [randomRows] = await pool.query(
-      `SELECT product_id, product_name, product_slug, price, discount_price
+      `SELECT product_id, product_name, product_slug, price, discount_price, stock_quantity, product_type
        FROM products
        WHERE shop_id = ? 
          AND product_id NOT IN (${excludePlaceholders})
+         AND status = 'published'
        ORDER BY RAND()
        LIMIT ?`,
-      [shopId, ...excludeIds, needed]
+      [shopId, ...excludeIds, needed],
     );
     relatedProducts = [...relatedProducts, ...(randomRows as RelatedProduct[])];
   }
 
-  const product: Product = {
-    product_id: productData.product_id,
-    product_name: productData.product_name,
-    description: productData.description,
-    price: productData.price,
-    discount_price: productData.discount_price,
-    in_stock: productData.in_stock,
-    attributes: parsedAttributes,
-    product_slug: productData.product_slug,
-  };
-
-  const images: ProductImage[] = (imageRows as unknown[]).map((row: unknown) => {
-    const typedRow = row as { image_id: number; image_path: string; is_primary: boolean };
-    return {
-      id: typedRow.image_id,
-      path: typedRow.image_path,
-      is_primary: typedRow.is_primary,
-    };
-  });
-
-  // ===== GET USER SESSION & WISHLIST STATUS =====
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   let initialWishlistStatus = false;
   let isShopOwner = false;
 
   if (user) {
     const [userRows] = await pool.query(
-      'SELECT user_id, role FROM users WHERE supabase_uid = ?',
-      [user.id]
+      "SELECT user_id, role FROM users WHERE supabase_uid = ?",
+      [user.id],
     );
     if (userRows && (userRows as unknown[]).length) {
-      const userId = (userRows as unknown[])[0] as { user_id: number; role: string };
-      isShopOwner = userId.role === 'shop_owner';
+      const userId = (userRows as unknown[])[0] as {
+        user_id: number;
+        role: string;
+      };
+      isShopOwner = userId.role === "shop_owner";
 
       const [wishlistRows] = await pool.query(
-        'SELECT 1 FROM wishlist WHERE user_id = ? AND product_id = ?',
-        [userId.user_id, product.product_id]
+        "SELECT 1 FROM wishlist WHERE user_id = ? AND product_id = ?",
+        [userId.user_id, product.product_id],
       );
       initialWishlistStatus = (wishlistRows as unknown[]).length > 0;
     }
   }
+
+  // This state is managed client-side via ProductWrapper
+  // We'll pass the openModal function via props
 
   return (
     <>
@@ -364,13 +483,17 @@ export default async function ProductPage({ params }: PageProps) {
         <div className="flex flex-col lg:flex-row gap-6 lg:h-[75vh]">
           <div className="lg:w-[38%]">
             <ProductGallery
-              images={images}
+              images={images.map((img) => ({
+                id: img.image_id,
+                path: img.image_path,
+                is_primary: img.is_primary,
+              }))}
               productId={product.product_id}
               secondaryColor={secondaryColor}
             />
           </div>
           <div className="lg:w-[50%] lg:overflow-y-auto lg:pr-2">
-            <ProductSidebar
+            <ProductWrapper
               product={product}
               secondaryColor={secondaryColor}
               shopSlug={shopSlug}
@@ -399,10 +522,10 @@ export default async function ProductPage({ params }: PageProps) {
           />
         </div>
 
-        <RelatedProducts 
-          products={relatedProducts} 
-          secondaryColor={secondaryColor} 
-          shopSlug={shopSlug} 
+        <RelatedProducts
+          products={relatedProducts}
+          secondaryColor={secondaryColor}
+          shopSlug={shopSlug}
         />
 
         <div className="block lg:hidden mt-6">
@@ -414,15 +537,13 @@ export default async function ProductPage({ params }: PageProps) {
         </div>
       </div>
 
-      <MobileProductBar
-        productId={product.product_id}
-        productName={product.product_name}
-        price={product.price}
-        discountPrice={product.discount_price}
-        secondaryColor={secondaryColor}
-      />
-     <TrackProductAnalytics productId={product.product_id} />
-      <TrackProductView product={product} /> 
+      {/* MobileProductBar - openModal function is passed via a client component wrapper */}
+     <MobileProductWrapper
+  product={product}
+  secondaryColor={secondaryColor}
+/>
+      <TrackProductAnalytics productId={product.product_id} />
+      <TrackProductView product={product} />
     </>
   );
 }
