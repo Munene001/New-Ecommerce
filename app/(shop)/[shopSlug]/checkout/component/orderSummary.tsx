@@ -1,4 +1,4 @@
-// app/(shop)/[shopSlug]/checkout/components/OrderSummary.tsx
+// app/(shop)/[shopSlug]/checkout/components/orderSummary.tsx
 "use client";
 
 import Image from "next/image";
@@ -8,10 +8,13 @@ import { useCart } from "@/context/shopCartContext";
 
 interface CartItem {
   product_id: number;
+  variant_id?: number;
   product_name: string;
+  variant_name?: string;
   price: number;
   discount_price: number | null;
   quantity: number;
+  attributes?: Record<string, string>;
 }
 
 interface OrderSummaryProps {
@@ -46,7 +49,10 @@ export default function OrderSummary({
     return Number(item.price) || 0;
   };
 
-  // Fetch primary image for each product
+  const getItemKey = (item: CartItem) => {
+    return item.variant_id ? `${item.product_id}-${item.variant_id}` : `${item.product_id}`;
+  };
+
   useEffect(() => {
     if (items.length === 0) return;
 
@@ -71,14 +77,18 @@ export default function OrderSummary({
     fetchImages();
   }, [items, productImages]);
 
-  const handleQuantityChange = (productId: number, currentQuantity: number, delta: number) => {
-    const newQuantity = currentQuantity + delta;
-    updateQuantity(productId, newQuantity);
+  const handleQuantityChange = (item: CartItem, delta: number) => {
+    const newQuantity = item.quantity + delta;
+    updateQuantity(item.product_id, newQuantity, item.variant_id);
+  };
+
+  const handleRemove = (item: CartItem) => {
+    removeFromCart(item.product_id, item.variant_id);
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6 sticky top-6">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto] pb-4 mb-4">
+      <div className="flex items-center justify-between border-b border-gray-200 bg-[url('/assets/maze-speciallll.svg')] bg-repeat bg-[length:400px_auto] pb-4 mb-4">
         <h2 className="text-xl font-semibold text-black flex items-center gap-2">
           <ShoppingBag className="w-5 h-5" style={{ color: secondaryColor }} />
           Order Summary
@@ -86,16 +96,15 @@ export default function OrderSummary({
         <span className="text-sm text-gray-500">{totalItems} {totalItems === 1 ? "item" : "items"}</span>
       </div>
       
-      {/* Order Items with quantity controls */}
       <div className="max-h-[400px] overflow-y-auto space-y-3 mb-4 pr-1">
         {items.map((item) => {
           const displayPrice = getDisplayPrice(item);
           const originalPrice = Number(item.price);
           const hasDiscount = item.discount_price && !isNaN(Number(item.discount_price));
+          const itemKey = getItemKey(item);
           
           return (
-            <div key={item.product_id} className="flex gap-3 py-3 border-b border-gray-100">
-              {/* Product Image */}
+            <div key={itemKey} className="flex gap-3 py-3 border-b border-gray-100">
               <div className="relative w-16 h-16 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                 {loadingImages[item.product_id] ? (
                   <div className="w-full h-full flex items-center justify-center">
@@ -120,9 +129,11 @@ export default function OrderSummary({
                 )}
               </div>
               
-              {/* Product Info */}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-black text-sm truncate">{item.product_name}</p>
+                {item.variant_name && (
+                  <p className="text-xs text-gray-500 truncate">{item.variant_name}</p>
+                )}
                 <div className="flex items-center gap-2 mt-1">
                   {hasDiscount ? (
                     <>
@@ -140,10 +151,9 @@ export default function OrderSummary({
                   )}
                 </div>
                 
-                {/* Quantity Controls - Same as precheckout */}
                 <div className="flex items-center gap-2 mt-2 text-black">
                   <button
-                    onClick={() => handleQuantityChange(item.product_id, item.quantity, -1)}
+                    onClick={() => handleQuantityChange(item, -1)}
                     className="w-7 h-7 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={item.quantity <= 1}
                   >
@@ -153,13 +163,13 @@ export default function OrderSummary({
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => handleQuantityChange(item.product_id, item.quantity, 1)}
+                    onClick={() => handleQuantityChange(item, 1)}
                     className="w-7 h-7 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => removeFromCart(item.product_id)}
+                    onClick={() => handleRemove(item)}
                     className="ml-1 text-red-500 hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded-lg"
                     title="Remove item"
                   >
@@ -168,7 +178,6 @@ export default function OrderSummary({
                 </div>
               </div>
               
-              {/* Item Total */}
               <div className="text-right">
                 <p className="font-semibold text-black text-sm">
                   KSh {(displayPrice * item.quantity).toLocaleString()}
@@ -179,7 +188,6 @@ export default function OrderSummary({
         })}
       </div>
       
-      {/* Totals */}
       <div className="border-t border-gray-200 pt-4 space-y-2">
         <div className="flex justify-between text-black">
           <span>Subtotal</span>
@@ -202,7 +210,6 @@ export default function OrderSummary({
         </div>
       </div>
       
-      {/* Continue Button */}
       <button
         onClick={onContinue}
         disabled={isSubmitting}
@@ -222,11 +229,7 @@ export default function OrderSummary({
         )}
       </button>
       
-      {/* Secure Notice */}
-      <p className="text-xs text-gray-400 text-center mt-4 flex items-center justify-center gap-1">
-        <Lock className="w-3 h-3" />
-        Your information is secure
-      </p>
+    
     </div>
   );
 }

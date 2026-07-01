@@ -23,7 +23,6 @@ interface CheckoutFormProps {
   mpesaEnabled?: boolean;
 }
 
-// Convert Kenyan number formats to +254 format
 const convertToE164 = (phone: string): string | undefined => {
   if (!phone) return undefined;
   
@@ -70,7 +69,6 @@ export default function CheckoutForm({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6">
-      {/* Payment Method - MOVED TO TOP */}
       <div>
         <h3 className="font-semibold text-black mb-3 flex items-center gap-2">
           <CreditCard className="w-5 h-5" style={{ color: secondaryColor }} />
@@ -78,7 +76,6 @@ export default function CheckoutForm({
         </h3>
         
         <div className="space-y-3">
-          {/* M-Pesa - Radio button style */}
           {mpesaEnabled && (
             <label 
               className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
@@ -111,7 +108,6 @@ export default function CheckoutForm({
             </label>
           )}
           
-          {/* Cash on Delivery */}
           {codEnabled && (
             <button
               type="button"
@@ -147,10 +143,8 @@ export default function CheckoutForm({
         </div>
       </div>
       
-      {/* Divider */}
       <div className="border-t border-gray-200 my-6"></div>
       
-      {/* Delivery Information - NOW AFTER PAYMENT METHOD */}
       <h2 className="text-xl font-semibold text-black mb-5 flex items-center gap-2">
         Delivery Information
       </h2>
@@ -216,24 +210,22 @@ export default function CheckoutForm({
           </div>
           
           <FormInput
-            label="City / Town"
+            label="City / Town (Optional)"
             name="city"
             value={formData.city}
             onChange={onChange}
             placeholder="Nairobi"
-            required
             icon="mapPin"
           />
         </div>
         
         <FormInput
-          label="Delivery Address"
+          label="Delivery Address (Optional)"
           name="address"
           value={formData.address}
           onChange={onChange}
           type="textarea"
           placeholder="Street name, building, apartment number, landmark..."
-          required
           icon="home"
           rows={3}
         />
@@ -248,9 +240,14 @@ export default function CheckoutForm({
           icon="message"
           rows={2}
         />
+        
+        <div className="text-xs text-gray-400 flex items-center gap-1">
+          <span>* Required fields</span>
+          <span className="mx-1">•</span>
+          <span>City and Address are optional</span>
+        </div>
       </div>
       
-      {/* Delivery Note */}
       <div className="mt-5 p-4 bg-yellow-50 rounded-lg border-l-4" style={{ borderLeftColor: secondaryColor }}>
         <div className="flex gap-3">
           <Truck className="w-5 h-5 text-yellow-600 flex-shrink-0" />

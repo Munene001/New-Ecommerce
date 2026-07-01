@@ -33,7 +33,7 @@ const tiers = [
     yearlySave: "2,000",
     description: "Continue with the same features after trial.",
     features: [
-      "Up to 50 products",
+      "Up to 100 products",
       "Basic SEO + discount codes",
       "Mpesa Integration",
       "Bring your own custom domain",

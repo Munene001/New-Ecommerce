@@ -6,18 +6,20 @@ import { useToast } from "./toastContext";
 
 export interface CartItem {
   product_id: number;
+  variant_id?: number; // Optional - for variable products
   product_name: string;
+  variant_name?: string; // For display (e.g., "Red / Large")
   price: number;
   discount_price: number | null;
   quantity: number;
-  in_stock?: boolean; // ← ADD THIS
+  attributes?: Record<string, string>; // For display in cart
 }
 
 interface CartContextType {
   items: CartItem[];
   addToCart: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
-  removeFromCart: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  removeFromCart: (productId: number, variantId?: number) => void;
+  updateQuantity: (productId: number, quantity: number, variantId?: number) => void;
   clearCart: (silent?: boolean) => void;
   totalItems: number;
   subtotal: number;
@@ -32,6 +34,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+  const { shop, trackEvent } = useShop();
   const { shop, trackEvent } = useShop();
   const { showToast } = useToast();
   const shopId = shop?.shopId;
@@ -76,41 +79,58 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   }, 0);
 
   const addToCart = (item: Omit<CartItem, "quantity">, quantity: number = 1) => {
-    // ← ADD THIS CHECK
-    if (item.in_stock === false) {
-      safeShowToast(`${item.product_name} is out of stock`, 'error');
-      return;
-    }
-
     trackEvent('add_to_cart', {
-      product_id: item.product_id
+      product_id: item.product_id,
+      variant_id: item.variant_id
     });
     
     setItems(prev => {
-      const existing = prev.findIndex(i => i.product_id === item.product_id);
+      // Check for existing item with same product_id AND variant_id
+      const existing = prev.findIndex(i => 
+        i.product_id === item.product_id && 
+        i.variant_id === item.variant_id
+      );
+      
       if (existing >= 0) {
         const updated = [...prev];
         updated[existing].quantity += quantity;
-        safeShowToast(`${item.product_name} quantity updated`, 'success');
+        const displayName = item.variant_name 
+          ? `${item.product_name} (${item.variant_name})` 
+          : item.product_name;
+        safeShowToast(`${displayName} quantity updated`, 'success');
         return updated;
       } else {
-        safeShowToast(`${item.product_name} added to cart`, 'success');
+        const displayName = item.variant_name 
+          ? `${item.product_name} (${item.variant_name})` 
+          : item.product_name;
+        safeShowToast(`${displayName} added to cart`, 'success');
         return [...prev, { ...item, quantity }];
       }
     });
   };
 
-  const removeFromCart = (productId: number) => {
-    const item = items.find(i => i.product_id === productId);
-    setItems(prev => prev.filter(i => i.product_id !== productId));
+  const removeFromCart = (productId: number, variantId?: number) => {
+    const item = items.find(i => 
+      i.product_id === productId && 
+      i.variant_id === variantId
+    );
+    setItems(prev => prev.filter(i => 
+      !(i.product_id === productId && i.variant_id === variantId)
+    ));
     if (item) {
-      safeShowToast(`${item.product_name} removed from cart`, 'success');
+      const displayName = item.variant_name 
+        ? `${item.product_name} (${item.variant_name})` 
+        : item.product_name;
+      safeShowToast(`${displayName} removed from cart`, 'success');
     }
   };
 
-  const updateQuantity = (productId: number, newQuantity: number) => {
+  const updateQuantity = (productId: number, newQuantity: number, variantId?: number) => {
     setItems(prev => {
-      const index = prev.findIndex(i => i.product_id === productId);
+      const index = prev.findIndex(i => 
+        i.product_id === productId && 
+        i.variant_id === variantId
+      );
       if (index === -1) return prev;
 
       const item = prev[index];
@@ -122,13 +142,15 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (newQuantity <= 0) {
-        const filtered = prev.filter(i => i.product_id !== productId);
-        safeShowToast(`${item.product_name} removed from cart`, 'success');
+        const filtered = prev.filter((_, i) => i !== index);
+        const displayName = item.variant_name 
+          ? `${item.product_name} (${item.variant_name})` 
+          : item.product_name;
+        safeShowToast(`${displayName} removed from cart`, 'success');
         return filtered;
       } else {
         const updated = [...prev];
         updated[index] = { ...item, quantity: newQuantity };
-        safeShowToast(`${item.product_name} quantity updated`, 'success');
         return updated;
       }
     });

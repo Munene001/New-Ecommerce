@@ -19,11 +19,6 @@ interface ProductsClientProps {
   shopId: number;
   shopSlug: string;
   categories: Category[];
-  // Remove these - we'll get from hook
-  // totalProducts: number;
-  // totalCategories: number;
-  // totalDiscounted: number;
-  // totalInstock: number;
 }
 
 export default function ProductsClient({
@@ -34,47 +29,51 @@ export default function ProductsClient({
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [categorySelect, setCategorySelect] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("published");
   const [isDeleting, setIsDeleting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   const messageRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isFirstRender = useRef(true); // Prevents initial mount debouncer loop clash
 
   const {
     products,
-    stats,  // ← Get LIVE stats from hook
+    stats,
     loading,
     hasMore,
     loadMoreProducts,
     searchProducts,
     filterByCategory,
+    filterByStatus,
     refreshProducts,
-  } = useDashboardProducts(
-    shopId.toString(),
-    undefined,  // Remove initialTotalCount
-    undefined,  // Remove initialTotalPages
-  );
+    resetProducts,
+  } = useDashboardProducts(shopId.toString(), "published");
 
-  // Auto-hide message after 5 seconds
+  // Debouncer Effect for Search Input (Skips the empty hit on initial load setup)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (searchInput === "") return;
+    }
+
+    const delayDebounceFn = setTimeout(() => {
+      searchProducts(searchInput);
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchInput, searchProducts]);
+
   useEffect(() => {
     if (message) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      
-      timerRef.current = setTimeout(() => {
-        setMessage(null);
-      }, 5000);
-      
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setMessage(null), 5000);
       if (messageRef.current) {
         messageRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
-    
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [message]);
 
@@ -88,45 +87,42 @@ export default function ProductsClient({
 
   const handleSelectOne = (productId: number) => {
     setSelectedProducts((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
     );
-  };
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchInput(value);
-    searchProducts(value);
   };
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setCategorySelect(value);
+    setSelectedProducts([]); // Flush selection states when view boundaries switch
     filterByCategory(value);
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setStatusFilter(value);
+    setSelectedProducts([]); // Flush selection states when view boundaries switch
+    filterByStatus(value);
   };
 
   const handleReset = () => {
     setSearchInput("");
     setCategorySelect("");
+    setStatusFilter("published");
     setSelectedProducts([]);
     setMessage(null);
-    searchProducts("");
-    filterByCategory("");
+    resetProducts(); 
   };
 
   const handleBulkDelete = async (productIds: number[]) => {
     if (isDeleting) return;
-    
     setIsDeleting(true);
     setMessage(null);
     
     try {
       const response = await fetch(`/api/shopowner/products?shopId=${shopId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productIds }),
       });
 
@@ -136,45 +132,40 @@ export default function ProductsClient({
       }
 
       const result = await response.json();
-      
       if (result.success) {
         setSelectedProducts([]);
-        await refreshProducts();
+        refreshProducts();
         setMessage({
           type: 'success',
           text: `Successfully deleted ${result.deletedCount} product(s)`
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete products';
       setMessage({
         type: 'error',
-        text: errorMessage
+        text: error instanceof Error ? error.message : 'Failed to delete products'
       });
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const hasActiveFilters = searchInput !== "" || categorySelect !== "";
+  const hasActiveFilters = searchInput !== "" || categorySelect !== "" || statusFilter !== "published";
 
   return (
     <div className="md:p-4 px-2 py-6 font-[Poppins] relative">
       <StatsCards
         totalProducts={stats.totalProducts}
-        totalCategories={categories.length}  // This is static from props
-        totalDiscounted={stats.totalDiscounted}
+        totalCategories={categories.length}
+        totalInventoryItems={stats.totalInventoryItems}
         totalInstock={stats.totalInstock}
-        currentShown={products.length}
+        totalOutOfStock={stats.totalOutOfStock}
+        totalDrafts={stats.totalDrafts}
       />
 
-      {/* Rest of your component remains the same */}
       <div className="flex justify-end pt-6">
         <Link href={`/dashboard/${shopSlug}/products/add`}>
-          <Button
-            className="flex flex-row gap-2 items-center justify-center"
-            variant="secondary"
-          >
+          <Button className="flex flex-row gap-2 items-center justify-center" variant="secondary">
             <Plus size={18} />
             <span>Add New Product</span>
           </Button>
@@ -187,13 +178,10 @@ export default function ProductsClient({
             type="text"
             placeholder="Search products..."
             value={searchInput}
-            onChange={handleSearch}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="w-full border border-black/70 px-4 h-[59px] pl-13 rounded bg-white text-black placeholder-black/80"
           />
-          <Icon
-            icon="mdi:magnify"
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-three w-7 h-7"
-          />
+          <Icon icon="mdi:magnify" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-three w-7 h-7" />
         </div>
 
         <select
@@ -209,12 +197,18 @@ export default function ProductsClient({
           ))}
         </select>
 
+        <select
+          value={statusFilter}
+          onChange={handleStatusChange}
+          className="w-40 border border-black h-[59px] text-black px-4 rounded focus:outline-none focus:ring-1 focus:ring-magenta-dark flex-shrink-0"
+        >
+          <option value="all">All Status</option>
+          <option value="published">Published</option>
+          <option value="draft">Drafts</option>
+        </select>
+
         {hasActiveFilters && (
-          <Button
-            onClick={handleReset}
-            variant="secondary"
-            className="flex items-center gap-2 px-4 h-[59px] flex-shrink-0"
-          >
+          <Button onClick={handleReset} variant="secondary" className="flex items-center gap-2 px-4 h-[59px] flex-shrink-0">
             <X size={18} />
             <span>Reset</span>
           </Button>

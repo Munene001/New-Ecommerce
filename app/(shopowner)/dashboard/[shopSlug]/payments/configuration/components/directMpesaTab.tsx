@@ -111,7 +111,7 @@ export default function DirectMpesaTab({ config, isActive, onSave, onDelete, loa
   const activeMessage = getActiveMessage();
 
   const handleSave = async () => {
-    let payload: any = { type: selectedType };
+    const payload: any = { type: selectedType };
     
     switch (selectedType) {
       case 'paybill':

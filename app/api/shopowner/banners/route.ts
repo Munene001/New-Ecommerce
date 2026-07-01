@@ -277,7 +277,7 @@ export async function DELETE(request: NextRequest) {
     try {
       await unlink(fullPath);
     } catch {
-      console.log('File already deleted or not found:', bannerUrl);
+     
     }
 
     return NextResponse.json({

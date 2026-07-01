@@ -1,4 +1,3 @@
-// app/api/shops/orders/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
@@ -18,6 +17,9 @@ interface OrderItemRow extends RowDataPacket {
   product_name: string;
   quantity: number;
   price_at_time: number;
+  variant_id: number | null;
+  variant_name: string | null;
+  variant_attributes: string | null;
 }
 
 export async function GET(
@@ -35,7 +37,6 @@ export async function GET(
       );
     }
 
-    // Get order details
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         order_id, 
@@ -60,29 +61,19 @@ export async function GET(
 
     const order = orders[0];
 
-    // Optional: Check if order is too old (older than 24 hours) and pending
-    // You can add this if you want to prevent stale payments
-    // const orderAge = Date.now() - new Date(order.created_at).getTime();
-    // const hoursOld = orderAge / (1000 * 60 * 60);
-    // if (order.payment_status === 'pending' && hoursOld > 24) {
-    //   return NextResponse.json(
-    //     { success: false, error: 'Order has expired. Please place a new order.' },
-    //     { status: 410 }
-    //   );
-    // }
-
-    // Get order items
     const [items] = await pool.query<OrderItemRow[]>(
       `SELECT 
         product_name, 
         quantity, 
-        price_at_time
+        price_at_time,
+        variant_id,
+        variant_name,
+        variant_attributes
       FROM order_items 
       WHERE order_id = ?`,
       [orderId]
     );
 
-    // Calculate total (subtotal already includes everything)
     const total_amount = order.subtotal;
 
     return NextResponse.json({
@@ -99,7 +90,14 @@ export async function GET(
         items: items.map(item => ({
           name: item.product_name,
           quantity: item.quantity,
-          price: item.price_at_time
+          price: item.price_at_time,
+          variant_id: item.variant_id,
+          variant_name: item.variant_name,
+          variant_attributes: item.variant_attributes 
+            ? (typeof item.variant_attributes === 'string' 
+                ? JSON.parse(item.variant_attributes) 
+                : item.variant_attributes)
+            : null
         }))
       }
     });

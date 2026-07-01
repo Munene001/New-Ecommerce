@@ -29,10 +29,13 @@ interface ProductImageMap {
 
 interface CartItem {
   product_id: number;
+  variant_id?: number;
   product_name: string;
+  variant_name?: string;
   price: number | string;
   discount_price: number | string | null;
   quantity: number;
+  attributes?: Record<string, string>;
 }
 
 export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalProps) {
@@ -42,7 +45,6 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
   const [productImages, setProductImages] = useState<ProductImageMap>({});
   const [loadingImages, setLoadingImages] = useState<{ [key: number]: boolean }>({});
 
-  // Helper function to safely get price as number
   const getDisplayPrice = (item: CartItem) => {
     if (item.discount_price && !isNaN(Number(item.discount_price))) {
       return Number(item.discount_price);
@@ -50,7 +52,10 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
     return Number(item.price) || 0;
   };
 
-  // Fetch primary image for each product
+  const getItemKey = (item: CartItem) => {
+    return item.variant_id ? `${item.product_id}-${item.variant_id}` : `${item.product_id}`;
+  };
+
   useEffect(() => {
     if (!isOpen || items.length === 0) return;
 
@@ -75,9 +80,13 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
     fetchImages();
   }, [isOpen, items, productImages]);
 
-  const handleQuantityChange = (productId: number, currentQuantity: number, delta: number) => {
-    const newQuantity = currentQuantity + delta;
-    updateQuantity(productId, newQuantity);
+  const handleQuantityChange = (item: CartItem, delta: number) => {
+    const newQuantity = item.quantity + delta;
+    updateQuantity(item.product_id, newQuantity, item.variant_id);
+  };
+
+  const handleRemove = (item: CartItem) => {
+    removeFromCart(item.product_id, item.variant_id);
   };
 
   const handleContinue = () => {
@@ -93,18 +102,16 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
 
   return (
     <>
-      {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/50 z-40"
         onClick={onClose}
       />
       
-      {/* Drawer from right */}
       <div 
-        className="fixed top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-white  shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
+        className="fixed top-0 right-0 h-full w-[90%] pb-18 lg:pb-0 md:pb-0 md:w-[40%] sm:w-[80%] bg-white shadow-2xl z-50 animate-slide-left overflow-hidden flex flex-col"
       >
-        {/* Header - Improved */}
-        <div className="flex justify-between items-center p-5 border-b border-gray-100 sticky top-0 z-10 bg-white bg-[url('/assets/maze-speciallll.svg')]  bg-repeat bg-[length:400px_auto]">
+        {/* Header */}
+        <div className="flex justify-between items-center p-5 border-b border-gray-100 sticky top-0 z-10 bg-white bg-[url('/assets/maze-speciallll.svg')] bg-repeat bg-[length:400px_auto]">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full" style={{ backgroundColor: `${shop?.secondaryColor}10` }}>
               <ShoppingBag className="w-5 h-5" style={{ color: shop?.secondaryColor }} />
@@ -126,7 +133,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
           </button>
         </div>
 
-        {/* Body - Scrollable with improved styling */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 pb-32 md:pb-32 bg-gray-50">
           {items.length === 0 ? (
             <div className="text-center py-12">
@@ -149,9 +156,10 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                 const displayPrice = getDisplayPrice(item);
                 const originalPrice = Number(item.price) || 0;
                 const hasDiscount = item.discount_price && !isNaN(Number(item.discount_price));
+                const itemKey = getItemKey(item);
                 
                 return (
-                  <div key={item.product_id} className="flex gap-3 p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
+                  <div key={itemKey} className="flex gap-3 p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
                     {/* Product Image */}
                     <div className="relative w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                       {loadingImages[item.product_id] ? (
@@ -182,6 +190,11 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                       <h3 className="font-medium text-gray-900 text-sm truncate">
                         {item.product_name}
                       </h3>
+                      {item.variant_name && (
+                        <p className="text-xs text-gray-500 truncate">
+                          {item.variant_name}
+                        </p>
+                      )}
                       <div className="mt-1">
                         {hasDiscount ? (
                           <div className="flex items-center gap-2 flex-wrap">
@@ -199,10 +212,10 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                         )}
                       </div>
                       
-                      {/* Quantity Controls - Improved styling */}
+                      {/* Quantity Controls */}
                       <div className="flex items-center gap-2 mt-3 text-black">
                         <button
-                          onClick={() => handleQuantityChange(item.product_id, item.quantity, -1)}
+                          onClick={() => handleQuantityChange(item, -1)}
                           className="w-7 h-7 rounded-lg border border-gray-600 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={item.quantity <= 1}
                         >
@@ -212,13 +225,13 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => handleQuantityChange(item.product_id, item.quantity, 1)}
+                          onClick={() => handleQuantityChange(item, 1)}
                           className="w-7 h-7 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => removeFromCart(item.product_id)}
+                          onClick={() => handleRemove(item)}
                           className="ml-1 text-red-500 hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded-lg"
                           title="Remove item"
                         >
@@ -240,10 +253,9 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
           )}
         </div>
 
-        {/* Fixed Footer with Total and Buttons - Improved */}
+        {/* Footer */}
         {items.length > 0 && (
           <div className="border-t border-gray-100 bg-white sticky bottom-0 shadow-lg">
-            {/* Total Section */}
             <div className="p-5 border-b border-gray-100">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 font-medium">Total</span>
@@ -251,12 +263,10 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                   <span className="text-2xl font-bold" style={{ color: shop?.secondaryColor }}>
                     KSh {subtotal.toLocaleString()}
                   </span>
-                 
                 </div>
               </div>
             </div>
             
-            {/* Buttons Section */}
             <div className="p-5">
               <button
                 onClick={handleContinue}
@@ -272,8 +282,6 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
               >
                 Continue Shopping
               </button>
-              
-           
             </div>
           </div>
         )}

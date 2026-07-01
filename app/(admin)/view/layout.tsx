@@ -87,7 +87,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const handleMenuClick = (bool: boolean) => {
-    console.log("Menu clicked:", bool);
+    
     if (isMobile) {
       setIsMobileMenuOpen(false);
     }
