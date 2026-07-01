@@ -1,4 +1,3 @@
-// context/shopCartContext.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
@@ -35,6 +34,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+  const { shop, trackEvent } = useShop();
   const { shop, trackEvent } = useShop();
   const { showToast } = useToast();
   const shopId = shop?.shopId;
@@ -134,6 +134,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       if (index === -1) return prev;
 
       const item = prev[index];
+      
+      // ← ADD THIS CHECK
+      if (newQuantity > item.quantity && item.in_stock === false) {
+        safeShowToast(`${item.product_name} is out of stock`, 'error');
+        return prev;
+      }
+
       if (newQuantity <= 0) {
         const filtered = prev.filter((_, i) => i !== index);
         const displayName = item.variant_name 

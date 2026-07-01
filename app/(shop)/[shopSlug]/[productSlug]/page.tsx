@@ -576,6 +576,7 @@ export default async function ProductPage({ params }: PageProps) {
       <MobileProductWrapper
         product={product}
         secondaryColor={secondaryColor}
+        in_stock={product.in_stock} // ← ONLY THIS LINE ADDED
       />
       <TrackProductAnalytics productId={product.product_id} />
       <TrackProductView product={product} />

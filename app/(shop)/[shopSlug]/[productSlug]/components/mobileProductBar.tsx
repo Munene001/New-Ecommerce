@@ -5,6 +5,7 @@ import Button from '@/app/components/ui/button';
 import { useCart } from '@/context/shopCartContext';
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from '@/context/toastContext';
+import { useToast } from '@/context/toastContext';
 
 interface Props {
   productId: number;
@@ -82,6 +83,7 @@ export default function MobileProductBar({
         product_name: productName,
         price,
         discount_price: discountPrice,
+        in_stock: in_stock, // ADD THIS
       }, 1);
     }
   };

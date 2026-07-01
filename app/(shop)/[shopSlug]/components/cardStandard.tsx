@@ -8,6 +8,7 @@ import { ShoppingCart, ShoppingBag, ShoppingBasket } from "lucide-react";
 import ButtonCart from "@/app/components/ui/buttonCart";
 import { useCart } from '@/context/shopCartContext';
 import { useShop } from "@/app/(shop)/ShopContext";
+import { useToast } from '@/context/toastContext';
 import Image from "next/image";
 
 interface Props {
@@ -37,6 +38,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart(); 
   const { shop } = useShop();
+  const { showToast } = useToast();
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-KE', {

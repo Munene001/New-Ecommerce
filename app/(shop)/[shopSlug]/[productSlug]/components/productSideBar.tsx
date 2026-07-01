@@ -152,6 +152,7 @@ export default function ProductSidebar({
           product_name: product.product_name,
           price: product.price,
           discount_price: product.discount_price,
+          in_stock: product.in_stock,
         },
         1,
       );
