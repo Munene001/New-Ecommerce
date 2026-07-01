@@ -4,8 +4,7 @@ import { ShoppingCart, Minus, Plus, ShoppingBag, ShoppingBasket } from 'lucide-r
 import Button from '@/app/components/ui/button';
 import { useCart } from '@/context/shopCartContext';
 import { useShop } from "@/app/(shop)/ShopContext";
-import { useToast } from '@/context/toastContext';
-import { useToast } from '@/context/toastContext';
+import { useToast } from '@/context/toastContext'; // Only ONE import
 
 interface Props {
   productId: number;
@@ -17,6 +16,7 @@ interface Props {
   stockQuantity?: number;
   hasVariants?: boolean;
   onOpenVariantModal?: () => void;
+  in_stock?: boolean; // ADD THIS - optional
 }
 
 interface CartIconProps {
@@ -44,6 +44,7 @@ export default function MobileProductBar({
   stockQuantity = 99,
   hasVariants = false,
   onOpenVariantModal,
+  in_stock = true, // Default to true if not provided
 }: Props) {
   const { items, addToCart, updateQuantity } = useCart();
   const { showToast } = useToast();
@@ -52,7 +53,7 @@ export default function MobileProductBar({
   const cartItem = items.find(i => i.product_id === productId);
   const displayQuantity = cartItem ? cartItem.quantity : 1;
 
-  // ✅ FIXED: Calculate remaining stock
+  // Calculate remaining stock
   const getRemainingStock = () => {
     const cartQuantity = cartItem ? cartItem.quantity : 0;
     const totalStock = stockQuantity || maxQuantity;
@@ -68,7 +69,7 @@ export default function MobileProductBar({
       return;
     }
     
-    if (remainingStock <= 0) {
+    if (!in_stock || remainingStock <= 0) {
       showToast(`No more items available in stock`, "error");
       return;
     }
@@ -83,7 +84,8 @@ export default function MobileProductBar({
         product_name: productName,
         price,
         discount_price: discountPrice,
-        in_stock: in_stock, // ADD THIS
+        // Only include in_stock if it's explicitly provided
+        ...(in_stock !== undefined && { in_stock }),
       }, 1);
     }
   };
@@ -105,11 +107,12 @@ export default function MobileProductBar({
 
   const isButtonDisabled = () => {
     if (hasVariants) return false;
-    return remainingStock <= 0;
+    return !in_stock || remainingStock <= 0;
   };
 
   const getButtonText = () => {
     if (hasVariants) return 'Select Options';
+    if (!in_stock) return 'Out of Stock';
     return cartItem ? 'Update Cart' : 'Add to Cart';
   };
 
@@ -127,7 +130,7 @@ export default function MobileProductBar({
         <button
           onClick={handleIncrement}
           className="px-3 py-2 hover:bg-gray-100"
-          disabled={hasVariants ? false : remainingStock <= 0}
+          disabled={hasVariants ? false : !in_stock || remainingStock <= 0}
         >
           <Plus className="w-4 h-4" />
         </button>

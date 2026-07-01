@@ -6,13 +6,14 @@ import { useToast } from "./toastContext";
 
 export interface CartItem {
   product_id: number;
-  variant_id?: number; // Optional - for variable products
+  variant_id?: number;
   product_name: string;
-  variant_name?: string; // For display (e.g., "Red / Large")
+  variant_name?: string;
   price: number;
   discount_price: number | null;
   quantity: number;
-  attributes?: Record<string, string>; // For display in cart
+  attributes?: Record<string, string>;
+  in_stock?: boolean; // ADD THIS
 }
 
 interface CartContextType {
@@ -34,7 +35,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
-  const { shop, trackEvent } = useShop();
+  // ✅ FIX: Only ONE declaration
   const { shop, trackEvent } = useShop();
   const { showToast } = useToast();
   const shopId = shop?.shopId;
@@ -85,7 +86,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     });
     
     setItems(prev => {
-      // Check for existing item with same product_id AND variant_id
       const existing = prev.findIndex(i => 
         i.product_id === item.product_id && 
         i.variant_id === item.variant_id
@@ -135,7 +135,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
       const item = prev[index];
       
-      // ← ADD THIS CHECK
+      // Check stock before increasing quantity
       if (newQuantity > item.quantity && item.in_stock === false) {
         safeShowToast(`${item.product_name} is out of stock`, 'error');
         return prev;
