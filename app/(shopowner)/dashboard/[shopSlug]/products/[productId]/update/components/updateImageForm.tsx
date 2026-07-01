@@ -53,7 +53,7 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
     const loadingAttemptedRef = useRef(false);
     const isMountedRef = useRef(true);
 
-    // ✅ Clean up blob URLs on unmount
+    // Clean up blob URLs on unmount
     useEffect(() => {
       return () => {
         isMountedRef.current = false;
@@ -65,34 +65,27 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
       };
     }, []);
 
-    // ✅ Helper to safely get image ID as string
+    // Helper to safely get image ID as string
     const getImageId = (img: ProductImage): string => {
       return img.id !== undefined && img.id !== null ? String(img.id) : `img-${Math.random().toString(36).substr(2, 9)}`;
     };
 
-    // ✅ Only use initialImages as initial state - don't sync after
+    // Only use initialImages as initial state - don't sync after
     useEffect(() => {
       if (initialImages.length > 0 && !hasLoadedRef.current) {
-        console.log('📸 initialImages changed, setting localImages:', initialImages.length);
         setLocalImages(initialImages);
       }
     }, [initialImages]);
 
-    // ✅ Notify parent about changes (both initial and user-initiated)
+    // Notify parent about changes (both initial and user-initiated)
     const notifyParent = useCallback((images: ProductImage[]) => {
-      console.log('📸 notifyParent called with:', images.length);
-      console.log('📸 onImagesChange exists?', !!onImagesChange);
       if (onImagesChange) {
         onImagesChange(images);
-        console.log('📸 onImagesChange called successfully');
-      } else {
-        console.warn('⚠️ onImagesChange is undefined!');
       }
     }, [onImagesChange]);
 
     const loadImages = async () => {
       if (hasLoadedRef.current || loadingAttemptedRef.current) {
-        console.log('📸 loadImages skipped - already loaded or attempted');
         setIsLoading(false);
         return;
       }
@@ -101,12 +94,10 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
       setIsLoading(true);
 
       try {
-        console.log('📸 Fetching images for product:', productId);
         const res = await fetch(`/api/shopowner/products/${productId}/images/primary?mode=all`);
         if (!res.ok) throw new Error('Failed to load images');
 
         const data = await res.json();
-        console.log('📸 API returned images:', data.length);
 
         const serverImages: ProductImage[] = data.map((img: any) => ({
           id: `server-${img.image_id}`,
@@ -116,17 +107,11 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
           status: "success",
         }));
 
-        console.log('📸 Processed server images:', serverImages.length);
-
         setLocalImages(serverImages);
         hasLoadedRef.current = true;
         
-        console.log('📸 Notifying parent with images:', serverImages.length);
         if (onImagesChange) {
           onImagesChange(serverImages);
-          console.log('📸 Parent notified successfully');
-        } else {
-          console.warn('⚠️ onImagesChange is undefined!');
         }
         
       } catch (error) {
@@ -190,10 +175,10 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
         const compressed = await compressFile(file);
         const preview = URL.createObjectURL(compressed);
         
-        // ✅ Find the old primary image
+        // Find the old primary image
         const oldPrimary = localImages.find(img => img.isPrimary);
         
-        // ✅ Mark old primary for deletion if it exists and has a serverId
+        // Mark old primary for deletion if it exists and has a serverId
         let updatedImages = localImages.map(img => {
           if (img.isPrimary && img.serverId) {
             return { ...img, isPrimary: false, status: "deleted" as const };
@@ -201,7 +186,7 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
           return { ...img, isPrimary: false };
         });
         
-        // ✅ Remove old primary if it was a pending image (not uploaded yet)
+        // Remove old primary if it was a pending image (not uploaded yet)
         if (oldPrimary && oldPrimary.status === "pending") {
           updatedImages = updatedImages.filter(img => img.id !== oldPrimary.id);
         }
@@ -227,7 +212,7 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
     const handleAdditionalSelection = async (files: FileList | File[]) => {
       const fileArray = Array.from(files);
       
-      // ✅ Count only visible images (not deleted or failed)
+      // Count only visible images (not deleted or failed)
       const visibleImages = localImages.filter(
         (img) => img.status !== "deleted" && img.status !== "failed"
       );
@@ -272,7 +257,7 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
           }
         }
 
-        // ✅ Remove failed images before adding new ones (clean state)
+        // Remove failed images before adding new ones (clean state)
         const cleanedImages = localImages.filter(img => img.status !== "failed");
         const updatedImages = [...cleanedImages, ...newImages];
         setLocalImages(updatedImages);
@@ -289,14 +274,14 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
       const img = localImages.find((i) => getImageId(i) === id);
       if (!img) return;
 
-      // ✅ Clean up blob URL if it's a new image
+      // Clean up blob URL if it's a new image
       if (img.preview && img.preview.startsWith('blob:')) {
         URL.revokeObjectURL(img.preview);
       }
 
       let updatedImages: ProductImage[];
 
-      // ✅ If it's an existing image from server, mark as deleted
+      // If it's an existing image from server, mark as deleted
       if (img.serverId && (img.status === "success" || img.status === "failed")) {
         updatedImages = localImages.map((i) =>
           getImageId(i) === id ? { ...i, status: "deleted" as const } : i
@@ -348,206 +333,172 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
       loadingAttemptedRef.current = false;
     };
 
-   const saveImages = async (productIdNum: number) => {
-  console.log('📸 saveImages called for product:', productIdNum);
-  console.log('📸 Current localImages:', localImages.map(i => ({ 
-    id: i.id, 
-    status: i.status, 
-    isPrimary: i.isPrimary, 
-    serverId: i.serverId 
-  })));
-
-  // ✅ Find images marked for deletion
-  const imagesToDelete = localImages.filter(
-    (img) => img.status === "deleted" && img.serverId
-  );
-  
-  console.log('📸 Images to delete:', imagesToDelete.length);
-
-  // ✅ Delete marked images
-  for (const img of imagesToDelete) {
-    console.log('📸 Deleting image:', img.serverId);
-    try {
-      const res = await fetch(
-        `/api/shopowner/products/${productIdNum}/images?imageId=${img.serverId}`,
-        { method: "DELETE" }
+    const saveImages = async (productIdNum: number) => {
+      // Find images marked for deletion
+      const imagesToDelete = localImages.filter(
+        (img) => img.status === "deleted" && img.serverId
       );
-      if (!res.ok) {
-        console.error('❌ Failed to delete image:', img.serverId);
-      } else {
-        console.log('✅ Image deleted:', img.serverId);
+
+      // Delete marked images
+      for (const img of imagesToDelete) {
+        try {
+          const res = await fetch(
+            `/api/shopowner/products/${productIdNum}/images?imageId=${img.serverId}`,
+            { method: "DELETE" }
+          );
+          if (!res.ok) {
+            console.error('Failed to delete image:', img.serverId);
+          }
+        } catch (error) {
+          console.error('Error deleting image:', error);
+        }
       }
-    } catch (error) {
-      console.error('Error deleting image:', error);
-    }
-  }
 
-  // ✅ Upload new images (pending)
-  const imagesToUpload = localImages.filter(
-    (img) => img.status === "pending"
-  );
+      // Upload new images (pending)
+      const imagesToUpload = localImages.filter(
+        (img) => img.status === "pending"
+      );
 
-  console.log('📸 Images to upload:', imagesToUpload.length);
+      const existingCount = localImages.filter(img => img.status === "success" && img.serverId).length;
+      const pendingCount = imagesToUpload.length;
+      const totalAfterUpload = existingCount + pendingCount;
 
-  const existingCount = localImages.filter(img => img.status === "success" && img.serverId).length;
-  const pendingCount = imagesToUpload.length;
-  const totalAfterUpload = existingCount + pendingCount;
-  
-  console.log('📸 Existing images:', existingCount);
-  console.log('📸 Pending images:', pendingCount);
-  console.log('📸 Total after upload:', totalAfterUpload);
+      if (imagesToUpload.length === 0 && imagesToDelete.length === 0) {
+        // Even if no uploads, we might need to update primary
+        // (if user changed primary from one existing to another)
+        const primaryImage = localImages.find((img) => img.isPrimary);
+        if (primaryImage?.serverId) {
+          // We'll handle this in the PATCH section below
+        }
+        // Continue to PATCH section
+      }
 
-  if (imagesToUpload.length === 0 && imagesToDelete.length === 0) {
-    console.log('📸 No images to upload or delete');
-    // ✅ Even if no uploads, we might need to update primary
-    // (if user changed primary from one existing to another)
-    const primaryImage = localImages.find((img) => img.isPrimary);
-    if (primaryImage?.serverId) {
-      console.log('📸 Checking if primary needs updating (no new uploads)');
-      // We'll handle this in the PATCH section below
-    }
-    // Continue to PATCH section
-  }
+      if (totalAfterUpload > 6) {
+        console.error('Would exceed 6 image limit');
+        onError?.(`Cannot add ${pendingCount} images. Maximum 6 images per product.`);
+        return {
+          success: false,
+          failedCount: pendingCount,
+          failedIds: imagesToUpload.map(img => getImageId(img)),
+          primarySucceeded: false,
+        };
+      }
 
-  if (totalAfterUpload > 6) {
-    console.error('❌ Would exceed 6 image limit');
-    onError?.(`Cannot add ${pendingCount} images. Maximum 6 images per product.`);
-    return {
-      success: false,
-      failedCount: pendingCount,
-      failedIds: imagesToUpload.map(img => getImageId(img)),
-      primarySucceeded: false,
+      const failedIds: string[] = [];
+      let newPrimaryServerId: number | undefined;
+
+      // Upload pending images
+      for (let i = 0; i < imagesToUpload.length; i++) {
+        const img = imagesToUpload[i];
+        const imgId = getImageId(img);
+        
+        setLocalImages((prev) =>
+          prev.map((p) =>
+            getImageId(p) === imgId ? { ...p, status: "uploading" } : p,
+          )
+        );
+
+        onUploadProgress?.(i + 1, imagesToUpload.length);
+
+        try {
+          const formData = new FormData();
+          formData.append("image", img.file!);
+          formData.append("isPrimary", String(img.isPrimary));
+
+          const res = await fetch(
+            `/api/shopowner/products/${productIdNum}/images`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+
+          // Update local state with the new serverId
+          setLocalImages((prev) =>
+            prev.map((p) =>
+              getImageId(p) === imgId
+                ? { ...p, status: "success", serverId: data.image_id }
+                : p,
+            )
+          );
+
+          // Store the image ID if it's the primary
+          if (img.isPrimary) {
+            newPrimaryServerId = data.image_id;
+          }
+        } catch (err) {
+          console.error('Upload failed for image:', imgId, err);
+          setLocalImages((prev) =>
+            prev.map((p) => (getImageId(p) === imgId ? { ...p, status: "failed" } : p))
+          );
+          failedIds.push(imgId);
+          onError?.(`Failed to upload ${img.isPrimary ? 'primary' : 'additional'} image.`);
+        }
+      }
+
+      // AFTER all uploads complete, get the updated localImages
+      const updatedLocalImages = localImages;
+      
+      // Find the primary image - could be newly uploaded OR existing
+      const primaryImage = updatedLocalImages.find((img) => img.isPrimary);
+      
+      // Determine the serverId to use for PATCH
+      // Priority: 
+      // 1. If primary image was just uploaded, use newPrimaryServerId
+      // 2. If primary image already existed, use its serverId
+      // 3. If primary image is a pending upload that failed, skip
+      const primaryServerId = primaryImage?.serverId || newPrimaryServerId;
+      
+      // Call PATCH to set the primary image
+      if (primaryServerId) {
+        try {
+          const res = await fetch(
+            `/api/shopowner/products/${productIdNum}/images/primary`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ imageId: primaryServerId }),
+            }
+          );
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error('Failed to set primary:', data);
+            onError?.(data.error || 'Failed to set primary image');
+          } else {
+            onSuccess?.('Primary image updated successfully!');
+          }
+        } catch (error) {
+          console.error('Error setting primary:', error);
+          onError?.('Failed to set primary image');
+        }
+      } else {
+        // Check if there's a primary that was already set
+        const existingPrimary = updatedLocalImages.find(
+          (img) => img.isPrimary && (img.status === "success")
+        );
+        if (!existingPrimary) {
+          console.warn('No primary image found!');
+          onError?.('No primary image set');
+        }
+      }
+
+      const isSuccess = failedIds.length === 0;
+      
+      return {
+        success: isSuccess,
+        failedCount: failedIds.length,
+        failedIds,
+        primarySucceeded: !!primaryServerId,
+      };
     };
-  }
-
-  const failedIds: string[] = [];
-  let newPrimaryServerId: number | undefined;
-
-  // ✅ Upload pending images
-  for (let i = 0; i < imagesToUpload.length; i++) {
-    const img = imagesToUpload[i];
-    const imgId = getImageId(img);
-    
-    console.log('📸 Uploading image:', imgId, 'isPrimary:', img.isPrimary);
-    
-    setLocalImages((prev) =>
-      prev.map((p) =>
-        getImageId(p) === imgId ? { ...p, status: "uploading" } : p,
-      )
-    );
-
-    onUploadProgress?.(i + 1, imagesToUpload.length);
-
-    try {
-      const formData = new FormData();
-      formData.append("image", img.file!);
-      formData.append("isPrimary", String(img.isPrimary));
-
-      const res = await fetch(
-        `/api/shopowner/products/${productIdNum}/images`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || `HTTP ${res.status}`);
-      }
-
-      console.log('✅ Image uploaded successfully:', data.image_id);
-
-      // ✅ Update local state with the new serverId
-      setLocalImages((prev) =>
-        prev.map((p) =>
-          getImageId(p) === imgId
-            ? { ...p, status: "success", serverId: data.image_id }
-            : p,
-        )
-      );
-
-      // ✅ Store the image ID if it's the primary
-      if (img.isPrimary) {
-        newPrimaryServerId = data.image_id;
-        console.log('📸 New primary image uploaded with ID:', newPrimaryServerId);
-      }
-    } catch (err) {
-      console.error('❌ Upload failed for image:', imgId, err);
-      setLocalImages((prev) =>
-        prev.map((p) => (getImageId(p) === imgId ? { ...p, status: "failed" } : p))
-      );
-      failedIds.push(imgId);
-      onError?.(`Failed to upload ${img.isPrimary ? 'primary' : 'additional'} image.`);
-    }
-  }
-
-  // ✅ AFTER all uploads complete, get the updated localImages
-  const updatedLocalImages = localImages;
-  
-  // ✅ Find the primary image - could be newly uploaded OR existing
-  const primaryImage = updatedLocalImages.find((img) => img.isPrimary);
-  
-  // ✅ Determine the serverId to use for PATCH
-  // Priority: 
-  // 1. If primary image was just uploaded, use newPrimaryServerId
-  // 2. If primary image already existed, use its serverId
-  // 3. If primary image is a pending upload that failed, skip
-  let primaryServerId = primaryImage?.serverId || newPrimaryServerId;
-  
-  console.log('📸 Primary image found:', primaryImage?.id, 'serverId:', primaryServerId, 'status:', primaryImage?.status);
-  
-  // ✅ Call PATCH to set the primary image
-  if (primaryServerId) {
-    console.log('📸 Calling PATCH to set primary image:', primaryServerId);
-    try {
-      const res = await fetch(
-        `/api/shopowner/products/${productIdNum}/images/primary`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageId: primaryServerId }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error('❌ Failed to set primary:', data);
-        onError?.(data.error || 'Failed to set primary image');
-      } else {
-        console.log('✅ Primary image set successfully:', data);
-        onSuccess?.('Primary image updated successfully!');
-      }
-    } catch (error) {
-      console.error('❌ Error setting primary:', error);
-      onError?.('Failed to set primary image');
-    }
-  } else {
-    console.log('📸 No primary image found with serverId');
-    // ✅ Check if there's a primary that was already set (shouldn't happen, but just in case)
-    const existingPrimary = updatedLocalImages.find(
-      (img) => img.isPrimary && (img.status === "success")
-    );
-    if (existingPrimary) {
-      console.log('📸 Existing primary found (no PATCH needed):', existingPrimary.id);
-    } else {
-      console.warn('⚠️ No primary image found!');
-      onError?.('No primary image set');
-    }
-  }
-
-  const isSuccess = failedIds.length === 0;
-  console.log('📸 saveImages complete. Success:', isSuccess, 'Primary set:', !!primaryServerId);
-  
-  return {
-    success: isSuccess,
-    failedCount: failedIds.length,
-    failedIds,
-    primarySucceeded: !!primaryServerId,
-  };
-};
 
     useImperativeHandle(ref, () => ({
       saveImages,
@@ -556,7 +507,7 @@ const UpdateImagesForm = forwardRef<UpdateImagesFormRef, UpdateImagesFormProps>(
       loadImages,
     }));
 
-    // ✅ Filter out deleted images from display
+    // Filter out deleted images from display
     const visibleImages = localImages.filter(img => img.status !== "deleted");
     const primaryImage = visibleImages.find((img) => img.isPrimary);
     const additionalImages = visibleImages.filter((img) => !img.isPrimary);

@@ -4,20 +4,23 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Product } from '../types/product';
 
-type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high';
+// 👇CHANGED: Added 'random' to SortOption
+type SortOption = 'newest' | 'oldest' | 'price_low' | 'price_high' | 'random';
 type PriceRange = { min: number; max: number } | null;
 
+// 👇 CHANGED: Added seed to ShopFilters
 interface ShopFilters {
   search: string;
   categories: string[];
   priceRange: PriceRange;
   sortBy: SortOption;
   inStock: boolean;
+  seed?: number; // 👈 NEW
 }
 
 interface UseShopProductsProps {
   initialProducts: Product[];
-  shopSlug: string | null | undefined; // can be null initially
+  shopSlug: string | null | undefined;
   initialTotalCount?: number;
   initialSearch?: string;
   initialCategories?: string[];
@@ -58,12 +61,17 @@ export function useShopProducts({
   const [searchInput, setSearchInput] = useState(initialSearch);
   const debouncedSearch = useDebounce(searchInput, 500);
 
+  // 👇 NEW: Generate seed on first load
+  const [seed] = useState(() => Math.floor(Math.random() * 2147483647));
+
+  // 👇 CHANGED: Added seed to filters
   const [filters, setFilters] = useState<ShopFilters>({
     search: initialSearch,
     categories: initialCategories,
     priceRange: initialPriceRange,
     sortBy: initialSortBy,
     inStock: initialInStock,
+    seed: seed, // 👈 NEW
   });
 
   const isFirstRender = useRef(true);
@@ -95,10 +103,10 @@ export function useShopProducts({
   }, [filters, router]);
 
   const fetchProducts = useCallback(async (page: number, append: boolean = false) => {
-    console.log('fetchProducts called, shopSlug:', shopSlug);
+    
     
     if (!shopSlug) {
-      console.log('shopSlug is falsy, aborting fetch');
+      ('shopSlug is falsy, aborting fetch');
       return;
     }
 
@@ -116,15 +124,18 @@ export function useShopProducts({
         params.append('maxPrice', filters.priceRange.max.toString());
       }
       if (filters.sortBy) params.append('sortBy', filters.sortBy);
+      // 👇 NEW: Pass seed if sortBy is random
+      if (filters.sortBy === 'random' && filters.seed) {
+        params.append('seed', filters.seed.toString());
+      }
       if (filters.inStock) params.append('inStock', 'true');
 
       const url = `/api/shops/${shopSlug}/products?${params}`;
-      console.log('Fetching URL:', url);
+      
       const res = await fetch(url);
-      console.log('Response status:', res.status);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      console.log('Fetched data:', data);
+     
       setProducts(prev => append ? [...prev, ...data.products] : data.products);
       setCurrentPage(data.pagination.currentPage);
       setHasMore(data.pagination.currentPage < data.pagination.totalPages);
@@ -181,8 +192,9 @@ export function useShopProducts({
       search: '',
       categories: [],
       priceRange: null,
-      sortBy: 'newest',
+      sortBy: 'random',
       inStock: false,
+      seed: seed, // 👈 CHANGED: Keep seed on clear
     });
   };
 
@@ -201,6 +213,7 @@ export function useShopProducts({
       priceRange: null,
       sortBy: 'newest',
       inStock: false,
+      seed: seed, // 👈 CHANGED: Keep seed on reset
     });
     setHasMore(initialProducts.length < (initialTotalCount || 0));
   };

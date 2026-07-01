@@ -23,7 +23,7 @@ interface ReviewStepProps {
   attributeSchema: Attribute[];
   onPublish: () => void;
   isPublishing: boolean;
-  isUpdate?: boolean; // ✅ New prop to determine if we're in update mode
+  isUpdate?: boolean;
 }
 
 export default function ReviewStep({
@@ -32,9 +32,8 @@ export default function ReviewStep({
   attributeSchema,
   onPublish,
   isPublishing,
-  isUpdate = false, // ✅ Default to false (add mode)
+  isUpdate = false,
 }: ReviewStepProps) {
-  // ✅ Filter out deleted images
   const visibleImages = formData.images.filter(img => img.status !== "deleted");
   const primaryImage = visibleImages.find((img) => img.isPrimary);
   const additionalImages = visibleImages.filter((img) => !img.isPrimary);
@@ -94,7 +93,7 @@ export default function ReviewStep({
                 ? `✅ Product is ready to ${isUpdate ? "update" : "publish"}!`
                 : "⚠️ Some items need attention before proceeding"}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-600">
               {completion.canPublish
                 ? `All required fields are complete. Click '${isUpdate ? "Update" : "Publish"}' to ${isUpdate ? "update" : "make it live"}.`
                 : `${completion.completedSteps} of ${completion.totalSteps} steps complete (${completion.percentage}%)`}
@@ -117,7 +116,7 @@ export default function ReviewStep({
               Basic Information
             </span>
           </div>
-          <ul className="space-y-1 text-sm text-gray-600">
+          <ul className="space-y-1 text-sm text-gray-700">
             {completion.steps.basicInfo.items.map((item, i) => (
               <li key={i} className="flex items-center gap-2">
                 <Icon icon="mdi:check" className="w-3 h-3 text-green-500" />
@@ -125,7 +124,7 @@ export default function ReviewStep({
               </li>
             ))}
             {completion.steps.basicInfo.items.length === 0 && (
-              <li className="text-gray-400 italic">No fields filled</li>
+              <li className="text-gray-500 italic">No fields filled</li>
             )}
           </ul>
         </div>
@@ -142,7 +141,7 @@ export default function ReviewStep({
               Pricing & Inventory
             </span>
           </div>
-          <ul className="space-y-1 text-sm text-gray-600">
+          <ul className="space-y-1 text-sm text-gray-700">
             {completion.steps.pricing.items.map((item, i) => (
               <li key={i} className="flex items-center gap-2">
                 <Icon icon="mdi:check" className="w-3 h-3 text-green-500" />
@@ -150,7 +149,7 @@ export default function ReviewStep({
               </li>
             ))}
             {completion.steps.pricing.items.length === 0 && (
-              <li className="text-gray-400 italic">No pricing set</li>
+              <li className="text-gray-500 italic">No pricing set</li>
             )}
           </ul>
         </div>
@@ -167,7 +166,7 @@ export default function ReviewStep({
               Images
             </span>
           </div>
-          <ul className="space-y-1 text-sm text-gray-600">
+          <ul className="space-y-1 text-sm text-gray-700">
             {completion.steps.images.items.map((item, i) => (
               <li key={i} className="flex items-center gap-2">
                 <Icon icon="mdi:check" className="w-3 h-3 text-green-500" />
@@ -175,7 +174,7 @@ export default function ReviewStep({
               </li>
             ))}
             {completion.steps.images.items.length === 0 && (
-              <li className="text-gray-400 italic">No images uploaded</li>
+              <li className="text-gray-500 italic">No images uploaded</li>
             )}
           </ul>
         </div>
@@ -192,7 +191,7 @@ export default function ReviewStep({
               Categories
             </span>
           </div>
-          <ul className="space-y-1 text-sm text-gray-600">
+          <ul className="space-y-1 text-sm text-gray-700">
             {completion.steps.categories.items.map((item, i) => (
               <li key={i} className="flex items-center gap-2">
                 <Icon icon="mdi:check" className="w-3 h-3 text-green-500" />
@@ -200,7 +199,7 @@ export default function ReviewStep({
               </li>
             ))}
             {completion.steps.categories.items.length === 0 && (
-              <li className="text-gray-400 italic">No categories selected</li>
+              <li className="text-gray-500 italic">No categories selected</li>
             )}
           </ul>
         </div>
@@ -215,26 +214,26 @@ export default function ReviewStep({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-400">Name</span>
-            <p className="font-medium text-gray-800">
+            <span className="text-gray-600 font-medium">Name</span>
+            <p className="text-gray-900">
               {formData.productName || "Not set"}
             </p>
           </div>
           <div>
-            <span className="text-gray-400">Slug</span>
-            <p className="font-medium text-gray-800">
+            <span className="text-gray-600 font-medium">Slug</span>
+            <p className="text-gray-900">
               {formData.productSlug || "Not set"}
             </p>
           </div>
           <div>
-            <span className="text-gray-400">Type</span>
-            <p className="font-medium text-gray-800 capitalize">
+            <span className="text-gray-600 font-medium">Type</span>
+            <p className="text-gray-900 capitalize">
               {formData.productType || "Not set"}
             </p>
           </div>
           <div>
-            <span className="text-gray-400">Status</span>
-            <p className="font-medium text-gray-800 capitalize">
+            <span className="text-gray-600 font-medium">Status</span>
+            <p className="text-gray-900 capitalize">
               {formData.status || "draft"}
             </p>
           </div>
@@ -242,20 +241,20 @@ export default function ReviewStep({
           {formData.productType === "simple" ? (
             <>
               <div>
-                <span className="text-gray-400">Price</span>
-                <p className="font-medium text-gray-800">
+                <span className="text-gray-600 font-medium">Price</span>
+                <p className="text-gray-900">
                   {formData.price ? `KES ${formData.price}` : "Not set"}
                 </p>
               </div>
               <div>
-                <span className="text-gray-400">Discount</span>
-                <p className="font-medium text-gray-800">
+                <span className="text-gray-600 font-medium">Discount</span>
+                <p className="text-gray-900">
                   {formData.discountPrice ? `KES ${formData.discountPrice}` : "None"}
                 </p>
               </div>
               <div>
-                <span className="text-gray-400">Stock</span>
-                <p className="font-medium text-gray-800">
+                <span className="text-gray-600 font-medium">Stock</span>
+                <p className="text-gray-900">
                   {formData.stockQuantity ?? "Not set"}
                 </p>
               </div>
@@ -263,14 +262,14 @@ export default function ReviewStep({
           ) : (
             <>
               <div>
-                <span className="text-gray-400">Variants</span>
-                <p className="font-medium text-gray-800">
+                <span className="text-gray-600 font-medium">Variants</span>
+                <p className="text-gray-900">
                   {formData.variants.length} variations
                 </p>
               </div>
               <div>
-                <span className="text-gray-400">Price Range</span>
-                <p className="font-medium text-gray-800">
+                <span className="text-gray-600 font-medium">Price Range</span>
+                <p className="text-gray-900">
                   {formData.variants.length > 0 ? (
                     `KES ${Math.min(...formData.variants.map(v => Number(v.price) || 0))} - KES ${Math.max(...formData.variants.map(v => Number(v.price) || 0))}`
                   ) : (
@@ -279,14 +278,14 @@ export default function ReviewStep({
                 </p>
               </div>
               <div>
-                <span className="text-gray-400">Total Stock</span>
-                <p className="font-medium text-gray-800">
+                <span className="text-gray-600 font-medium">Total Stock</span>
+                <p className="text-gray-900">
                   {formData.variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0)}
                 </p>
               </div>
               <div>
-                <span className="text-gray-400">Varying Attributes</span>
-                <p className="font-medium text-gray-800">
+                <span className="text-gray-600 font-medium">Varying Attributes</span>
+                <p className="text-gray-900">
                   {formData.variants.length > 0 && formData.variants[0].attributes
                     ? Object.keys(formData.variants[0].attributes).join(", ") || "None"
                     : "None"}
@@ -296,49 +295,48 @@ export default function ReviewStep({
           )}
 
           <div className="md:col-span-2">
-            <span className="text-gray-400">Description</span>
-            <p className="font-medium text-gray-800">
+            <span className="text-gray-600 font-medium">Description</span>
+            <p className="text-gray-900">
               {formData.description || "No description"}
             </p>
           </div>
 
           <div className="md:col-span-2">
-            <span className="text-gray-400">Attributes</span>
+            <span className="text-gray-600 font-medium">Attributes</span>
             <div className="flex flex-wrap gap-2 mt-1">
               {Object.entries(formData.attributes)
                 .filter(([_, value]) => value && value.toString().trim() !== "")
                 .map(([key, value]) => (
                   <span
                     key={key}
-                    className="bg-white border border-gray-200 px-2 py-1 rounded text-xs text-gray-600"
+                    className="bg-white border border-gray-200 px-2 py-1 rounded text-sm text-gray-700"
                   >
                     {key}: {String(value)}
                   </span>
                 ))}
               {Object.entries(formData.attributes).filter(([_, value]) => value && value.toString().trim() !== "")
                 .length === 0 && (
-                <span className="text-gray-400 text-sm">No attributes set</span>
+                <span className="text-gray-500 text-sm">No attributes set</span>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Images Display with Upload Progress - ✅ Filter out deleted images */}
+      {/* Images Display */}
       <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 space-y-4">
         <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
           <Icon icon="mdi:image" className="w-4 h-4 text-orange-500" />
           Product Images ({visibleImages.length})
         </h3>
 
-        {/* Upload progress derived from image statuses */}
         {isUploading && (
           <div className="space-y-2 bg-white rounded-lg p-4 border border-orange-200">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">
                 Uploading Images
               </span>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-600">
                 {uploadedImages} of {totalImages}
               </span>
             </div>
@@ -348,7 +346,7 @@ export default function ReviewStep({
                 style={{ width: `${totalImages > 0 ? (uploadedImages / totalImages) * 100 : 0}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500 text-center">
+            <p className="text-xs text-gray-600 text-center">
               {uploadedImages === totalImages 
                 ? "Finalizing upload..." 
                 : `Uploading image ${uploadedImages + 1} of ${totalImages}`}
@@ -357,7 +355,7 @@ export default function ReviewStep({
         )}
 
         {visibleImages.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No images uploaded</p>
+          <p className="text-sm text-gray-500 text-center py-4">No images uploaded</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Primary Image */}
@@ -422,7 +420,7 @@ export default function ReviewStep({
           </div>
         )}
 
-        {/* Upload Summary - derived from image statuses */}
+        {/* Upload Summary */}
         {!isUploading && (
           <div className="space-y-2">
             {failedImages.length > 0 && (
@@ -461,7 +459,7 @@ export default function ReviewStep({
                 "📝 Complete all required fields to proceed"
               )}
             </p>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-600">
               {isUploading ? (
                 `Please wait while we upload your images (${uploadedImages}/${totalImages})`
               ) : completion.canPublish ? (

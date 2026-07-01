@@ -15,9 +15,11 @@ interface OrderItemRow extends RowDataPacket {
   quantity: number;
   price_at_time: number;
   total_price: number;
+  variant_id: number | null;
+  variant_name: string | null;
+  variant_attributes: string | null;
 }
 
-// Helper to get shop_id from order
 async function getShopIdFromOrder(orderId: number): Promise<number | null> {
   const [rows] = await pool.query<OrderRow[]>(
     'SELECT shop_id FROM orders WHERE order_id = ?',
@@ -26,7 +28,6 @@ async function getShopIdFromOrder(orderId: number): Promise<number | null> {
   return rows.length > 0 ? rows[0].shop_id : null;
 }
 
-// GET /api/shopowner/orders/[orderId]/items
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
@@ -39,20 +40,17 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
-    // Get shop_id from order
     const shopId = await getShopIdFromOrder(orderId);
     if (!shopId) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Verify access using helper
     const { authorized, response } = await verifyShopAccess(req, shopId);
     
     if (!authorized) {
       return response;
     }
 
-    // Get order items
     const [items] = await pool.query<OrderItemRow[]>(
       `SELECT 
         order_item_id, 
@@ -60,7 +58,10 @@ export async function GET(
         product_name, 
         quantity, 
         price_at_time,
-        (quantity * price_at_time) as total_price
+        (quantity * price_at_time) as total_price,
+        variant_id,
+        variant_name,
+        variant_attributes
        FROM order_items 
        WHERE order_id = ?`,
       [orderId]
@@ -68,7 +69,10 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      items,
+      items: items.map(item => ({
+        ...item,
+        variant_attributes: item.variant_attributes ? JSON.parse(item.variant_attributes) : null
+      })),
       count: items.length
     });
 

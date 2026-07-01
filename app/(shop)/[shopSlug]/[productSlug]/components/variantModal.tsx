@@ -49,7 +49,6 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
     return item ? item.quantity : 0;
   };
 
-  // ✅ FIXED: Calculate remaining stock per variant
   const getRemainingStock = (variant: typeof product.variants[0]) => {
     const cartQuantity = getCartItemQuantity(variant.variant_id);
     const remaining = variant.stock_quantity - cartQuantity;
@@ -141,6 +140,7 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
               const quantityInCart = getCartItemQuantity(variant.variant_id);
               const remainingStock = getRemainingStock(variant);
               const price = variant.discount_price || variant.price;
+              const hasDiscount = variant.discount_price && variant.discount_price < variant.price;
               
               return (
                 <div 
@@ -153,10 +153,15 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
                       <div className="font-medium text-gray-900 text-sm sm:text-base truncate">
                         {getAttributeDisplay(variant)}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-base sm:text-lg font-semibold text-gray-900">
                           KSh {formatPrice(price)}
                         </span>
+                        {hasDiscount && (
+                          <span className="text-sm text-gray-400 line-through">
+                            KSh {formatPrice(variant.price)}
+                          </span>
+                        )}
                         {isInStock ? (
                           <span className="text-xs text-green-600 font-medium whitespace-nowrap">
                             {quantityInCart > 0 ? `${quantityInCart} in cart` : `${remainingStock} left`}

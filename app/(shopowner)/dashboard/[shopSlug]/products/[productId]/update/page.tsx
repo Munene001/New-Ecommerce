@@ -122,21 +122,14 @@ export default function UpdateProductPage() {
     }
   }, [activeIndex, isAutoNavigating]);
 
-  // ✅ SIMPLIFIED: No complex comparison - just update the state
   const handleImagesChange = useCallback((newImages: ProductImage[]) => {
-    console.log('📸 Parent received images:', newImages.length);
-    console.log('📸 Parent received images data:', JSON.stringify(newImages.map(i => ({ id: i.id, isPrimary: i.isPrimary, status: i.status }))));
     markImagesLoaded();
-    setFormData((prev) => {
-      console.log('📸 Previous images in state:', prev.images.length);
-      return {
-        ...prev,
-        images: newImages
-      };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      images: newImages
+    }));
   }, [setFormData, markImagesLoaded]);
 
-  // ✅ Memoize props to prevent unnecessary re-renders
   const imagesFormProps = useMemo(() => ({
     productId: parseInt(productId, 10),
     onImagesChange: handleImagesChange,
@@ -145,20 +138,16 @@ export default function UpdateProductPage() {
   }), [productId, handleImagesChange, showError, showSuccess]);
 
   const handleSaveProduct = async () => {
-    console.log('💾 handleSaveProduct called');
     if (isSaving) {
-      console.log('💾 Already saving, skipping...');
       return;
     }
     setIsSaving(true);
 
     try {
-      console.log('💾 Calling handleSubmit with draft...');
       const result = await handleSubmit('draft');
-      console.log('💾 handleSubmit result:', result);
 
       if (!result.success || !result.productId) {
-        console.error('💾 Product update failed:', result.error);
+        console.error('Product update failed:', result.error);
         setResultModal({
           isOpen: true,
           type: "error",
@@ -169,15 +158,11 @@ export default function UpdateProductPage() {
         return;
       }
 
-      console.log('💾 Product updated successfully, productId:', result.productId);
-
       const productIdNum = parseInt(productId, 10);
-      console.log('💾 Saving images for product:', productIdNum);
       const uploadResult = await imagesRef.current?.saveImages(productIdNum);
-      console.log('💾 Image upload result:', uploadResult);
 
       if (!uploadResult?.primarySucceeded) {
-        console.error('💾 Primary image upload failed');
+        console.error('Primary image upload failed');
         setActiveIndex(2);
         setIsAutoNavigating(true);
         showError("Primary image upload failed. Please remove and re-add the primary image.");
@@ -186,7 +171,7 @@ export default function UpdateProductPage() {
       }
 
       if (uploadResult.failedCount > 0) {
-        console.warn('💾 Some images failed to upload:', uploadResult.failedCount);
+        console.warn('Some images failed to upload:', uploadResult.failedCount);
         setActiveIndex(2);
         setIsAutoNavigating(true);
         showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
@@ -194,16 +179,10 @@ export default function UpdateProductPage() {
         return;
       }
 
-      console.log('💾 All images uploaded successfully');
-      
-      // ✅ Only show toast for success - no modal
       showSuccess("✅ Product updated successfully!");
       
-      // ✅ Reset the form state to clear any pending changes
-      // resetForm();
-      
     } catch (err) {
-      console.error('💾 Error in handleSaveProduct:', err);
+      console.error('Error in handleSaveProduct:', err);
       setResultModal({
         isOpen: true,
         type: "error",
@@ -216,20 +195,16 @@ export default function UpdateProductPage() {
   };
 
   const handlePublishProduct = async () => {
-    console.log('📤 handlePublishProduct called');
     if (isSaving) {
-      console.log('📤 Already saving, skipping...');
       return;
     }
     setIsSaving(true);
 
     try {
-      console.log('📤 Calling handlePublish...');
       const result = await handlePublish();
-      console.log('📤 handlePublish result:', result);
 
       if (!result.success && result.errorStep !== undefined) {
-        console.warn('📤 Validation failed, navigating to step:', result.errorStep);
+        console.warn('Validation failed, navigating to step:', result.errorStep);
         setActiveIndex(result.errorStep);
         setIsAutoNavigating(true);
         const errorMessage = result.errorSummary || result.error || "Please complete required fields";
@@ -239,7 +214,7 @@ export default function UpdateProductPage() {
       }
 
       if (!result.success || !result.productId) {
-        console.error('📤 Publish failed:', result.error);
+        console.error('Publish failed:', result.error);
         setResultModal({
           isOpen: true,
           type: "error",
@@ -250,15 +225,11 @@ export default function UpdateProductPage() {
         return;
       }
 
-      console.log('📤 Product published successfully, productId:', result.productId);
-
       const productIdNum = parseInt(productId, 10);
-      console.log('📤 Saving images for product:', productIdNum);
       const uploadResult = await imagesRef.current?.saveImages(productIdNum);
-      console.log('📤 Image upload result:', uploadResult);
 
       if (!uploadResult?.primarySucceeded) {
-        console.error('📤 Primary image upload failed');
+        console.error('Primary image upload failed');
         setActiveIndex(2);
         setIsAutoNavigating(true);
         showError("Primary image upload failed. Please remove and re-add the primary image.");
@@ -267,7 +238,7 @@ export default function UpdateProductPage() {
       }
 
       if (uploadResult.failedCount > 0) {
-        console.warn('📤 Some images failed to upload:', uploadResult.failedCount);
+        console.warn('Some images failed to upload:', uploadResult.failedCount);
         setActiveIndex(2);
         setIsAutoNavigating(true);
         showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
@@ -275,16 +246,10 @@ export default function UpdateProductPage() {
         return;
       }
 
-      console.log('📤 All images uploaded successfully');
-      
-      // ✅ Only show toast for success - no modal
       showSuccess("✅ Product published successfully and is now live!");
       
-      // ✅ Reset the form state to clear any pending changes
-      // resetForm();
-      
     } catch (err) {
-      console.error('📤 Error in handlePublishProduct:', err);
+      console.error('Error in handlePublishProduct:', err);
       setResultModal({
         isOpen: true,
         type: "error",
@@ -462,14 +427,13 @@ export default function UpdateProductPage() {
             attributeSchema={attributeSchema}
             onPublish={handlePublishProduct}
             isPublishing={isSaving}
-             isUpdate={true}
+            isUpdate={true}
           />
         </div>
       </>
     );
   };
 
-  // ✅ Close modal handler - only used for errors now
   const handleModalClose = () => {
     setResultModal((prev) => ({ ...prev, isOpen: false }));
   };
@@ -503,7 +467,6 @@ export default function UpdateProductPage() {
           </div>
         </div>
 
-        {/* ✅ Progress Bar */}
         <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">Setup Progress</span>

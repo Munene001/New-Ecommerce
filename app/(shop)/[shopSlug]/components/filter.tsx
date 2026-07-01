@@ -4,7 +4,8 @@ import { ArrowLeftRight, Check, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Range } from "react-range";
 
-type SortOption = "newest" | "oldest" | "price_low" | "price_high";
+// ✅ UPDATED: Added 'random' to SortOption
+type SortOption = "newest" | "oldest" | "price_low" | "price_high" | "random";
 
 interface PriceRange {
   min: number;
@@ -61,6 +62,7 @@ export default function Filter({
     setLocalPriceRange(currentPriceRange);
   }
 
+  // ✅ UPDATED: Sort options - removed 'random' from UI since it's the default
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: "newest", label: "Newest First" },
     { value: "oldest", label: "Oldest First" },

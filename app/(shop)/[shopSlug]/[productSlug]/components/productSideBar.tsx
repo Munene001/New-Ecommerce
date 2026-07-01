@@ -89,12 +89,19 @@ export default function ProductSidebar({
 
   const getOriginalPrice = () => {
     if (hasVariants && product.display_price && typeof product.display_price !== 'number') {
-      return product.display_price.max > product.display_price.min ? null : null;
+      return product.display_price.original_formatted;
     }
     if (product.discount_price) {
       return formatPrice(product.price);
     }
     return null;
+  };
+
+  const getHasDiscount = () => {
+    if (hasVariants && product.display_price && typeof product.display_price !== 'number') {
+      return product.display_price.hasDiscount;
+    }
+    return !!product.discount_price && product.discount_price < product.price;
   };
 
   const getDiscountPercent = () => {
@@ -103,12 +110,9 @@ export default function ProductSidebar({
     return Math.round(((product.price - product.discount_price) / product.price) * 100);
   };
 
-  // ✅ FIXED: Calculate remaining stock across all variants
   const getRemainingStock = () => {
     if (hasVariants) {
-      // Total stock across all variants
       const totalStock = product.variants.reduce((sum, v) => sum + v.stock_quantity, 0);
-      // Total quantity in cart across all variants of this product
       const totalCartQuantity = items
         .filter(i => i.product_id === product.product_id)
         .reduce((sum, i) => sum + i.quantity, 0);
@@ -126,7 +130,6 @@ export default function ProductSidebar({
     return `${remaining} units available`;
   };
 
-  // ✅ FIXED: Handle increment with proper stock check
   const handleIncrement = () => {
     if (hasVariants) {
       onOpenVariantModal();
@@ -303,20 +306,20 @@ export default function ProductSidebar({
 
   const displayPrice = getDisplayPrice();
   const originalPrice = getOriginalPrice();
+  const hasDiscount = getHasDiscount();
   const discountPercent = getDiscountPercent();
   const remainingStock = getRemainingStock();
 
   return (
     <>
-      {/* Desktop version */}
       <div className="hidden md:block space-y-5">
         <h1 className="text-2xl font-medium">{product.product_name}</h1>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="text-2xl font-semibold">
             KSh {displayPrice}
           </span>
-          {originalPrice && (
+          {hasDiscount && originalPrice && (
             <span className="text-gray-400 line-through text-lg">
               KSh {originalPrice}
             </span>
@@ -340,7 +343,6 @@ export default function ProductSidebar({
           {getStockDisplay()}
         </div>
 
-        {/* Variations Section - Grid Layout */}
         {hasVariants && (
           <div className="border-t border-gray-200 pt-4">
             <h3 className="text-sm font-semibold text-gray-800 mb-2.5">Variations</h3>
@@ -367,7 +369,6 @@ export default function ProductSidebar({
           </div>
         )}
 
-        {/* Quantity controls & Add to Cart */}
         <div className="flex items-center gap-4">
           <div className="flex items-center border rounded border-black">
             <button
@@ -401,7 +402,6 @@ export default function ProductSidebar({
           </Button>
         </div>
 
-        {/* Wishlist & Share */}
         <div className="flex items-center gap-5">
           <button
             onClick={handleToggleWishlist}
@@ -443,7 +443,6 @@ export default function ProductSidebar({
         )}
       </div>
 
-      {/* Mobile version */}
       <div className="block md:hidden space-y-4 pb-4">
         <h1 className="text-xl font-semibold leading-tight text-black">
           {product.product_name}
@@ -453,7 +452,7 @@ export default function ProductSidebar({
           <span className="text-xl font-bold text-black">
             KSh {displayPrice}
           </span>
-          {originalPrice && (
+          {hasDiscount && originalPrice && (
             <span className="text-gray-400 line-through text-sm">
               KSh {originalPrice}
             </span>
@@ -477,7 +476,6 @@ export default function ProductSidebar({
           {getStockDisplay()}
         </div>
 
-        {/* Mobile Variations - Grid Layout */}
         {hasVariants && (
           <div className="border-t border-gray-200 pt-4">
             <h3 className="text-sm font-semibold text-gray-800 mb-2.5">Variations</h3>

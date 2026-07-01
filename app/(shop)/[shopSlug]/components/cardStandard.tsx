@@ -54,7 +54,8 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
         min: priceInfo.min,
         max: priceInfo.max,
         isRange: priceInfo.isRange,
-        hasDiscount: false,
+        hasDiscount: priceInfo.hasDiscount,
+        originalDisplay: priceInfo.original_formatted,
         originalPrice: 0
       };
     }
@@ -66,7 +67,8 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
       display: formatPrice(price),
       price: price,
       hasDiscount: hasDiscount,
-      originalPrice: product.price
+      originalPrice: product.price,
+      originalDisplay: hasDiscount ? formatPrice(product.price) : null
     };
   };
 
@@ -143,13 +145,12 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
           ref={containerRef}
           className="relative w-full aspect-[245/266] max-w-[260px] flex items-center justify-center bg-gray-100 overflow-hidden box-border rounded-sm"
         >
+          {/* ✅ Only show discount badge for simple products */}
           {!displayPrice.isVariable && displayPrice.hasDiscount && discountPercentage > 0 && (
             <div className="absolute top-2 left-2 z-10 text-white text-xs font-bold font-[Poppins] px-2 py-1 bg-red-600">
               -{discountPercentage}% 
             </div>
           )}
-          
-         
 
           <div className="relative w-full h-full">
             <Image
@@ -177,22 +178,12 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
           </Link>
 
           <div className="flex flex-row mt-1 text-[14px] items-center gap-2 font-[inter] font-semibold text-[#034810]">
-            {displayPrice.isVariable ? (
-              <span className="text-base text-[#034810] font-semibold">
-                ksh {displayPrice.display}
-              </span>
-            ) : displayPrice.hasDiscount ? (
-              <>
-                <span className="text-base">
-                  ksh {displayPrice.display}
-                </span>
-                <span className="italic line-through text-sm">
-                  {formatPrice(displayPrice.originalPrice)}
-                </span>
-              </>
-            ) : (
-              <span className="text-base text-[#034810] font-semibold">
-                ksh {displayPrice.display}
+            <span className="text-base text-[#034810] font-semibold">
+              ksh {displayPrice.display}
+            </span>
+            {displayPrice.hasDiscount && displayPrice.originalDisplay && (
+              <span className="italic line-through text-sm text-gray-400">
+                ksh {displayPrice.originalDisplay}
               </span>
             )}
           </div>

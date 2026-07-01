@@ -47,7 +47,6 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
   
-  // Track payment page view
   useEffect(() => {
     if (order && !hasTrackedPageView) {
       trackEvent('payment_page_view');
@@ -55,9 +54,11 @@ export default function PaymentPage() {
     }
   }, [order, hasTrackedPageView, trackEvent]);
   
-  // Fetch order details
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
     
     const fetchOrder = async () => {
       try {
@@ -80,7 +81,6 @@ export default function PaymentPage() {
     fetchOrder();
   }, [orderId, showToast]);
   
-  // Fetch payment settings (only for M-Pesa)
   useEffect(() => {
     if (order?.payment_method === "mpesa" && shop?.shopId) {
       const fetchPaymentSettings = async () => {
@@ -124,12 +124,10 @@ export default function PaymentPage() {
     );
   }
   
-  // COD Flow - from order data
   if (order.payment_method === "cash_on_delivery") {
     return <CODPayment orderId={orderId} orderNumber={order.order_number} onPaymentSuccess={handlePaymentSuccess} />;
   }
   
-  // M-Pesa Flow - from order data
   if (order.payment_method === "mpesa") {
     if (!paymentConfig) {
       return (
@@ -163,7 +161,6 @@ export default function PaymentPage() {
     }
   }
   
-  // Fallback
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-2xl mx-auto px-4">

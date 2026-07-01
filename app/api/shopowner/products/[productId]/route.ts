@@ -474,7 +474,7 @@ export async function DELETE(
         deletedCount++;
         
       } catch {
-        console.log(`⚠️ File already deleted or not found: ${image.image_path}`);
+        (`⚠️ File already deleted or not found: ${image.image_path}`);
       }
     }
 

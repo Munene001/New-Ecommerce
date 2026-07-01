@@ -193,10 +193,20 @@ export default async function ProductPage({ params }: PageProps) {
           WHERE pv.product_id = p.product_id
         ) as min_effective_price,
         (
+          SELECT MAX(COALESCE(pv.discount_price, pv.price))
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as max_effective_price,
+        (
+          SELECT MIN(pv.price)
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as min_original_price,
+        (
           SELECT MAX(pv.price)
           FROM product_variants pv
           WHERE pv.product_id = p.product_id
-        ) as max_regular_price,
+        ) as max_original_price,
         (
           SELECT SUM(pv.stock_quantity)
           FROM product_variants pv
@@ -227,7 +237,9 @@ export default async function ProductPage({ params }: PageProps) {
     images: string | null;
     variants: string | null;
     min_effective_price: number | null;
-    max_regular_price: number | null;
+    max_effective_price: number | null;
+    min_original_price: number | null;
+    max_original_price: number | null;
     total_stock: number | null;
   };
 
@@ -338,22 +350,49 @@ export default async function ProductPage({ params }: PageProps) {
     : [];
 
   let displayPrice: DisplayPrice;
-  if (row.product_type === "variable" && row.min_effective_price !== null) {
-    const min = row.min_effective_price;
-    const max = row.max_regular_price || min;
+  if (row.product_type === "variable") {
+    const minEffective = row.min_effective_price || 0;
+    const maxEffective = row.max_effective_price || 0;
+    const minOriginal = row.min_original_price || 0;
+    const maxOriginal = row.max_original_price || 0;
+    
+    const hasDiscount = (minOriginal !== minEffective) || (maxOriginal !== maxEffective);
+    
+    const effectiveFormatted = minEffective === maxEffective 
+      ? `${minEffective}` 
+      : `${minEffective} - ${maxEffective}`;
+    
+    let originalFormatted: string | null = null;
+    if (hasDiscount) {
+      originalFormatted = minOriginal === maxOriginal 
+        ? `${minOriginal}` 
+        : `${minOriginal} - ${maxOriginal}`;
+    }
+    
     displayPrice = {
-      min,
-      max,
-      formatted: min === max ? `${min}` : `${min} - ${max}`,
-      isRange: min !== max,
+      min: minEffective,
+      max: maxEffective,
+      formatted: effectiveFormatted,
+      isRange: minEffective !== maxEffective,
+      original_min: hasDiscount ? minOriginal : null,
+      original_max: hasDiscount ? maxOriginal : null,
+      original_formatted: originalFormatted,
+      hasDiscount: hasDiscount
     };
   } else {
-    const price = row.discount_price || row.price;
+    const effectivePrice = row.discount_price || row.price;
+    const originalPrice = row.price;
+    const hasDiscount = !!(row.discount_price && row.discount_price < row.price);
+    
     displayPrice = {
-      min: price,
-      max: price,
-      formatted: `${price}`,
+      min: effectivePrice,
+      max: effectivePrice,
+      formatted: `${effectivePrice}`,
       isRange: false,
+      original_min: hasDiscount ? originalPrice : null,
+      original_max: hasDiscount ? originalPrice : null,
+      original_formatted: hasDiscount ? `${originalPrice}` : null,
+      hasDiscount: hasDiscount
     };
   }
 
@@ -473,9 +512,6 @@ export default async function ProductPage({ params }: PageProps) {
     }
   }
 
-  // This state is managed client-side via ProductWrapper
-  // We'll pass the openModal function via props
-
   return (
     <>
       <PageBar breadcrumb="Product" itemName={product.product_name} />
@@ -537,11 +573,10 @@ export default async function ProductPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* MobileProductBar - openModal function is passed via a client component wrapper */}
-     <MobileProductWrapper
-  product={product}
-  secondaryColor={secondaryColor}
-/>
+      <MobileProductWrapper
+        product={product}
+        secondaryColor={secondaryColor}
+      />
       <TrackProductAnalytics productId={product.product_id} />
       <TrackProductView product={product} />
     </>

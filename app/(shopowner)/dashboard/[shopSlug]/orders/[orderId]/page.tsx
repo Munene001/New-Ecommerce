@@ -8,6 +8,7 @@ import SimpleToast from "@/app/components/ui/simpleToast";
 import Button from "@/app/components/ui/button";
 import { ArrowLeft, Trash2, Package, User, CreditCard, MapPin, Calendar } from "lucide-react";
 import { useDashboardOrders } from "../hooks/useDashboardOrders";
+import { useShop } from "@/app/(shopowner)/shopownerContext";
 import OrderSkeleton from "./components/orderSkeleton";
 
 interface PageProps {
@@ -21,6 +22,9 @@ interface OrderItem {
   order_item_id: number;
   product_id: number;
   product_name: string;
+  variant_id: number | null;
+  variant_name: string | null;
+  variant_attributes: string | null;
   quantity: number;
   price_at_time: number;
   total_price: number;
@@ -33,6 +37,7 @@ interface OrderItemWithImage extends OrderItem {
 
 export default function IndividualOrder({ params }: PageProps) {
   const router = useRouter();
+  const { shopId } = useShop();
   const [shopSlug, setShopSlug] = useState<string>("");
   const [orderId, setOrderId] = useState<number | null>(null);
   const [order, setOrder] = useState<any>(null);
@@ -46,7 +51,7 @@ export default function IndividualOrder({ params }: PageProps) {
     updatePaymentStatus,
     deleteOrder,
     getOrderWithItems,
-  } = useDashboardOrders(orderId?.toString() || "");
+  } = useDashboardOrders(shopId?.toString() || "");
 
   useEffect(() => {
     const loadParams = async () => {
@@ -71,7 +76,6 @@ export default function IndividualOrder({ params }: PageProps) {
     
     if (result) {
       setOrder(result);
-      // Fetch images for each product
       const itemsWithImages = await Promise.all(
         result.items.map(async (item: OrderItem) => {
           const imageUrl = `/api/shopowner/products/${item.product_id}/images/primary?w=200`;
@@ -186,7 +190,6 @@ export default function IndividualOrder({ params }: PageProps) {
 
   return (
     <div className="md:p-6 px-4 py-6 font-[Poppins] max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex gap-6 items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
@@ -214,9 +217,7 @@ export default function IndividualOrder({ params }: PageProps) {
       <SimpleToast message={message} onClose={() => setMessage(null)} />
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Order Info - Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Order Items */}
           <div className="bg-white rounded-lg border border-gray-300 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -227,7 +228,6 @@ export default function IndividualOrder({ params }: PageProps) {
             <div className="divide-y divide-gray-300">
               {items.map((item) => (
                 <div key={item.order_item_id} className="px-6 py-4 flex items-center gap-4">
-                  {/* Product Image */}
                   <div className="w-16 h-16 flex-shrink-0 bg-gray-200 rounded-lg overflow-hidden relative">
                     {!item.imageError && item.imageUrl ? (
                       <Image
@@ -252,6 +252,9 @@ export default function IndividualOrder({ params }: PageProps) {
                   
                   <div className="flex-1">
                     <p className="font-medium text-gray-800">{item.product_name}</p>
+                    {item.variant_name && (
+                      <p className="text-sm text-gray-500">{item.variant_name}</p>
+                    )}
                     <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
                   </div>
                   <div className="text-right">
@@ -275,7 +278,6 @@ export default function IndividualOrder({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Special Instructions */}
           {order.special_instructions && (
             <div className="bg-white rounded-lg border border-gray-300">
               <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
@@ -288,9 +290,7 @@ export default function IndividualOrder({ params }: PageProps) {
           )}
         </div>
 
-        {/* Customer & Payment Info - Right Column */}
         <div className="space-y-6">
-          {/* Customer Information */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -322,7 +322,6 @@ export default function IndividualOrder({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Order Status */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800">Order Status</h2>
@@ -341,7 +340,6 @@ export default function IndividualOrder({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Payment Information */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -370,7 +368,6 @@ export default function IndividualOrder({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Order Timeline */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -392,7 +389,6 @@ export default function IndividualOrder({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">

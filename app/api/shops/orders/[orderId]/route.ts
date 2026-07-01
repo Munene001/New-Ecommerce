@@ -1,4 +1,3 @@
-// app/api/shops/orders/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
@@ -94,7 +93,11 @@ export async function GET(
           price: item.price_at_time,
           variant_id: item.variant_id,
           variant_name: item.variant_name,
-          variant_attributes: item.variant_attributes ? JSON.parse(item.variant_attributes) : null
+          variant_attributes: item.variant_attributes 
+            ? (typeof item.variant_attributes === 'string' 
+                ? JSON.parse(item.variant_attributes) 
+                : item.variant_attributes)
+            : null
         }))
       }
     });

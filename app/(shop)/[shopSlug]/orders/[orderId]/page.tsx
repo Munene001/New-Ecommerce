@@ -1,4 +1,4 @@
-// app/[shopSlug]/orders/[orderId]/page.tsx
+// app/(shop)/[shopSlug]/orders/[orderId]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,9 +14,7 @@ import {
   CreditCard,
   MapPin,
   Calendar,
-  Store,
 } from "lucide-react";
-import OrderSkeleton from "@/app/(shopowner)/dashboard/[shopSlug]/orders/[orderId]/components/orderSkeleton";
 
 interface PageProps {
   params: Promise<{
@@ -26,45 +24,43 @@ interface PageProps {
 }
 
 interface OrderItem {
-  order_item_id: number;
-  product_id: number;
-  product_name: string;
+  name: string;
   quantity: number;
-  price_at_time: number;
-  total: number;
+  price: number;
+  variant_id: number | null;
+  variant_name: string | null;
+  variant_attributes: Record<string, string> | null;
 }
 
-interface OrderItemWithImage extends OrderItem {
-  imageUrl?: string;
-  imageError?: boolean;
-}
-
-interface Order {
+interface OrderData {
   order_id: number;
   order_number: string;
-  shop_id: number;
-  shop_slug: string;
-  shop_name: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  customer_city: string;
-  customer_address: string;
-  special_instructions: string | null;
-  subtotal: number;
+  total_amount: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
-  created_at: string;
-  updated_at: string;
+  customer_phone: string;
+  customer_email: string;
+  customer_name?: string;
+  customer_city?: string;
+  customer_address?: string;
+  special_instructions?: string | null;
+  created_at?: string;
+  updated_at?: string;
   items: OrderItem[];
+}
+
+interface OrderItemWithImage extends OrderItem {
+  product_id?: number;
+  imageUrl?: string;
+  imageError?: boolean;
 }
 
 export default function OrderDetailsPage({ params }: PageProps) {
   const router = useRouter();
   const [shopSlug, setShopSlug] = useState<string>("");
   const [orderId, setOrderId] = useState<number | null>(null);
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<OrderData | null>(null);
   const [items, setItems] = useState<OrderItemWithImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{
@@ -92,22 +88,25 @@ export default function OrderDetailsPage({ params }: PageProps) {
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/shops/customers/orders/${orderId}`);
+      const response = await fetch(`/api/shops/orders/${orderId}`);
       const data = await response.json();
 
-      if (data.success && data.order) {
-        setOrder(data.order);
+      if (data.success && data.data) {
+        setOrder(data.data);
 
-        // Fetch images for each product (replicating dashboard approach)
+        // Fetch images for each product
         const itemsWithImages = await Promise.all(
-          data.order.items.map(async (item: OrderItem) => {
-            const imageUrl = `/api/shopowner/products/${item.product_id}/images/primary?w=200`;
+          data.data.items.map(async (item: OrderItem, index: number) => {
+            // We don't have product_id from the public API, so use index or a placeholder
+            // The API doesn't return product_id for customers, so we skip image fetching
+            // or use a fallback
             return {
               ...item,
-              imageUrl,
-              imageError: false,
+              product_id: undefined,
+              imageUrl: undefined,
+              imageError: true,
             };
-          }),
+          })
         );
         setItems(itemsWithImages);
       } else {
@@ -142,7 +141,8 @@ export default function OrderDetailsPage({ params }: PageProps) {
       : "bg-amber-100 text-amber-800 border-amber-300";
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "long",
@@ -161,7 +161,15 @@ export default function OrderDetailsPage({ params }: PageProps) {
   };
 
   if (loading) {
-    return <OrderSkeleton />;
+    return (
+      <div className="md:p-6 px-4 py-6 max-w-7xl mx-auto">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-300 rounded w-48"></div>
+          <div className="h-32 bg-gray-300 rounded"></div>
+          <div className="h-32 bg-gray-300 rounded"></div>
+        </div>
+      </div>
+    );
   }
 
   if (!order) {
@@ -173,29 +181,27 @@ export default function OrderDetailsPage({ params }: PageProps) {
             Order not found
           </h2>
           <Button
-            onClick={() => router.push("/profile")}
+            onClick={() => router.push(`/${shopSlug}`)}
             variant="secondary"
             className="mt-4"
           >
-            Go to Profile
+            Go to Shop
           </Button>
         </div>
       </div>
     );
   }
 
+  const displayItems = items.length > 0 ? items : order.items.map(item => ({ ...item, imageError: true }));
+
   return (
     <div className="md:p-6 px-4 py-6 font-[Poppins] max-w-7xl mx-auto">
-      <PageBar
-        breadcrumb={`Order #${order?.order_number}`}
-        itemCount={items.length}
-        itemName={items.length === 1 ? "Item" : "Items"}
-      />
-      {/* Header */}
+      <PageBar breadcrumb={`Order #${order.order_number}`} />
+
       <div className="flex gap-6 items-center justify-between mt-2 mb-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push(`/${shopSlug}/profile`)}
+            onClick={() => router.push(`/${shopSlug}`)}
             className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
@@ -214,9 +220,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
       <SimpleToast message={message} onClose={() => setMessage(null)} />
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Order Info - Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Order Items */}
           <div className="bg-white rounded-lg border border-gray-300 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -225,50 +229,30 @@ export default function OrderDetailsPage({ params }: PageProps) {
               </h2>
             </div>
             <div className="divide-y divide-gray-300">
-              {items.map((item) => (
-                <div
-                  key={item.order_item_id}
-                  className="px-6 py-4 flex items-center gap-4"
-                >
-                  {/* Product Image */}
+              {displayItems.map((item, index) => (
+                <div key={index} className="px-6 py-4 flex items-center gap-4">
+                  {/* Product Image - placeholder since we don't have product_id */}
                   <div className="w-16 h-16 flex-shrink-0 bg-gray-200 rounded-lg overflow-hidden relative">
-                    {!item.imageError && item.imageUrl ? (
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.product_name}
-                        fill
-                        className="object-cover"
-                        onError={() => {
-                          setItems((prev) =>
-                            prev.map((i) =>
-                              i.order_item_id === item.order_item_id
-                                ? { ...i, imageError: true }
-                                : i,
-                            ),
-                          );
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-300">
-                        <Package size={24} className="text-gray-500" />
-                      </div>
-                    )}
+                    <div className="w-full h-full flex items-center justify-center bg-gray-300">
+                      <Package size={24} className="text-gray-500" />
+                    </div>
                   </div>
 
                   <div className="flex-1">
-                    <p className="font-medium text-gray-800">
-                      {item.product_name}
-                    </p>
+                    <p className="font-medium text-gray-800">{item.name}</p>
+                    {item.variant_name && (
+                      <p className="text-sm text-gray-500">{item.variant_name}</p>
+                    )}
                     <p className="text-sm text-gray-600">
                       Quantity: {item.quantity}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-800">
-                      KSh {formatPrice(item.total)}
+                      KSh {formatPrice(item.price * item.quantity)}
                     </p>
                     <p className="text-sm text-gray-800">
-                      {formatPrice(item.price_at_time)} each
+                      {formatPrice(item.price)} each
                     </p>
                   </div>
                 </div>
@@ -277,14 +261,13 @@ export default function OrderDetailsPage({ params }: PageProps) {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-800">Total</span>
                   <span className="font-bold text-lg text-gray-900">
-                    KSh {formatPrice(order.subtotal)}
+                    KSh {formatPrice(order.total_amount)}
                   </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Special Instructions */}
           {order.special_instructions && (
             <div className="bg-white rounded-lg border border-gray-300">
               <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
@@ -299,9 +282,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Customer & Payment Info - Right Column */}
         <div className="space-y-6">
-          {/* Customer Information */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -312,7 +293,9 @@ export default function OrderDetailsPage({ params }: PageProps) {
             <div className="px-6 py-4 space-y-3">
               <div>
                 <p className="text-sm text-gray-800">Name</p>
-                <p className="font-medium text-black">{order.customer_name}</p>
+                <p className="font-medium text-black">
+                  {order.customer_name || "N/A"}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-800">Email</p>
@@ -327,13 +310,12 @@ export default function OrderDetailsPage({ params }: PageProps) {
                   <MapPin size={14} />
                   Address
                 </p>
-                <p className="text-black">{order.customer_address}</p>
-                <p className="text-black text-sm">{order.customer_city}</p>
+                <p className="text-black">{order.customer_address || "N/A"}</p>
+                <p className="text-black text-sm">{order.customer_city || "N/A"}</p>
               </div>
             </div>
           </div>
 
-          {/* Order Status - Read-only tracking */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800">Order Status</h2>
@@ -342,13 +324,7 @@ export default function OrderDetailsPage({ params }: PageProps) {
               <div
                 className={`inline-flex px-3 py-2 rounded-lg border font-medium ${getStatusColor(order.order_status)}`}
               >
-                {order.order_status === "pending" && "Pending"}
-                {order.order_status === "processing" && "Processing"}
-                {order.order_status === "delivered" && "Delivered"}
-                {order.order_status === "cancelled" && "Cancelled"}
-                {!["pending", "processing", "delivered", "cancelled"].includes(
-                  order.order_status,
-                ) && order.order_status}
+                {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
               </div>
               {order.order_status === "pending" && (
                 <p className="text-sm text-gray-600 mt-3">
@@ -373,7 +349,6 @@ export default function OrderDetailsPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Payment Information */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -397,17 +372,10 @@ export default function OrderDetailsPage({ params }: PageProps) {
                 >
                   {order.payment_status === "pending" ? "Pending" : "Paid"}
                 </div>
-                {order.payment_status === "pending" &&
-                  order.payment_method === "cash_on_delivery" && (
-                    <p className="text-sm text-gray-600 mt-3">
-                      Payment will be collected upon delivery.
-                    </p>
-                  )}
               </div>
             </div>
           </div>
 
-          {/* Order Timeline */}
           <div className="bg-white rounded-lg border border-gray-300">
             <div className="px-6 py-4 border-b border-gray-300 bg-gray-100">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -430,4 +398,4 @@ export default function OrderDetailsPage({ params }: PageProps) {
       </div>
     </div>
   );
-}
+}    

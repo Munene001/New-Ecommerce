@@ -37,7 +37,9 @@ interface ProductRow extends RowDataPacket {
   images: string | ProductImage[] | null;
   variants: string | ProductVariant[] | null;
   min_effective_price: number | null;
-  max_regular_price: number | null;
+  max_effective_price: number | null;
+  min_original_price: number | null;
+  max_original_price: number | null;
   total_stock: number | null;
 }
 
@@ -58,6 +60,9 @@ export async function GET(
   const maxPrice = searchParams.get('maxPrice');
   const sortBy = searchParams.get('sortBy') || 'newest';
   const inStock = searchParams.get('inStock') === 'true';
+  
+  // 👇 NEW: Parse the seed
+  const seed = parseInt(searchParams.get('seed') || Date.now().toString(), 10);
 
   try {
     const [shopRows] = await pool.query<ShopRow[]>(
@@ -150,7 +155,7 @@ export async function GET(
       case 'price_high':
         orderByClause += `
           COALESCE(
-            (SELECT MAX(pv.price)
+            (SELECT MAX(COALESCE(pv.discount_price, pv.price))
              FROM product_variants pv 
              WHERE pv.product_id = p.product_id),
             p.price,
@@ -162,6 +167,12 @@ export async function GET(
         orderByClause += 'p.created_at ASC';
         break;
       case 'newest':
+        orderByClause += 'p.created_at DESC';
+        break;
+      // 👇 NEW: Random case
+      case 'random':
+        orderByClause += `RAND(${seed})`;
+        break;
       default:
         orderByClause += 'p.created_at DESC';
         break;
@@ -214,10 +225,20 @@ export async function GET(
           WHERE pv.product_id = p.product_id
         ) as min_effective_price,
         (
+          SELECT MAX(COALESCE(pv.discount_price, pv.price))
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as max_effective_price,
+        (
+          SELECT MIN(pv.price)
+          FROM product_variants pv
+          WHERE pv.product_id = p.product_id
+        ) as min_original_price,
+        (
           SELECT MAX(pv.price)
           FROM product_variants pv
           WHERE pv.product_id = p.product_id
-        ) as max_regular_price,
+        ) as max_original_price,
         (
           SELECT SUM(pv.stock_quantity)
           FROM product_variants pv
@@ -239,14 +260,33 @@ export async function GET(
       let inStock;
 
       if (p.product_type === 'variable') {
-        const minPrice = p.min_effective_price || 0;
-        const maxPrice = p.max_regular_price || 0;
+        const minEffective = p.min_effective_price || 0;
+        const maxEffective = p.max_effective_price || 0;
+        const minOriginal = p.min_original_price || 0;
+        const maxOriginal = p.max_original_price || 0;
+        
+        const hasDiscount = minOriginal !== minEffective || maxOriginal !== maxEffective;
+        
+        const effectiveFormatted = minEffective === maxEffective 
+          ? `${minEffective}` 
+          : `${minEffective} - ${maxEffective}`;
+        
+        let originalFormatted = null;
+        if (hasDiscount) {
+          originalFormatted = minOriginal === maxOriginal 
+            ? `${minOriginal}` 
+            : `${minOriginal} - ${maxOriginal}`;
+        }
         
         displayPrice = {
-          min: minPrice,
-          max: maxPrice,
-          formatted: minPrice === maxPrice ? `${minPrice}` : `${minPrice} - ${maxPrice}`,
-          isRange: minPrice !== maxPrice
+          min: minEffective,
+          max: maxEffective,
+          formatted: effectiveFormatted,
+          isRange: minEffective !== maxEffective,
+          original_min: hasDiscount ? minOriginal : null,
+          original_max: hasDiscount ? maxOriginal : null,
+          original_formatted: originalFormatted,
+          hasDiscount: hasDiscount
         };
 
         const totalStock = p.total_stock || 0;
@@ -258,7 +298,19 @@ export async function GET(
         inStock = totalStock > 0;
       } else {
         const effectivePrice = p.discount_price || p.price;
-        displayPrice = effectivePrice;
+        const originalPrice = p.price;
+        const hasDiscount = p.discount_price && p.discount_price < p.price;
+        
+        displayPrice = {
+          min: effectivePrice,
+          max: effectivePrice,
+          formatted: `${effectivePrice}`,
+          isRange: false,
+          original_min: hasDiscount ? originalPrice : null,
+          original_max: hasDiscount ? originalPrice : null,
+          original_formatted: hasDiscount ? `${originalPrice}` : null,
+          hasDiscount: hasDiscount
+        };
         
         stockInfo = {
           type: 'simple',

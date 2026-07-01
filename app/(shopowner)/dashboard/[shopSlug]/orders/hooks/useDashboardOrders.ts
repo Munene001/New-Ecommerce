@@ -1,3 +1,4 @@
+// app/(shopowner)/dashboard/[shopSlug]/orders/hooks/useDashboardOrders.ts
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -17,13 +18,16 @@ interface Order {
   order_status: string;
   created_at: string;
   updated_at: string;
-  viewed_by_seller: number; // 0 = unviewed (new), 1 = viewed
+  viewed_by_seller: number;
 }
 
 interface OrderItem {
   order_item_id: number;
   product_id: number;
   product_name: string;
+  variant_id: number | null;
+  variant_name: string | null;
+  variant_attributes: string | null;
   quantity: number;
   price_at_time: number;
   total_price: number;
@@ -85,9 +89,8 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [unviewedCount, setUnviewedCount] = useState<number>(0); // ADDED
+  const [unviewedCount, setUnviewedCount] = useState<number>(0);
   
-  // Filter states
   const [currentStatus, setCurrentStatus] = useState<string>('');
   const [currentDateFrom, setCurrentDateFrom] = useState<string>('');
   const [currentDateTo, setCurrentDateTo] = useState<string>('');
@@ -126,8 +129,8 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
 
       const newOrders = append ? [...orders, ...data.orders] : data.orders;
       setOrders(newOrders);
-      setStats(data.stats); // USE API STATS
-      setUnviewedCount(data.unviewedCount); // USE API UNVIEWED COUNT
+      setStats(data.stats);
+      setUnviewedCount(data.unviewedCount);
       setCurrentPage(data.pagination.currentPage);
       setTotalPages(data.pagination.totalPages);
       setTotalCount(data.pagination.totalCount);
@@ -139,7 +142,6 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     }
   }, [shopId, orders]);
 
-  // Initial fetch
   useEffect(() => {
     if (!initialFetchDone.current && shopId) {
       initialFetchDone.current = true;
@@ -147,7 +149,6 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     }
   }, [fetchOrders, shopId, currentStatus, currentDateFrom, currentDateTo, currentSearch]);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     if (!shopId) return;
     
@@ -305,7 +306,6 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
               : order
           )
         );
-        // Refresh to update unviewedCount from API
         await refreshOrders();
         return true;
       }
@@ -369,7 +369,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     totalPages,
     totalCount,
     hasMore,
-    unviewedCount, // RETURN THE STATE, NOT CALCULATED
+    unviewedCount,
     filterByStatus,
     filterByDateRange,
     searchOrders,

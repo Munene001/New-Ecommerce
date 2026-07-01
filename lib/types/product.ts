@@ -21,16 +21,20 @@ export interface DisplayPrice {
   max: number;
   formatted: string;
   isRange: boolean;
+  original_min: number | null;
+  original_max: number | null;
+  original_formatted: string | null;
+  hasDiscount: boolean;
 }
 
 export interface StockInfo {
   type: 'simple' | 'varies';
   total: number;
-  quantity?: number; // For simple products
+  quantity?: number;
   variants?: Array<{
     stock: number;
     attributes: Record<string, any>;
-  }>; // For variable products
+  }>;
 }
 
 export interface Product {

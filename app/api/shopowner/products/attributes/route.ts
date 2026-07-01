@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
         { name: 'brand', type: 'text', label: 'Brand/Manufacturer', required: true, variant: false },
         { name: 'model', type: 'text', label: 'Model/Type', required: true, variant: false },
         { name: 'dimensions_cm', type: 'text', label: 'Dimensions', required: false, variant: false },
-        { name: 'weight_kg', type: 'number', label: 'Weight', required: false, variant: false },
+        { name: 'weight_volume', type: 'text', label: 'Weight/Volume', required: false, variant: false },
         { name: 'condition', type: 'select', label: 'Condition', options: ['new', 'refurbished', 'used'], required: true, variant: false },
         { name: 'features', type: 'text', label: 'Features (comma separated)', required: false, variant: false },
         { name: 'warranty_months', type: 'number', label: 'Warranty (months)', required: false, variant: false },

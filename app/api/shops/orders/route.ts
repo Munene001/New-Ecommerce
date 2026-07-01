@@ -83,26 +83,34 @@ async function validateProducts(shopId: number, items: OrderItem[]): Promise<{ v
   const productIds = items.map(item => item.product_id);
   const variantIds = items.filter(item => item.variant_id).map(item => item.variant_id);
   
+  const uniqueProductIds = [...new Set(productIds)];
+  const productPlaceholders = uniqueProductIds.map(() => '?').join(',');
   const [products] = await pool.query<ProductRow[]>(
     `SELECT product_id, product_name, price, discount_price, shop_id, product_type
      FROM products 
-     WHERE product_id IN (?) AND shop_id = ?`,
-    [productIds, shopId]
+     WHERE product_id IN (${productPlaceholders}) AND shop_id = ?`,
+    [...uniqueProductIds, shopId]
   );
   
-  if (products.length !== items.length) {
+  if (products.length !== uniqueProductIds.length) {
     return { valid: false, products: [], variants: [], error: 'One or more products not found' };
   }
 
   let variants: VariantRow[] = [];
   if (variantIds.length > 0) {
+    const uniqueVariantIds = [...new Set(variantIds)];
+    const variantPlaceholders = uniqueVariantIds.map(() => '?').join(',');
     const [variantRows] = await pool.query<VariantRow[]>(
       `SELECT variant_id, product_id, attributes, price, discount_price, stock_quantity
        FROM product_variants 
-       WHERE variant_id IN (?)`,
-      [variantIds]
+       WHERE variant_id IN (${variantPlaceholders})`,
+      uniqueVariantIds
     );
     variants = variantRows;
+    
+    if (variants.length !== uniqueVariantIds.length) {
+      return { valid: false, products: [], variants: [], error: 'One or more variants not found' };
+    }
   }
   
   return { valid: true, products, variants };
@@ -194,7 +202,9 @@ export async function POST(request: NextRequest) {
         const priceAtTime = item.price || (variant?.discount_price || variant?.price || product?.discount_price || product?.price || 0);
         const productName = item.product_name || product?.product_name || '';
         const variantName = item.variant_name || (variant ? JSON.stringify(variant.attributes) : null);
-        const variantAttributes = variant ? variant.attributes : null;
+        const variantAttributes = variant 
+          ? (typeof variant.attributes === 'string' ? variant.attributes : JSON.stringify(variant.attributes))
+          : null;
         
         return {
           ...item,
@@ -292,7 +302,7 @@ export async function POST(request: NextRequest) {
             });
           }
           
-          console.log('✅ Emails sent successfully for order:', orderNumber);
+          
         } catch (emailError) {
           console.error('❌ Email sending failed for order:', orderNumber, emailError);
         }

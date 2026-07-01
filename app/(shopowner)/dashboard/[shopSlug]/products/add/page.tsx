@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
-import { 
-  CheckCircle, 
-  Circle, 
+import {
+  CheckCircle,
+  Circle,
   ArrowLeft,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 import BasicInfoForm from "./components/basicInfoForm";
 import PricingForm from "./components/pricingForm";
@@ -108,16 +108,18 @@ export default function AddProductPage() {
 
   // ✅ Check for failed images without causing re-renders
   useEffect(() => {
-    const failed = formData.images.some(img => img.status === "failed");
+    const failed = formData.images.some((img) => img.status === "failed");
     setHasFailedImages(failed);
   }, [formData.images]);
 
   useEffect(() => {
     if (isAutoNavigating) {
-      const formContainer = document.querySelector('.bg-white.rounded-lg.border');
+      const formContainer = document.querySelector(
+        ".bg-white.rounded-lg.border",
+      );
       if (formContainer) {
         setTimeout(() => {
-          formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          formContainer.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 300);
       }
       setIsAutoNavigating(false);
@@ -125,22 +127,31 @@ export default function AddProductPage() {
   }, [activeIndex, isAutoNavigating]);
 
   // ✅ Stable callback - only updates when images actually change
-  const handleImagesChange = useCallback((newImages: ProductImage[]) => {
-    setFormData((prev) => {
-      // Deep compare by creating a stable key
-      const prevKey = prev.images.map((img: any) => 
-        `${img.id}-${img.status}-${img.isPrimary}-${img.serverId || ''}`
-      ).join('|');
-      
-      const newKey = newImages.map((img) => 
-        `${img.id}-${img.status}-${img.isPrimary}-${img.serverId || ''}`
-      ).join('|');
-      
-      if (prevKey === newKey) return prev;
-      
-      return { ...prev, images: newImages as any };
-    });
-  }, [setFormData]);
+  const handleImagesChange = useCallback(
+    (newImages: ProductImage[]) => {
+      setFormData((prev) => {
+        // Deep compare by creating a stable key
+        const prevKey = prev.images
+          .map(
+            (img: any) =>
+              `${img.id}-${img.status}-${img.isPrimary}-${img.serverId || ""}`,
+          )
+          .join("|");
+
+        const newKey = newImages
+          .map(
+            (img) =>
+              `${img.id}-${img.status}-${img.isPrimary}-${img.serverId || ""}`,
+          )
+          .join("|");
+
+        if (prevKey === newKey) return prev;
+
+        return { ...prev, images: newImages as any };
+      });
+    },
+    [setFormData],
+  );
 
   const handleSaveProduct = async () => {
     if (isSaving) return;
@@ -154,7 +165,9 @@ export default function AddProductPage() {
           isOpen: true,
           type: "error",
           title: "Error",
-          message: result.error || "Failed to create product. Please check your inputs.",
+          message:
+            result.error ||
+            "Failed to create product. Please check your inputs.",
         });
         setIsSaving(false);
         return;
@@ -169,7 +182,10 @@ export default function AddProductPage() {
             method: "DELETE",
           });
         } catch (deleteError) {
-          console.error("Failed to delete product after primary image failure:", deleteError);
+          console.error(
+            "Failed to delete product after primary image failure:",
+            deleteError,
+          );
         }
 
         imagesRef.current?.clearFailedPrimary();
@@ -185,8 +201,10 @@ export default function AddProductPage() {
 
         setActiveIndex(2);
         setIsAutoNavigating(true);
-        showError("Primary image upload failed. Please remove and re-add the primary image.");
-        
+        showError(
+          "Primary image upload failed. Please remove and re-add the primary image.",
+        );
+
         setIsSaving(false);
         return;
       }
@@ -194,8 +212,10 @@ export default function AddProductPage() {
       if (uploadResult.failedCount > 0) {
         setActiveIndex(2);
         setIsAutoNavigating(true);
-        showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
-        
+        showError(
+          `${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`,
+        );
+
         setIsSaving(false);
         return;
       }
@@ -217,7 +237,10 @@ export default function AddProductPage() {
         isOpen: true,
         type: "error",
         title: "Error",
-        message: err instanceof Error ? err.message : "An unexpected error occurred. Please try again.",
+        message:
+          err instanceof Error
+            ? err.message
+            : "An unexpected error occurred. Please try again.",
       });
     } finally {
       setIsSaving(false);
@@ -226,10 +249,12 @@ export default function AddProductPage() {
 
   const handlePublishProduct = async () => {
     if (isSaving) return;
-    
-    const isUploading = formData.images.some(img => img.status === "uploading");
+
+    const isUploading = formData.images.some(
+      (img) => img.status === "uploading",
+    );
     if (isUploading) return;
-    
+
     setIsSaving(true);
 
     try {
@@ -238,7 +263,10 @@ export default function AddProductPage() {
       if (!result.success && result.errorStep !== undefined) {
         setActiveIndex(result.errorStep);
         setIsAutoNavigating(true);
-        const errorMessage = result.errorSummary || result.error || "Please complete required fields";
+        const errorMessage =
+          result.errorSummary ||
+          result.error ||
+          "Please complete required fields";
         showError(errorMessage);
         setIsSaving(false);
         return;
@@ -249,7 +277,9 @@ export default function AddProductPage() {
           isOpen: true,
           type: "error",
           title: "Publish Failed",
-          message: result.error || "Failed to publish product. Please check your inputs.",
+          message:
+            result.error ||
+            "Failed to publish product. Please check your inputs.",
         });
         setIsSaving(false);
         return;
@@ -264,7 +294,10 @@ export default function AddProductPage() {
             method: "DELETE",
           });
         } catch (deleteError) {
-          console.error("Failed to delete product after primary image failure:", deleteError);
+          console.error(
+            "Failed to delete product after primary image failure:",
+            deleteError,
+          );
         }
 
         imagesRef.current?.clearFailedPrimary();
@@ -280,8 +313,10 @@ export default function AddProductPage() {
 
         setActiveIndex(2);
         setIsAutoNavigating(true);
-        showError("Primary image upload failed. Please remove and re-add the primary image.");
-        
+        showError(
+          "Primary image upload failed. Please remove and re-add the primary image.",
+        );
+
         setIsSaving(false);
         return;
       }
@@ -289,8 +324,10 @@ export default function AddProductPage() {
       if (uploadResult.failedCount > 0) {
         setActiveIndex(2);
         setIsAutoNavigating(true);
-        showError(`${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`);
-        
+        showError(
+          `${uploadResult.failedCount} image(s) failed to upload. Please remove the failed images and re-add them.`,
+        );
+
         setIsSaving(false);
         return;
       }
@@ -312,7 +349,10 @@ export default function AddProductPage() {
         isOpen: true,
         type: "error",
         title: "Error",
-        message: err instanceof Error ? err.message : "An unexpected error occurred. Please try again.",
+        message:
+          err instanceof Error
+            ? err.message
+            : "An unexpected error occurred. Please try again.",
       });
     } finally {
       setIsSaving(false);
@@ -322,7 +362,7 @@ export default function AddProductPage() {
   const renderComponent = () => {
     return (
       <>
-        <div style={{ display: activeIndex === 0 ? 'block' : 'none' }}>
+        <div style={{ display: activeIndex === 0 ? "block" : "none" }}>
           <BasicInfoForm
             formData={formData}
             setFormData={setFormData}
@@ -331,7 +371,7 @@ export default function AddProductPage() {
             errors={errors}
           />
         </div>
-        <div style={{ display: activeIndex === 1 ? 'block' : 'none' }}>
+        <div style={{ display: activeIndex === 1 ? "block" : "none" }}>
           <PricingForm
             formData={formData}
             setFormData={setFormData}
@@ -344,7 +384,7 @@ export default function AddProductPage() {
             errors={errors}
           />
         </div>
-        <div style={{ display: activeIndex === 2 ? 'block' : 'none' }}>
+        <div style={{ display: activeIndex === 2 ? "block" : "none" }}>
           <ImagesForm
             key={imagesFormKey}
             ref={imagesRef}
@@ -354,10 +394,12 @@ export default function AddProductPage() {
             onSuccess={showSuccess}
           />
         </div>
-        <div style={{ display: activeIndex === 3 ? 'block' : 'none' }}>
+        <div style={{ display: activeIndex === 3 ? "block" : "none" }}>
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Categories</h2>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Categories
+              </h2>
               <p className="text-sm text-gray-500 mt-1">
                 Group your product into categories for better discoverability
               </p>
@@ -372,7 +414,10 @@ export default function AddProductPage() {
                       key={cat.id}
                       className="bg-orange-50 border border-orange-200 text-gray-700 px-3 py-1.5 rounded-full flex items-center gap-2 text-sm"
                     >
-                      <Icon icon="mdi:tag" className="w-3 h-3 text-orange-500" />
+                      <Icon
+                        icon="mdi:tag"
+                        className="w-3 h-3 text-orange-500"
+                      />
                       <span>{cat.name}</span>
                       <button
                         onClick={() => removeCategory(cat.id)}
@@ -394,7 +439,9 @@ export default function AddProductPage() {
                 <div className="flex-1">
                   <select
                     value={selectedCategoryId}
-                    onChange={(e) => setSelectedCategoryId(Number(e.target.value) || "")}
+                    onChange={(e) =>
+                      setSelectedCategoryId(Number(e.target.value) || "")
+                    }
                     className="w-full px-4 py-3 border rounded-xl transition-all duration-200 font-[Poppins] text-gray-800 placeholder-gray-400 bg-white border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none"
                   >
                     <option value="">Select a category to add</option>
@@ -447,7 +494,7 @@ export default function AddProductPage() {
             </div>
           </div>
         </div>
-        <div style={{ display: activeIndex === 4 ? 'block' : 'none' }}>
+        <div style={{ display: activeIndex === 4 ? "block" : "none" }}>
           <ReviewStep
             formData={formData}
             completion={completion}
@@ -474,44 +521,45 @@ export default function AddProductPage() {
 
   const getErrorStep = (): number | null => {
     if (!errors || Object.keys(errors).length === 0) return null;
-    
-    const basicInfoKeys = ['productName', 'productSlug', 'attr.'];
-    const pricingKeys = ['price', 'discountPrice', 'variant_', 'variants'];
-    const imageKeys = ['images'];
-    
+
+    const basicInfoKeys = ["productName", "productSlug", "attr."];
+    const pricingKeys = ["price", "discountPrice", "variant_", "variants"];
+    const imageKeys = ["images"];
+
     const errorKeys = Object.keys(errors);
-    
-    if (errorKeys.some(key => basicInfoKeys.some(k => key.includes(k)))) {
+
+    if (errorKeys.some((key) => basicInfoKeys.some((k) => key.includes(k)))) {
       return 0;
     }
-    if (errorKeys.some(key => pricingKeys.some(k => key.includes(k)))) {
+    if (errorKeys.some((key) => pricingKeys.some((k) => key.includes(k)))) {
       return 1;
     }
-    if (errorKeys.some(key => imageKeys.some(k => key.includes(k)))) {
+    if (errorKeys.some((key) => imageKeys.some((k) => key.includes(k)))) {
       return 2;
     }
-    
+
     return 0;
   };
 
   const getStepStatus = (index: number) => {
-    const stepKeys = ['basicInfo', 'pricing', 'images', 'categories', 'review'];
-    const step = completion.steps[stepKeys[index] as keyof typeof completion.steps];
+    const stepKeys = ["basicInfo", "pricing", "images", "categories", "review"];
+    const step =
+      completion.steps[stepKeys[index] as keyof typeof completion.steps];
     const errorStep = getErrorStep();
-    
+
     const hasErrorsOnThisStep = errorStep === index;
-    
-    if (!step) return { status: 'incomplete', hasErrors: false };
+
+    if (!step) return { status: "incomplete", hasErrors: false };
     if (index === activeIndex) {
-      return { status: 'active', hasErrors: hasErrorsOnThisStep };
+      return { status: "active", hasErrors: hasErrorsOnThisStep };
     }
     if (step.completed && !hasErrorsOnThisStep) {
-      return { status: 'completed', hasErrors: false };
+      return { status: "completed", hasErrors: false };
     }
     if (hasErrorsOnThisStep) {
-      return { status: 'error', hasErrors: true };
+      return { status: "error", hasErrors: true };
     }
-    return { status: 'incomplete', hasErrors: false };
+    return { status: "incomplete", hasErrors: false };
   };
 
   return (
@@ -535,10 +583,15 @@ export default function AddProductPage() {
           </Link>
 
           <div className="mt-4">
-            <h1 className="text-2xl font-semibold text-black">Add New Product</h1>
+            <h1 className="text-2xl font-semibold text-black">
+              Add New Product
+            </h1>
             <p className="text-sm text-gray-500 mt-1">
-              Shop: <span className="font-medium text-black">{shopSlug}</span> • 
-              Type: <span className="font-medium text-black">{shopType || "Loading..."}</span>
+              Shop: <span className="font-medium text-black">{shopSlug}</span> •
+              Type:{" "}
+              <span className="font-medium text-black">
+                {shopType || "Loading..."}
+              </span>
             </p>
           </div>
         </div>
@@ -551,7 +604,8 @@ export default function AddProductPage() {
                 Some images failed to upload
               </p>
               <p className="text-sm text-red-600 mt-1">
-                Please go to the Images step, remove the failed images, and re-add them.
+                Please go to the Images step, remove the failed images, and
+                re-add them.
               </p>
               <button
                 onClick={() => setActiveIndex(2)}
@@ -565,8 +619,12 @@ export default function AddProductPage() {
 
         <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Setup Progress</span>
-            <span className="text-sm font-bold text-orange-600">{completion.percentage}%</span>
+            <span className="text-sm font-medium text-gray-700">
+              Setup Progress
+            </span>
+            <span className="text-sm font-bold text-orange-600">
+              {completion.percentage}%
+            </span>
           </div>
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
@@ -575,7 +633,10 @@ export default function AddProductPage() {
             />
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-            <span>{completion.completedSteps} of {completion.totalSteps} steps complete</span>
+            <span>
+              {completion.completedSteps} of {completion.totalSteps} steps
+              complete
+            </span>
             {completion.canPublish && !hasFailedImages && (
               <span className="inline-flex items-center gap-1 text-green-600">
                 <CheckCircle className="w-3 h-3" />
@@ -596,19 +657,21 @@ export default function AddProductPage() {
           <div className="lg:w-64 flex-shrink-0">
             <div className="bg-black rounded-lg shadow-sm sticky top-6 overflow-hidden">
               <div className="p-4 border-b border-gray-800">
-                <h2 className="text-white font-semibold text-sm uppercase tracking-wider">Steps</h2>
+                <h2 className="text-white font-semibold text-sm uppercase tracking-wider">
+                  Steps
+                </h2>
               </div>
               <nav className="p-2 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
                 {sections.map((section, index) => {
                   const { status, hasErrors } = getStepStatus(index);
                   const isActive = index === activeIndex;
-                  
+
                   let icon;
-                  if (hasErrors && status !== 'active') {
+                  if (hasErrors && status !== "active") {
                     icon = <AlertCircle className="w-4 h-4 text-red-400" />;
-                  } else if (status === 'completed') {
+                  } else if (status === "completed") {
                     icon = <CheckCircle className="w-4 h-4 text-green-400" />;
-                  } else if (status === 'active') {
+                  } else if (status === "active") {
                     icon = <Circle className="w-4 h-4 text-orange-400" />;
                   } else {
                     icon = <Circle className="w-4 h-4 text-gray-600" />;
@@ -620,21 +683,21 @@ export default function AddProductPage() {
                       onClick={() => handleTabClick(index)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                         isActive
-                          ? 'bg-orange-500/10 text-orange-400'
-                          : hasErrors && status !== 'active'
-                          ? 'text-red-400 hover:bg-red-900/10'
-                          : status === 'completed'
-                          ? 'text-gray-300 hover:bg-gray-800'
-                          : 'text-gray-500 hover:bg-gray-800'
+                          ? "bg-orange-500/10 text-orange-400"
+                          : hasErrors && status !== "active"
+                            ? "text-red-400 hover:bg-red-900/10"
+                            : status === "completed"
+                              ? "text-gray-100 hover:bg-gray-800"
+                              : "text-gray-100 hover:bg-gray-800"
                       }`}
                     >
                       <span className="flex-shrink-0">{icon}</span>
                       <span className="flex-1 text-left font-medium">
                         {section}
-                        {status === 'completed' && (
+                        {status === "completed" && (
                           <span className="ml-2 text-green-400">✓</span>
                         )}
-                        {hasErrors && status !== 'active' && (
+                        {hasErrors && status !== "active" && (
                           <span className="ml-2 text-red-400 text-xs">!</span>
                         )}
                       </span>
@@ -645,11 +708,13 @@ export default function AddProductPage() {
                   );
                 })}
               </nav>
-              
+
               <div className="p-4 border-t border-gray-800 mt-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-gray-400">Complete</span>
-                  <span className="text-white font-medium">{completion.percentage}%</span>
+                  <span className="text-white font-medium">
+                    {completion.percentage}%
+                  </span>
                 </div>
                 <div className="w-full h-1 bg-gray-800 rounded-full mt-1 overflow-hidden">
                   <div
@@ -693,7 +758,10 @@ export default function AddProductPage() {
                 >
                   {isSaving ? (
                     <>
-                      <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
+                      <Icon
+                        icon="mdi:loading"
+                        className="animate-spin w-4 h-4"
+                      />
                       Saving...
                     </>
                   ) : hasFailedImages ? (
@@ -716,7 +784,10 @@ export default function AddProductPage() {
                 >
                   {loading || isSaving ? (
                     <>
-                      <Icon icon="mdi:loading" className="animate-spin w-4 h-4" />
+                      <Icon
+                        icon="mdi:loading"
+                        className="animate-spin w-4 h-4"
+                      />
                       Saving...
                     </>
                   ) : (

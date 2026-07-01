@@ -102,7 +102,6 @@ export function useProductUpdate() {
     if (isInitialFetchRef.current) return;
     isInitialFetchRef.current = true;
 
-    console.log('📦 fetchProduct started');
     setIsLoadingProduct(true);
     try {
       const productRes = await fetch(`/api/shopowner/products/${productId}`);
@@ -129,30 +128,27 @@ export function useProductUpdate() {
         selectedAttrs = Array.from(attrKeys);
       }
 
-      setFormData((prev) => {
-        console.log('📦 fetchProduct - prev.images length:', prev.images.length);
-        return {
-          productName: productData.product_name || "",
-          productSlug: productData.product_slug || "",
-          description: productData.description || "",
-          productType: productType,
-          status: productData.status || 'draft',
-          price: productType === 'variable' ? "0" : (productData.price?.toString() || ""),
-          discountPrice: productType === 'variable' ? "" : (productData.discount_price?.toString() || ""),
-          stockQuantity: productType === 'variable' ? 0 : (productData.stock_quantity || 1),
-          inStock: productType === 'variable' ? true : (productData.stock_quantity > 0),
-          attributes: attributes,
-          variants: variants.map((v: any) => ({
-            attributes: v.attributes || {},
-            price: v.price?.toString() || "0",
-            discountPrice: v.discount_price?.toString() || "",
-            stockQuantity: v.stock_quantity || 1,
-            inStock: v.stock_quantity > 0,
-          })),
-          images: prev.images,
-          categoryIds: categoryData.map((c: { category_id: number }) => c.category_id)
-        };
-      });
+      setFormData((prev) => ({
+        productName: productData.product_name || "",
+        productSlug: productData.product_slug || "",
+        description: productData.description || "",
+        productType: productType,
+        status: productData.status || 'draft',
+        price: productType === 'variable' ? "0" : (productData.price?.toString() || ""),
+        discountPrice: productType === 'variable' ? "" : (productData.discount_price?.toString() || ""),
+        stockQuantity: productType === 'variable' ? 0 : (productData.stock_quantity || 1),
+        inStock: productType === 'variable' ? true : (productData.stock_quantity > 0),
+        attributes: attributes,
+        variants: variants.map((v: any) => ({
+          attributes: v.attributes || {},
+          price: v.price?.toString() || "0",
+          discountPrice: v.discount_price?.toString() || "",
+          stockQuantity: v.stock_quantity || 1,
+          inStock: v.stock_quantity > 0,
+        })),
+        images: prev.images,
+        categoryIds: categoryData.map((c: { category_id: number }) => c.category_id)
+      }));
 
       if (selectedAttrs.length > 0) {
         setSelectedVariantAttrs(selectedAttrs);
@@ -172,7 +168,6 @@ export function useProductUpdate() {
   }, [productId]);
 
   const markImagesLoaded = useCallback(() => {
-    console.log('🏷️ markImagesLoaded called');
     imagesLoadedRef.current = true;
   }, []);
 
@@ -249,12 +244,8 @@ export function useProductUpdate() {
     return Object.keys(stepErrors).length === 0;
   };
 
-  // ✅ FIX: Filter out deleted images for completion calculation
   const calculateCompletion = () => {
     const visibleImages = formData.images.filter(img => img.status !== "deleted");
-    
-    console.log('📊 calculateCompletion - images length:', visibleImages.length);
-    console.log('📊 calculateCompletion - visible images:', visibleImages.map(i => ({ id: i.id, isPrimary: i.isPrimary, status: i.status })));
     
     const stepDetails = {
       basicInfo: { completed: false, items: [] as string[] },
@@ -439,18 +430,6 @@ export function useProductUpdate() {
   };
 
   const handleSubmit = async (overrideStatus?: 'draft' | 'published'): Promise<{ success: boolean; productId?: number; error?: string; fieldErrors?: Record<string, string>; errorStep?: number }> => {
-    console.log('🔄 handleSubmit called with overrideStatus:', overrideStatus);
-    console.log('🔄 Current formData:', {
-      productName: formData.productName,
-      productSlug: formData.productSlug,
-      productType: formData.productType,
-      status: formData.status,
-      price: formData.price,
-      images: formData.images.length,
-      variants: formData.variants.length,
-      categoryIds: formData.categoryIds
-    });
-
     let finalProductType = formData.productType;
     let finalPrice = formData.price;
     let finalDiscountPrice = formData.discountPrice;
@@ -462,7 +441,6 @@ export function useProductUpdate() {
     }));
 
     if (formData.productType === "variable" && formData.variants.length === 1) {
-      console.log('🔄 Converting single variant to simple product');
       const singleVariant = finalVariants[0];
       finalProductType = "simple";
       finalPrice = singleVariant.price;
@@ -484,20 +462,6 @@ export function useProductUpdate() {
       attributes: finalAttributes,
       variants: finalVariants,
     };
-
-    console.log('🔄 Final payload being sent:', {
-      productName: tempFormData.productName,
-      productSlug: tempFormData.productSlug,
-      productType: finalProductType,
-      status: tempFormData.status,
-      price: finalPrice,
-      discountPrice: finalDiscountPrice,
-      stockQuantity: finalStockQuantity,
-      attributesCount: Object.keys(finalAttributes).length,
-      variantsCount: finalVariants.length,
-      imagesCount: tempFormData.images.length,
-      categoryIds: tempFormData.categoryIds
-    });
 
     const fieldErrors: Record<string, string> = {};
     let errorStep = -1;
@@ -551,7 +515,6 @@ export function useProductUpdate() {
         }
       }
 
-      // ✅ FIX: Filter out deleted images before validating
       const visibleImages = tempFormData.images.filter(img => img.status !== "deleted");
       
       if (visibleImages.length === 0) {
@@ -579,8 +542,6 @@ export function useProductUpdate() {
     setLoading(true);
     try {
       const statusToSend = overrideStatus || tempFormData.status || 'draft';
-      console.log('🔄 Sending PUT request to:', `/api/shopowner/products/${productId}`);
-      console.log('🔄 Status to send:', statusToSend);
 
       const payload = {
         productName: tempFormData.productName,
@@ -595,17 +556,13 @@ export function useProductUpdate() {
         variants: finalProductType === "variable" ? finalVariants : [],
       };
 
-      console.log('🔄 Payload being sent to API:', JSON.stringify(payload, null, 2));
-
       const productRes = await fetch(`/api/shopowner/products/${productId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       
-      console.log('🔄 API Response status:', productRes.status);
       const productData = await productRes.json();
-      console.log('🔄 API Response data:', productData);
 
       if (!productRes.ok) {
         let errorMessage = productData.error || "Failed to update product";
@@ -631,12 +588,8 @@ export function useProductUpdate() {
       }
 
       const updatedProductId = productData.product_id;
-      console.log('🔄 Product updated successfully, ID:', updatedProductId);
 
-      // ✅ GRACEFUL CATEGORY HANDLING - Don't let it block the update
       if (tempFormData.categoryIds.length > 0) {
-        console.log('🔄 Linking categories:', tempFormData.categoryIds);
-        
         try {
           const categoryResults = await Promise.allSettled(
             tempFormData.categoryIds.map(async (categoryId: number) => {
@@ -650,7 +603,6 @@ export function useProductUpdate() {
               );
               
               if (catRes.status === 409) {
-                console.log(`📸 Category ${categoryId} already linked (skipping)`);
                 return { success: true, categoryId, alreadyExists: true };
               }
               
@@ -665,22 +617,17 @@ export function useProductUpdate() {
 
           const failedCategories = categoryResults.filter(r => r.status === 'rejected');
           if (failedCategories.length > 0) {
-            console.warn('⚠️ Some categories failed to link:', failedCategories);
+            console.warn('Some categories failed to link:', failedCategories);
             showWarning(`Warning: ${failedCategories.length} category(ies) could not be linked.`, 'error');
-          } else {
-            console.log('✅ All categories linked successfully');
           }
         } catch (catError) {
-          console.warn('⚠️ Category linking failed (non-critical):', catError);
+          console.warn('Category linking failed (non-critical):', catError);
           showWarning('Warning: Some categories could not be linked, but product was updated.', 'error');
         }
-      } else {
-        console.log('📸 No categories to link');
       }
 
       if (overrideStatus === 'published') {
         setFormData((prev) => ({ ...prev, status: 'published' }));
-        console.log('🔄 Product status updated to published');
       }
 
       return { success: true, productId: updatedProductId };

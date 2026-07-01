@@ -1,4 +1,5 @@
 // app/(shop)/[shopSlug]/[productSlug]/components/relatedProducts.tsx
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -69,6 +70,7 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
   const normalizedProducts: Product[] = products.map(product => {
     const stockQuantity = product.stock_quantity ?? 0;
     const productType = product.product_type || 'simple';
+    const finalPrice = product.discount_price ?? product.price;
     
     return {
       product_id: product.product_id,
@@ -88,10 +90,14 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
       images: [],
       variants: [],
       display_price: {
-        min: product.discount_price || product.price,
-        max: product.discount_price || product.price,
-        formatted: `${product.discount_price || product.price}`,
-        isRange: false
+        min: finalPrice,
+        max: finalPrice,
+        formatted: `${finalPrice}`,
+        isRange: false,
+        original_min: product.price,
+        original_max: product.price,
+        original_formatted: `${product.price}`,
+        hasDiscount: product.discount_price !== null && product.discount_price < product.price
       },
       stock_info: {
         type: 'simple',

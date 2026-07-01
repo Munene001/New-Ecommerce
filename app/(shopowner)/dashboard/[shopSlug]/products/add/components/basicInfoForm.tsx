@@ -131,8 +131,15 @@ export default function BasicInfoForm({
     return "text";
   };
 
-  // ✅ Separate required and optional attributes (filter out variant attributes)
-  const productAttributes = attributeSchema.filter((f) => f.variant !== true);
+  // ✅ Filter out variant attributes AND excluded fields (case-insensitive, handles variations)
+  const excludedFieldNames = ["warranty", "warrantyprovider", "dimensions"];
+
+  const productAttributes = attributeSchema.filter((f) => {
+    if (f.variant === true) return false;
+    const fieldName = f.name.toLowerCase().replace(/_/g, "");
+    return !excludedFieldNames.some((excluded) => fieldName.includes(excluded));
+  });
+
   const requiredAttributes = productAttributes.filter((f) => f.required);
   const optionalAttributes = productAttributes.filter((f) => !f.required);
   const hasRequiredAttributes = requiredAttributes.length > 0;
@@ -193,7 +200,7 @@ export default function BasicInfoForm({
         <h3 className="text-md font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Icon icon="mdi:asterisk-circle" className="w-5 h-5 text-orange-500" />
           Required Information
-          <span className="text-sm font-normal text-gray-400">
+          <span className="text-sm font-normal text-gray-800">
             (fields marked with <span className="text-orange-500">*</span>)
           </span>
         </h3>
@@ -255,12 +262,12 @@ export default function BasicInfoForm({
       </div>
 
       {/* ✅ Optional Section - includes Description and Optional Attributes */}
-      <div className="bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-300 p-6">
+      <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-md font-medium text-gray-600 flex items-center gap-2">
-            <Icon icon="mdi:tag-outline" className="w-5 h-5 text-gray-400" />
+          <h3 className="text-md font-medium text-black flex items-center gap-2">
+            <Icon icon="mdi:tag-outline" className="w-5 h-5 " />
             Optional Information
-            <span className="text-sm font-normal text-gray-400">
+            <span className="text-sm font-normal">
               (optional fields)
             </span>
           </h3>
@@ -268,7 +275,7 @@ export default function BasicInfoForm({
             Optional
           </span>
         </div>
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="text-sm text-gray-800 mb-4">
           These fields are not required but help provide more product details
         </p>
 
@@ -285,12 +292,12 @@ export default function BasicInfoForm({
               rows={4}
               className="border-gray-300 focus:border-orange-400 bg-white/80"
             />
-            <span className="absolute top-0 right-0 text-xs text-gray-400 bg-white/80 px-2 py-1 rounded border border-gray-200">
+            <span className="absolute top-0 right-0 text-xs text-gray-800 bg-white/80 px-2 py-1 rounded border border-gray-200">
               Optional
             </span>
           </div>
 
-          {/* Optional Attributes */}
+          {/* Optional Attributes - EXCLUDING warranty, warranty_provider, dimensions_cm */}
           {hasOptionalAttributes && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
               {optionalAttributes.map((field) => {
