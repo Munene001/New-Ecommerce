@@ -1,22 +1,24 @@
 'use client';
 
 import DashCard from "@/app/components/ui/dashCard";
-import { Package, Tag, Percent, CheckCircle } from "lucide-react";
+import { Package, Tag, Layers, CheckCircle, AlertCircle } from "lucide-react";
 
 interface StatsCardsProps {
   totalProducts: number;
   totalCategories: number;
-  totalDiscounted: number;
+  totalInventoryItems: number;
   totalInstock: number;
-  currentShown: number;
+  totalOutOfStock: number;
+  totalDrafts?: number;
 }
 
 export default function StatsCards({ 
   totalProducts, 
   totalCategories, 
-  totalDiscounted, 
+  totalInventoryItems,
   totalInstock,
-  
+  totalOutOfStock,
+  totalDrafts = 0,
 }: StatsCardsProps) {
   
   const statsData = [
@@ -24,25 +26,25 @@ export default function StatsCards({
       title: "Total Products", 
       value: totalProducts, 
       icon: Package, 
-      subtitle: `Showing ${totalProducts}`,
+      subtitle: `${totalDrafts} in draft`,
     },
     { 
       title: "Categories", 
       value: totalCategories, 
       icon: Tag, 
-      subtitle: `Showing ${totalCategories}`,
+      subtitle: `Available categories`,
     },
     { 
-      title: "Discounted Products", 
-      value: totalDiscounted, 
-      icon: Percent, 
-      subtitle: ` ${totalProducts - totalDiscounted} not discounted`,
+      title: "Inventory Items", 
+      value: totalInventoryItems, 
+      icon: Layers, 
+      subtitle: `Total variants + simple products`,
     },
     { 
       title: "In Stock", 
       value: totalInstock, 
       icon: CheckCircle, 
-      subtitle: `${totalProducts - totalInstock} out of stock`,
+      subtitle: `${totalOutOfStock} out of stock`,
     },
   ];
 

@@ -4,7 +4,7 @@ import { ShoppingCart, Minus, Plus, ShoppingBag, ShoppingBasket } from 'lucide-r
 import Button from '@/app/components/ui/button';
 import { useCart } from '@/context/shopCartContext';
 import { useShop } from "@/app/(shop)/ShopContext";
-import { useToast } from '@/context/toastContext';
+import { useToast } from '@/context/toastContext'; // Only ONE import
 
 interface Props {
   productId: number;
@@ -13,10 +13,12 @@ interface Props {
   discountPrice: number | null;
   secondaryColor: string;
   maxQuantity?: number;
-  in_stock: boolean; // ADD THIS
+  stockQuantity?: number;
+  hasVariants?: boolean;
+  onOpenVariantModal?: () => void;
+  in_stock?: boolean; // ADD THIS - optional
 }
 
-// Move CartIcon component outside of the main component
 interface CartIconProps {
   cartIcon?: string;
 }
@@ -39,23 +41,41 @@ export default function MobileProductBar({
   discountPrice,
   secondaryColor,
   maxQuantity = 99,
-  in_stock // ADD THIS
+  stockQuantity = 99,
+  hasVariants = false,
+  onOpenVariantModal,
+  in_stock = true, // Default to true if not provided
 }: Props) {
   const { items, addToCart, updateQuantity } = useCart();
-  const { showToast } = useToast(); // ADD THIS
-  const cartItem = items.find(i => i.product_id === productId);
-  const displayQuantity = cartItem ? cartItem.quantity : 1;
+  const { showToast } = useToast();
   const { shop } = useShop();
 
+  const cartItem = items.find(i => i.product_id === productId);
+  const displayQuantity = cartItem ? cartItem.quantity : 1;
+
+  // Calculate remaining stock
+  const getRemainingStock = () => {
+    const cartQuantity = cartItem ? cartItem.quantity : 0;
+    const totalStock = stockQuantity || maxQuantity;
+    const remaining = totalStock - cartQuantity;
+    return remaining > 0 ? remaining : 0;
+  };
+
+  const remainingStock = getRemainingStock();
+
   const handleIncrement = () => {
-    // ADD THIS CHECK
-    if (!in_stock) {
-      showToast(`${productName} is out of stock`, 'error');
+    if (hasVariants && onOpenVariantModal) {
+      onOpenVariantModal();
       return;
     }
-
+    
+    if (!in_stock || remainingStock <= 0) {
+      showToast(`No more items available in stock`, "error");
+      return;
+    }
+    
     if (cartItem) {
-      if (cartItem.quantity < maxQuantity) {
+      if (cartItem.quantity < (stockQuantity || maxQuantity)) {
         updateQuantity(productId, cartItem.quantity + 1);
       }
     } else {
@@ -64,19 +84,36 @@ export default function MobileProductBar({
         product_name: productName,
         price,
         discount_price: discountPrice,
-        in_stock: in_stock, // ADD THIS
+        // Only include in_stock if it's explicitly provided
+        ...(in_stock !== undefined && { in_stock }),
       }, 1);
     }
   };
 
   const handleDecrement = () => {
+    if (hasVariants && onOpenVariantModal) {
+      onOpenVariantModal();
+      return;
+    }
+    
     if (cartItem) {
       if (cartItem.quantity > 1) {
         updateQuantity(productId, cartItem.quantity - 1);
       } else {
-        updateQuantity(productId, 0); // remove
+        updateQuantity(productId, 0);
       }
     }
+  };
+
+  const isButtonDisabled = () => {
+    if (hasVariants) return false;
+    return !in_stock || remainingStock <= 0;
+  };
+
+  const getButtonText = () => {
+    if (hasVariants) return 'Select Options';
+    if (!in_stock) return 'Out of Stock';
+    return cartItem ? 'Update Cart' : 'Add to Cart';
   };
 
   return (
@@ -85,7 +122,7 @@ export default function MobileProductBar({
         <button
           onClick={handleDecrement}
           className="px-3 py-2 hover:bg-gray-100"
-          disabled={!cartItem}
+          disabled={!cartItem && !hasVariants}
         >
           <Minus className="w-4 h-4" />
         </button>
@@ -93,21 +130,21 @@ export default function MobileProductBar({
         <button
           onClick={handleIncrement}
           className="px-3 py-2 hover:bg-gray-100"
-          disabled={cartItem && cartItem.quantity >= maxQuantity || !in_stock} // UPDATE THIS
+          disabled={hasVariants ? false : !in_stock || remainingStock <= 0}
         >
           <Plus className="w-4 h-4" />
         </button>
       </div>
       <Button
         onClick={handleIncrement}
-        className={`flex-1 flex flex-row gap-3 justify-center items-center text-white px-0 py-0 border-0 ${
-          !in_stock ? 'opacity-50 cursor-not-allowed' : ''
-        }`}
-        style={{ backgroundColor: secondaryColor }}
-        disabled={!in_stock} // ADD THIS
+        className="flex-1 flex flex-row gap-3 justify-center items-center text-white px-0 py-0 border-0"
+        style={{ 
+          backgroundColor: isButtonDisabled() ? '#9CA3AF' : secondaryColor,
+        }}
+        disabled={isButtonDisabled()}
       >
         <CartIcon cartIcon={shop?.cartIcon} />
-        {!in_stock ? 'Out of Stock' : cartItem ? 'Update Cart' : 'Add to Cart'} {/* UPDATE THIS */}
+        {getButtonText()}
       </Button>
     </div>
   );

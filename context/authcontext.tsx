@@ -34,13 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     // Prevent multiple simultaneous fetches
     if (fetchingProfile.current) {
-      console.log('⏳ Profile fetch already in progress, skipping...');
+      ('⏳ Profile fetch already in progress, skipping...');
       return;
     }
 
     fetchingProfile.current = true;
     try {
-      console.log('📡 Fetching profile for user:', userId);
+     
       const response = await fetch("/api/auth/user-info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Handle 401 gracefully - session expired
       if (response.status === 401) {
-        console.log('🔑 Session expired, clearing user');
+        ('🔑 Session expired, clearing user');
         setUser(null);
         setProfile(null);
         return;
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ Profile fetched:', data);
+      
         setProfile({
           fullName: data.fullName,
           phone:data.phone,
@@ -78,16 +78,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Get initial session
     const getSession = async () => {
-      console.log('🔐 Getting initial session...');
+      ('🔐 Getting initial session...');
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        console.log('✅ Session found for user:', session.user.id);
+        
         setUser(session.user);
         // Fetch profile after setting user
         await fetchUserProfile(session.user.id);
       } else {
-        console.log('❌ No session found');
+        ('❌ No session found');
         setUser(null);
       }
       
@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        console.log('🔄 Auth state changed:', _event, session?.user?.id);
+        
         setUser(session?.user ?? null);
         
         if (session?.user) {

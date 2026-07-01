@@ -35,10 +35,8 @@ export default function CheckoutPage() {
   const [mpesaEnabled, setMpesaEnabled] = useState(false);
   const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
 
-  // Flag to prevent redirect after order is placed
   const orderPlacedRef = useRef(false);
 
-  // Track checkout page view (when customer arrives)
   useEffect(() => {
     if (shop?.shopId && !hasTrackedPageView && items.length > 0) {
       trackEvent('checkout_page_view');
@@ -46,7 +44,6 @@ export default function CheckoutPage() {
     }
   }, [shop?.shopId, items.length, hasTrackedPageView, trackEvent]);
 
-  // Fetch payment settings
   useEffect(() => {
     const fetchPaymentSettings = async () => {
       if (!shop?.shopId) return;
@@ -75,7 +72,6 @@ export default function CheckoutPage() {
     fetchPaymentSettings();
   }, [shop?.shopId]);
 
-  // Pre-fill form for logged-in users
   useEffect(() => {
     if (!authLoading && isAuthenticated && profile) {
       setFormData({
@@ -89,7 +85,6 @@ export default function CheckoutPage() {
     }
   }, [authLoading, isAuthenticated, profile, user]);
 
-  // Redirect if cart is empty - BUT NOT if order was just placed
   useEffect(() => {
     if (!orderPlacedRef.current && !authLoading && items.length === 0) {
       router.push(`/${shop?.shopSlug}`);
@@ -104,17 +99,14 @@ export default function CheckoutPage() {
     if (
       !formData.fullName ||
       !formData.email ||
-      !formData.phone ||
-      !formData.city ||
-      !formData.address
+      !formData.phone
     ) {
-      showToast("Please fill in all required fields", "error");
+      showToast("Please fill in all required fields (Name, Email, Phone)", "error");
       return;
     }
 
     setIsSubmitting(true);
 
-    // Track order placed
     trackEvent('order_placed');
 
     try {
@@ -123,14 +115,18 @@ export default function CheckoutPage() {
         customer_name: formData.fullName,
         customer_email: formData.email,
         customer_phone: formData.phone,
-        customer_city: formData.city,
-        customer_address: formData.address,
+        customer_city: formData.city || null,
+        customer_address: formData.address || null,
         special_instructions: formData.specialInstructions || undefined,
         payment_method: paymentMethod === "cod" ? "cash_on_delivery" : "mpesa",
         subtotal: subtotal,
         items: items.map((item) => ({
           product_id: item.product_id,
+          variant_id: item.variant_id || null,
           quantity: item.quantity,
+          price: item.discount_price || item.price,
+          product_name: item.product_name,
+          variant_name: item.variant_name || null,
         })),
       };
 

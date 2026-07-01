@@ -15,7 +15,7 @@ import { CartProvider } from "@/context/shopCartContext";
 import { RecentlyViewedProvider } from "@/context/recentlyViewed";
 import FloatingWhatsApp from "@/app/components/layout/floatingWhatsapp";
 
-type SortOption = "newest" | "oldest" | "price_low" | "price_high";
+type SortOption = "newest" | "oldest" | "price_low" | "price_high" | "random";
 
 // Removed unused PriceRange interface
 
@@ -127,7 +127,7 @@ export default function ShopLayoutClient({
     minPrice && maxPrice
       ? { min: Number(minPrice), max: Number(maxPrice) }
       : null;
-  const initialSortBy = (searchParams.get("sortBy") as SortOption) || "newest";
+  const initialSortBy = (searchParams.get("sortBy") as SortOption) || "random";
   const initialInStock = searchParams.get("inStock") === "true";
 
   // Check if banner was shown today

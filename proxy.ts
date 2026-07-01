@@ -30,9 +30,9 @@ getValidShopSlugs();
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-
-
+  // Exclude auth routes, static files, and API from shop subdomain rewrite
   if (
+    pathname.startsWith('/auth') ||
     pathname.startsWith('/_next/static') ||
     pathname.startsWith('/_next/image') ||
     pathname === '/favicon.ico'

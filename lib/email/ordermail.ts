@@ -4,26 +4,52 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://paziatech.co.ke'}/logo.png`;
 
-// EMAIL 1: To BUYER
-export async function sendBuyerOrderEmail(orderData: {
+interface OrderItem {
+  product_name: string;
+  variant_name?: string | null;
+  quantity: number;
+  price_at_time: number;
+}
+
+interface BuyerOrderData {
   to: string;
   customer_name: string;
   order_number: string;
-  items: Array<{
-    product_name: string;
-    quantity: number;
-    price_at_time: number;
-  }>;
+  items: OrderItem[];
   subtotal: number;
   seller_name: string;
   seller_email: string;
   seller_phone: string;
-}) {
+}
+
+interface SellerOrderData {
+  to: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  customer_address: string;
+  order_number: string;
+  items: OrderItem[];
+  subtotal: number;
+  special_instructions?: string;
+  payment_method: string;
+}
+
+const formatItemName = (item: OrderItem): string => {
+  if (item.variant_name) {
+    return `${item.product_name} (${item.variant_name})`;
+  }
+  return item.product_name;
+};
+
+export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
   const { to, customer_name, order_number, items, subtotal, seller_name, seller_email, seller_phone } = orderData;
 
   const itemsHtml = items.map(item => `
     <tr style="border-bottom: 1px solid #e5e7eb;">
-      <td style="padding: 12px 8px; color: #374151;">${item.product_name}</td>
+      <td style="padding: 12px 8px; color: #374151;">
+        ${formatItemName(item)}
+      </td>
       <td style="padding: 12px 8px; text-align: center; color: #374151;">${item.quantity}</td>
       <td style="padding: 12px 8px; text-align: right; color: #374151;">KSh ${item.price_at_time.toLocaleString()}</td>
       <td style="padding: 12px 8px; text-align: right; color: #111827; font-weight: 600;">KSh ${(item.price_at_time * item.quantity).toLocaleString()}</td>
@@ -93,28 +119,14 @@ export async function sendBuyerOrderEmail(orderData: {
   });
 }
 
-// EMAIL 2: To SELLER
-export async function sendSellerOrderEmail(orderData: {
-  to: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  customer_address: string;
-  order_number: string;
-  items: Array<{
-    product_name: string;
-    quantity: number;
-    price_at_time: number;
-  }>;
-  subtotal: number;
-  special_instructions?: string;
-  payment_method: string;
-}) {
+export async function sendSellerOrderEmail(orderData: SellerOrderData) {
   const { to, customer_name, customer_email, customer_phone, customer_address, order_number, items, subtotal, special_instructions, payment_method } = orderData;
 
   const itemsHtml = items.map(item => `
     <tr style="border-bottom: 1px solid #e5e7eb;">
-      <td style="padding: 12px 8px; color: #374151;">${item.product_name}</td>
+      <td style="padding: 12px 8px; color: #374151;">
+        ${formatItemName(item)}
+      </td>
       <td style="padding: 12px 8px; text-align: center; color: #374151;">${item.quantity}</td>
       <td style="padding: 12px 8px; text-align: right; color: #374151;">KSh ${item.price_at_time.toLocaleString()}</td>
       <td style="padding: 12px 8px; text-align: right; color: #111827; font-weight: 600;">KSh ${(item.price_at_time * item.quantity).toLocaleString()}</td>
