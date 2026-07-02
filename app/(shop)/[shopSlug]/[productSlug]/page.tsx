@@ -1,5 +1,3 @@
-// app/(shop)/[shopSlug]/[productSlug]/page.tsx
-
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
@@ -61,6 +59,7 @@ interface RelatedProduct {
   discount_price: number | null;
   stock_quantity: number;
   product_type: 'simple' | 'variable';
+  effective_stock: number;
 }
 
 export async function generateMetadata({
@@ -450,7 +449,19 @@ export default async function ProductPage({ params }: PageProps) {
   if (categoryIds.length > 0) {
     const placeholders = categoryIds.map(() => "?").join(",");
     const [relatedRows] = await pool.query(
-      `SELECT DISTINCT p.product_id, p.product_name, p.product_slug, p.price, p.discount_price, p.stock_quantity, p.product_type
+      `SELECT DISTINCT 
+          p.product_id, 
+          p.product_name, 
+          p.product_slug, 
+          p.price, 
+          p.discount_price, 
+          p.stock_quantity, 
+          p.product_type,
+          CASE 
+            WHEN p.product_type = 'variable' 
+            THEN COALESCE((SELECT SUM(pv.stock_quantity) FROM product_variants pv WHERE pv.product_id = p.product_id), 0)
+            ELSE p.stock_quantity
+          END as effective_stock
        FROM products p
        JOIN product_categories pc ON p.product_id = pc.product_id
        WHERE p.shop_id = ? 
@@ -472,7 +483,19 @@ export default async function ProductPage({ params }: PageProps) {
     ];
     const excludePlaceholders = excludeIds.map(() => "?").join(",");
     const [randomRows] = await pool.query(
-      `SELECT product_id, product_name, product_slug, price, discount_price, stock_quantity, product_type
+      `SELECT 
+          product_id, 
+          product_name, 
+          product_slug, 
+          price, 
+          discount_price, 
+          stock_quantity, 
+          product_type,
+          CASE 
+            WHEN product_type = 'variable' 
+            THEN COALESCE((SELECT SUM(pv.stock_quantity) FROM product_variants pv WHERE pv.product_id = products.product_id), 0)
+            ELSE stock_quantity
+          END as effective_stock
        FROM products
        WHERE shop_id = ? 
          AND product_id NOT IN (${excludePlaceholders})

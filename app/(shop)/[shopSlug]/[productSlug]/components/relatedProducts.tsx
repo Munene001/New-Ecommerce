@@ -1,5 +1,3 @@
-// app/(shop)/[shopSlug]/[productSlug]/components/relatedProducts.tsx
-
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -16,6 +14,7 @@ interface RelatedProduct {
   discount_price: number | null;
   stock_quantity: number;
   product_type: 'simple' | 'variable';
+  effective_stock: number;
 }
 
 interface Props {
@@ -68,7 +67,7 @@ export default function RelatedProducts({ products, secondaryColor, shopSlug }: 
   if (products.length === 0) return null;
 
   const normalizedProducts: Product[] = products.map(product => {
-    const stockQuantity = product.stock_quantity ?? 0;
+    const stockQuantity = product.effective_stock;
     const productType = product.product_type || 'simple';
     const finalPrice = product.discount_price ?? product.price;
     
