@@ -124,12 +124,6 @@ export default function ProductSidebar({
     return remaining > 0 ? remaining : 0;
   };
 
-  const getStockDisplay = () => {
-    const remaining = getRemainingStock();
-    if (remaining === 0) return 'Out of Stock';
-    return `${remaining} units available`;
-  };
-
   const handleIncrement = () => {
     if (hasVariants) {
       onOpenVariantModal();
@@ -340,10 +334,6 @@ export default function ProductSidebar({
           )}
         </div>
 
-        <div className={`text-sm ${remainingStock === 0 ? 'text-red-600 font-medium' : 'text-black'}`}>
-          {getStockDisplay()}
-        </div>
-
         {hasVariants && (
           <div className="border-t border-gray-200 pt-4">
             <h3 className="text-sm font-semibold text-gray-800 mb-2.5">Variations</h3>
@@ -471,10 +461,6 @@ export default function ProductSidebar({
               Range
             </span>
           )}
-        </div>
-
-        <div className={`text-xs ${remainingStock === 0 ? 'text-red-600 font-medium' : 'text-black'}`}>
-          {getStockDisplay()}
         </div>
 
         {hasVariants && (

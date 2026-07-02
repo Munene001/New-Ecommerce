@@ -162,11 +162,12 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
                             KSh {formatPrice(variant.price)}
                           </span>
                         )}
-                        {isInStock ? (
-                          <span className="text-xs text-green-600 font-medium whitespace-nowrap">
-                            {quantityInCart > 0 ? `${quantityInCart} in cart` : `${remainingStock} left`}
+                        {quantityInCart > 0 && (
+                          <span className="text-xs text-blue-600 font-medium whitespace-nowrap">
+                            {quantityInCart} in cart
                           </span>
-                        ) : (
+                        )}
+                        {!isInStock && (
                           <span className="text-xs text-red-600 font-medium whitespace-nowrap">
                             Out of Stock
                           </span>
