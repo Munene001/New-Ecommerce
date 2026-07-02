@@ -191,7 +191,7 @@ export default function CheckoutPage() {
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                   <User className="w-5 h-5 text-black" />
-                  <p className="text-sm text-black-800">
+                  <p className="text-sm text-black">
                     <strong>Already have an account?</strong> Sign in for faster
                     checkout
                   </p>
