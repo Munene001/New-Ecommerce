@@ -179,21 +179,21 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
                   <div className="flex items-center gap-2 justify-between sm:justify-end">
                     {quantityInCart > 0 ? (
                       <>
-                        <div className="flex items-center border border-gray-300 rounded-lg bg-white flex-shrink-0">
+                        <div className="flex items-center border border-black rounded-lg bg-white flex-shrink-0">
                           <button
                             onClick={() => handleDecrement(variant)}
                             disabled={!isInStock}
-                            className="px-2.5 sm:px-3 py-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="px-2.5 sm:px-3 py-1.5  hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
-                            <Minus className="w-3.5 h-3.5" />
+                            <Minus className="w-3.5 h-3.5 text-black" />
                           </button>
-                          <span className="px-2 sm:px-3 py-1.5 text-center w-8 sm:w-10 text-sm font-medium">
+                          <span className="px-2 sm:px-3 py-1.5 text-center w-8 sm:w-10 text-sm text-black font-medium">
                             {quantityInCart}
                           </span>
                           <button
                             onClick={() => handleIncrement(variant)}
                             disabled={!isInStock || remainingStock <= 0}
-                            className="px-2.5 sm:px-3 py-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="px-2.5 sm:px-3 py-1.5 text-black hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
