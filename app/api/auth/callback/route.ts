@@ -16,8 +16,20 @@ interface VerifyBody {
   redirect?: string;
 }
 
+// Define a minimal user type for storage
+interface MinimalUser {
+  id: string;
+  email: string;
+  aud: string;
+  role: string;
+  user_metadata: {
+    full_name: string;
+    avatar_url: string;
+  };
+}
+
 async function handleUserCreation(
-  user: User,
+  user: MinimalUser | User,
   body: VerifyBody,
   userType: 'shop_owner' | 'customer'
 ) {
@@ -172,10 +184,9 @@ export async function POST(request: NextRequest) {
 
     // GOOGLE OAUTH FLOW
     if (!body.code) {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      // ✅ Check for corrupted session
-      if (!session?.user) {
+      if (sessionError || !session?.user) {
         await supabase.auth.signOut();
         return NextResponse.json(
           { success: false, error: 'No active session. Please sign in again.' },
@@ -184,7 +195,8 @@ export async function POST(request: NextRequest) {
       }
 
       let user: User | null = session.user;
-      // ✅ Handle case where user is a string (corrupted)
+      
+      // Handle case where user is a string (corrupted)
       if (typeof user === 'string') {
         try {
           user = JSON.parse(user);
@@ -197,7 +209,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // ✅ TypeScript guard - user should exist here
       if (!user) {
         await supabase.auth.signOut();
         return NextResponse.json(
@@ -206,8 +217,40 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // ✅ Get email with fallback
+      const userEmail = user.email || body.email || '';
+      if (!userEmail) {
+        await supabase.auth.signOut();
+        return NextResponse.json(
+          { success: false, error: 'Email not found in session' },
+          { status: 400 }
+        );
+      }
+
+      // ✅ STRIP DOWN THE USER OBJECT - Remove heavy Google OAuth data
+      const cleanUser: MinimalUser = {
+        id: user.id,
+        email: userEmail,
+        aud: user.aud || 'authenticated',
+        role: user.role || 'authenticated',
+        user_metadata: {
+          full_name: user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
+          avatar_url: user.user_metadata?.avatar_url || '',
+        },
+      };
+
+      // ✅ IMPORTANT: Update Supabase session with clean data
+      try {
+        await supabase.auth.updateUser({
+          data: cleanUser.user_metadata
+        });
+      } catch (updateError) {
+        console.error('Failed to update user session:', updateError);
+        // Continue anyway - the clean user will be used for DB operations
+      }
+
       const userType = body.userType || 'shop_owner';
-      const result = await handleUserCreation(user, body, userType);
+      const result = await handleUserCreation(cleanUser, body, userType);
 
       if (!result.success) {
         return NextResponse.json(
@@ -241,7 +284,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Handle case where user is a string (corrupted)
+    // Handle case where user is a string (corrupted)
     if (typeof user === 'string') {
       try {
         user = JSON.parse(user);
@@ -254,7 +297,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ✅ TypeScript guard - user should exist here
     if (!user) {
       await supabase.auth.signOut();
       return NextResponse.json(
@@ -263,8 +305,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Get email with fallback
+    const userEmail = user.email || body.email || '';
+    if (!userEmail) {
+      await supabase.auth.signOut();
+      return NextResponse.json(
+        { success: false, error: 'Email not found' },
+        { status: 400 }
+      );
+    }
+
+    // For email verification, also clean the user data
+    const cleanUser: MinimalUser = {
+      id: user.id,
+      email: userEmail,
+      aud: user.aud || 'authenticated',
+      role: user.role || 'authenticated',
+      user_metadata: {
+        full_name: user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
+        avatar_url: user.user_metadata?.avatar_url || '',
+      },
+    };
+
     const userType = body.userType || 'shop_owner';
-    const result = await handleUserCreation(user, body, userType);
+    const result = await handleUserCreation(cleanUser, body, userType);
 
     if (!result.success) {
       return NextResponse.json(
