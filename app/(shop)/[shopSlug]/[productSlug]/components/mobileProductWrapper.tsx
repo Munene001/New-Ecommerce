@@ -1,4 +1,3 @@
-// app/(shop)/[shopSlug]/[productSlug]/components/MobileProductWrapper.tsx
 "use client";
 
 import { useState } from "react";
@@ -25,6 +24,7 @@ export default function MobileProductWrapper({ product, secondaryColor }: Props)
         stockQuantity={product.stock_quantity}
         hasVariants={product.product_type === 'variable'}
         onOpenVariantModal={() => setIsVariantModalOpen(true)}
+        in_stock={product.in_stock} // ✅ ADD THIS - pass the in_stock prop
       />
       <VariantModal
         isOpen={isVariantModalOpen}

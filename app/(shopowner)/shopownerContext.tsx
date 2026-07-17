@@ -1,6 +1,6 @@
 "use client";
 import * as React from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/authcontext';
 import { useRouter } from 'next/navigation';
 import DashboardSkeleton from '../components/layout/skeletonDash';
@@ -25,15 +25,26 @@ export function ShopProvider({
   const [accessDenied, setAccessDenied] = useState(false);
   const { user, profile, isAuthenticated } = useAuth();
   const router = useRouter();
+  const hasRetried = useRef(false);
 
   const fetchShopData = async () => {
     try {
       const res = await fetch(`/api/shops/${shopSlug}`);
-      if (!res.ok) throw new Error('Shop not found');
+      
+      if (!res.ok) {
+        // If 404 and we haven't retried yet, retry once after 3 seconds
+        if (res.status === 404 && !hasRetried.current) {
+          hasRetried.current = true;
+          setTimeout(() => {
+            fetchShopData();
+          }, 3000);
+          return;
+        }
+        throw new Error('Shop not found');
+      }
       
       const data = await res.json();
       
-      // API determines ownership (includes affiliates via is_owner)
       if (!data.isOwner && profile?.role !== 'super_admin') {
         setAccessDenied(true);
         setLoading(false);
@@ -45,10 +56,10 @@ export function ShopProvider({
         shopType: data.shopType,
         shopSlug: shopSlug
       });
+      setLoading(false);
     } catch (error) {
       console.error("Failed to fetch shop:", error);
       setAccessDenied(true);
-    } finally {
       setLoading(false);
     }
   };
@@ -67,11 +78,12 @@ export function ShopProvider({
   }, [isAuthenticated, profile, shopSlug]);
 
   if (loading || !profile) return <DashboardSkeleton />;
+  
   if (accessDenied) {
-    // Redirect to home or profile
     router.replace(profile.shopSlug ? `/dashboard/${profile.shopSlug}` : '/');
     return null;
   }
+  
   if (!shopData) return null;
 
   return (
