@@ -31,6 +31,28 @@ export default function AuthCallbackPage() {
           return;
         }
 
+        // ✅ STRIP DOWN THE USER DATA - Remove heavy Google OAuth data
+        const userEmail = session.user.email || '';
+        const cleanUser = {
+          id: session.user.id,
+          email: userEmail,
+          aud: session.user.aud || 'authenticated',
+          role: session.user.role || 'authenticated',
+          user_metadata: {
+            full_name: session.user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
+            avatar_url: session.user.user_metadata?.avatar_url || '',
+          },
+        };
+
+        // ✅ Update session with clean data to reduce cookie size
+        try {
+          await supabase.auth.updateUser({
+            data: cleanUser.user_metadata
+          });
+        } catch (updateError) {
+          console.error('Failed to clean session:', updateError);
+        }
+
         let userType = sessionStorage.getItem("oauth_user_type") as UserType | null;
         if (!userType || (userType !== 'shop_owner' && userType !== 'customer')) {
           userType = 'shop_owner';
@@ -66,14 +88,15 @@ export default function AuthCallbackPage() {
           return;
         }
 
+        // User doesn't exist in DB yet - create them
         if (userType === 'shop_owner') {
-          setUser(session.user);
+          setUser(cleanUser);
           setNeedsBusinessName(true);
         } else if (userType === 'customer') {
-          setUser(session.user);
+          setUser(cleanUser);
           setNeedsPhoneNumber(true);
         } else {
-          await createAccount(session.user, userType);
+          await createAccount(cleanUser, userType);
         }
       } catch (err) {
         console.error("Callback error:", err);
