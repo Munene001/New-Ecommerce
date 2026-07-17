@@ -7,9 +7,9 @@ import {
   ShoppingBasket,
   Minus,
   Plus,
-  Share2,
 } from "lucide-react";
 import Button from "@/app/components/ui/button";
+import ShareButton from "@/app/components/ui/shareButton";
 import { useCart } from "@/context/shopCartContext";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from "@/context/toastContext";
@@ -278,27 +278,6 @@ export default function ProductSidebar({
     isInWishlist ? "text-red-500" : "text-gray-900 hover:text-red-900"
   } ${isShopOwner ? "opacity-50 cursor-not-allowed" : ""}`;
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.product_name,
-          text: `Check out ${product.product_name} on ${shop?.shopName || "our store"}`,
-          url: shareUrl,
-        });
-      } catch {
-        // User cancelled
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        showToast("Link copied to clipboard!", "success");
-      } catch {
-        showToast("Failed to copy link", "error");
-      }
-    }
-  };
-
   const displayPrice = getDisplayPrice();
   const originalPrice = getOriginalPrice();
   const hasDiscount = getHasDiscount();
@@ -402,13 +381,14 @@ export default function ProductSidebar({
             {HeartIcon}
             <span className="text-sm">Wishlist</span>
           </button>
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all text-sm font-medium text-gray-700"
-          >
-            <Share2 className="w-4 h-4" />
-            <span>Share</span>
-          </button>
+          <ShareButton
+            title={product.product_name}
+            text={`Check out ${product.product_name} on ${shop?.shopName || "our store"}`}
+            url={shareUrl}
+            
+            showLabel
+          
+          />
         </div>
 
         <p className="text-black text-sm font-medium">
@@ -498,13 +478,15 @@ export default function ProductSidebar({
             {HeartIcon}
             <span>Wishlist</span>
           </button>
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all text-sm font-medium text-gray-700"
-          >
-            <Share2 className="w-4 h-4" />
-            <span>Share</span>
-          </button>
+          <ShareButton
+            title={product.product_name}
+            text={`Check out ${product.product_name} on ${shop?.shopName || "our store"}`}
+            url={shareUrl}
+           
+            showLabel
+        
+            className="!text-sm"
+          />
         </div>
 
         <p className="text-black text-sm leading-relaxed">
