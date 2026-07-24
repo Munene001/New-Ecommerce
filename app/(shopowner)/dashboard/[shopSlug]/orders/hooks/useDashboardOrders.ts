@@ -13,6 +13,9 @@ interface Order {
   customer_address: string;
   special_instructions: string | null;
   subtotal: number;
+  delivery_fee: number;        // ADDED
+  delivery_zone: string | null; // ADDED
+  total: number;               // ADDED
   payment_method: string;
   payment_status: string;
   order_status: string;

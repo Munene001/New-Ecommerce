@@ -9,6 +9,8 @@ interface DeliveryTier {
 export function useTiers(shopId: number, showToast: (message: string, type: "success" | "error") => void) {
   const [tiers, setTiers] = useState<DeliveryTier[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [errors, setErrors] = useState<Record<number, string>>({});
 
   const fetchTiers = useCallback(async () => {
@@ -30,6 +32,58 @@ export function useTiers(shopId: number, showToast: (message: string, type: "suc
       setLoading(false);
     }
   }, [shopId, showToast]);
+
+  // Fetch delivery status
+  const fetchDeliveryStatus = useCallback(async () => {
+    if (!shopId) return;
+    
+    try {
+      const response = await fetch(`/api/shopowner/payments/delivery/toggle?shop_id=${shopId}`);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setDeliveryEnabled(data.data.delivery_enabled === 1);
+      }
+    } catch (error) {
+      console.error('Failed to fetch delivery status:', error);
+    }
+  }, [shopId]);
+
+  // Toggle delivery on/off
+  const toggleDelivery = useCallback(async () => {
+    if (!shopId || toggling) return;
+    
+    setToggling(true);
+    const newStatus = deliveryEnabled ? 0 : 1;
+    
+    try {
+      const response = await fetch(`/api/shopowner/payments/delivery/toggle`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_id: shopId, enabled: newStatus }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setDeliveryEnabled(newStatus === 1);
+        showToast(`Delivery ${newStatus === 1 ? 'enabled' : 'disabled'} successfully`, "success");
+        // Refresh tiers if enabled
+        if (newStatus === 1) {
+          await fetchTiers();
+        } else {
+          // Clear tiers when disabled
+          setTiers([]);
+        }
+      } else {
+        showToast(data.error || "Failed to toggle delivery", "error");
+      }
+    } catch (error) {
+      showToast("Failed to toggle delivery", "error");
+    } finally {
+      setToggling(false);
+    }
+  }, [shopId, deliveryEnabled, toggling, fetchTiers, showToast]);
 
   const addTier = async (tierName: string, fee: number) => {
     setLoading(true);
@@ -118,15 +172,20 @@ export function useTiers(shopId: number, showToast: (message: string, type: "suc
 
   useEffect(() => {
     fetchTiers();
-  }, [fetchTiers]);
+    fetchDeliveryStatus();
+  }, [fetchTiers, fetchDeliveryStatus]);
 
   return {
     tiers,
     loading,
     errors,
+    deliveryEnabled,
+    toggling,
     fetchTiers,
     addTier,
     updateTier,
     deleteTier,
+    toggleDelivery,
+    fetchDeliveryStatus,
   };
 }

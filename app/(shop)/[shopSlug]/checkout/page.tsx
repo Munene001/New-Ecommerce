@@ -13,6 +13,12 @@ import CheckoutForm from "./component/checkoutForm";
 import OrderSummary from "./component/orderSummary";
 import CheckoutSkeleton from "./component/checkoutSkeleton";
 
+interface DeliveryTier {
+  tier_id: number;
+  tier_name: string;
+  fee: number;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -35,8 +41,16 @@ export default function CheckoutPage() {
   const [mpesaEnabled, setMpesaEnabled] = useState(false);
   const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
 
+  // Delivery state
+  const [deliveryTiers, setDeliveryTiers] = useState<DeliveryTier[]>([]);
+  const [selectedDeliveryTier, setSelectedDeliveryTier] = useState<DeliveryTier | null>(null);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [loadingDelivery, setLoadingDelivery] = useState(false);
+
   const orderPlacedRef = useRef(false);
 
+  // Track page view
   useEffect(() => {
     if (shop?.shopId && !hasTrackedPageView && items.length > 0) {
       trackEvent('checkout_page_view');
@@ -44,6 +58,7 @@ export default function CheckoutPage() {
     }
   }, [shop?.shopId, items.length, hasTrackedPageView, trackEvent]);
 
+  // Fetch payment settings
   useEffect(() => {
     const fetchPaymentSettings = async () => {
       if (!shop?.shopId) return;
@@ -72,6 +87,41 @@ export default function CheckoutPage() {
     fetchPaymentSettings();
   }, [shop?.shopId]);
 
+  // Fetch delivery tiers - using shopowner endpoint (now public for GET)
+  useEffect(() => {
+    const fetchDeliveryTiers = async () => {
+      if (!shop?.shopId) return;
+      
+      setLoadingDelivery(true);
+      try {
+        const response = await fetch(`/api/shopowner/payments/delivery?shop_id=${shop.shopId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setDeliveryTiers(result.data);
+          // If tiers exist, delivery is enabled
+          if (result.data.length > 0) {
+            setDeliveryEnabled(true);
+            // Auto-select first tier
+            setSelectedDeliveryTier(result.data[0]);
+            setDeliveryFee(result.data[0].fee);
+          } else {
+            setDeliveryEnabled(false);
+            setDeliveryFee(0);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch delivery tiers:", error);
+        setDeliveryEnabled(false);
+      } finally {
+        setLoadingDelivery(false);
+      }
+    };
+    
+    fetchDeliveryTiers();
+  }, [shop?.shopId]);
+
+  // Auto-fill form for authenticated users
   useEffect(() => {
     if (!authLoading && isAuthenticated && profile) {
       setFormData({
@@ -85,6 +135,7 @@ export default function CheckoutPage() {
     }
   }, [authLoading, isAuthenticated, profile, user]);
 
+  // Redirect if cart is empty
   useEffect(() => {
     if (!orderPlacedRef.current && !authLoading && items.length === 0) {
       router.push(`/${shop?.shopSlug}`);
@@ -93,6 +144,11 @@ export default function CheckoutPage() {
 
   const handleFormChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDeliveryChange = (tier: DeliveryTier) => {
+    setSelectedDeliveryTier(tier);
+    setDeliveryFee(tier.fee);
   };
 
   const handlePlaceOrder = async () => {
@@ -120,6 +176,9 @@ export default function CheckoutPage() {
         special_instructions: formData.specialInstructions || undefined,
         payment_method: paymentMethod === "cod" ? "cash_on_delivery" : "mpesa",
         subtotal: subtotal,
+        delivery_fee: deliveryFee,
+        delivery_tier_id: selectedDeliveryTier?.tier_id || null,
+        delivery_zone: selectedDeliveryTier?.tier_name || null,
         items: items.map((item) => ({
           product_id: item.product_id,
           variant_id: item.variant_id || null,
@@ -216,6 +275,11 @@ export default function CheckoutPage() {
                 secondaryColor={shop?.secondaryColor}
                 codEnabled={codEnabled}
                 mpesaEnabled={mpesaEnabled}
+                deliveryTiers={deliveryTiers}
+                deliveryEnabled={deliveryEnabled}
+                selectedDeliveryTier={selectedDeliveryTier}
+                onDeliveryChange={handleDeliveryChange}
+                loadingDelivery={loadingDelivery}
               />
             </div>
 
@@ -227,6 +291,8 @@ export default function CheckoutPage() {
                 onContinue={handlePlaceOrder}
                 isSubmitting={isSubmitting}
                 secondaryColor={shop?.secondaryColor}
+                deliveryFee={deliveryFee}
+                selectedDeliveryTier={selectedDeliveryTier}
               />
             </div>
           </div>

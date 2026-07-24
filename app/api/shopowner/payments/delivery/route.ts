@@ -12,7 +12,11 @@ interface DeliveryTierRow extends RowDataPacket {
   updated_at: string;
 }
 
-// GET /api/payments/delivery?shop_id=1
+interface ShopRow extends RowDataPacket {
+  delivery_enabled: number;
+}
+
+// GET /api/shopowner/payments/delivery?shop_id=1 - Public endpoint
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -27,14 +31,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
-    // Verify access using helper
-    const { authorized, response } = await verifyShopAccess(req, shopId);
-    
-    if (!authorized) {
-      return response;
+    // Check if delivery is enabled for this shop
+    const [shopResult] = await pool.query<ShopRow[]>(
+      'SELECT delivery_enabled FROM shops WHERE shop_id = ?',
+      [shopId]
+    );
+
+    // If shop not found or delivery is disabled, return empty array
+    if (shopResult.length === 0 || shopResult[0].delivery_enabled === 0) {
+      return NextResponse.json({
+        success: true,
+        data: []
+      });
     }
 
-    // Fetch all delivery tiers for this shop
+    // Fetch all delivery tiers for this shop (only if enabled)
     const [tiers] = await pool.query<DeliveryTierRow[]>(
       `SELECT tier_id, shop_id, tier_name, fee, created_at, updated_at
        FROM delivery_tiers
@@ -53,7 +64,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/payments/delivery - Create a new delivery tier
+// POST /api/shopowner/payments/delivery - Create a new delivery tier (Protected)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -78,7 +89,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tier name must be less than 100 characters' }, { status: 400 });
     }
 
-    // Verify access using helper
+    // Verify access using helper - ONLY for POST
     const { authorized, response } = await verifyShopAccess(req, shopId);
     
     if (!authorized) {

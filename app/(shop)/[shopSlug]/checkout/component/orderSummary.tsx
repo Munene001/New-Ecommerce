@@ -17,6 +17,12 @@ interface CartItem {
   attributes?: Record<string, string>;
 }
 
+interface DeliveryTier {
+  tier_id: number;
+  tier_name: string;
+  fee: number;
+}
+
 interface OrderSummaryProps {
   items: CartItem[];
   subtotal: number;
@@ -24,6 +30,8 @@ interface OrderSummaryProps {
   onContinue: () => void;
   isSubmitting: boolean;
   secondaryColor?: string;
+  deliveryFee?: number;
+  selectedDeliveryTier?: DeliveryTier | null;
 }
 
 interface ProductImageMap {
@@ -37,6 +45,8 @@ export default function OrderSummary({
   onContinue,
   isSubmitting,
   secondaryColor,
+  deliveryFee = 0,
+  selectedDeliveryTier = null,
 }: OrderSummaryProps) {
   const { removeFromCart, updateQuantity } = useCart();
   const [productImages, setProductImages] = useState<ProductImageMap>({});
@@ -52,6 +62,10 @@ export default function OrderSummary({
   const getItemKey = (item: CartItem) => {
     return item.variant_id ? `${item.product_id}-${item.variant_id}` : `${item.product_id}`;
   };
+
+  // Ensure deliveryFee is a number
+  const numericDeliveryFee = Number(deliveryFee) || 0;
+  const total = subtotal + numericDeliveryFee;
 
   useEffect(() => {
     if (items.length === 0) return;
@@ -84,6 +98,12 @@ export default function OrderSummary({
 
   const handleRemove = (item: CartItem) => {
     removeFromCart(item.product_id, item.variant_id);
+  };
+
+  // Format delivery fee display
+  const formatDeliveryFee = (fee: number) => {
+    if (fee === 0) return "Free";
+    return `KSh ${fee.toLocaleString()}`;
   };
 
   return (
@@ -194,19 +214,49 @@ export default function OrderSummary({
           <span>KSh {subtotal.toLocaleString()}</span>
         </div>
         
-        <div className="flex justify-between text-yellow-600">
-          <span>Delivery Fee</span>
-          <span className="text-sm">To be confirmed</span>
+        {/* Delivery Fee - Dynamic */}
+        <div className="flex justify-between items-center">
+          <span className="flex items-center gap-1 text-black">
+            <Truck className="w-4 h-4" style={{ color: secondaryColor }} />
+            Delivery Fee
+          </span>
+          {selectedDeliveryTier ? (
+            <span className="font-semibold" style={{ color: secondaryColor }}>
+              {formatDeliveryFee(numericDeliveryFee)}
+            </span>
+          ) : (
+            <span className="text-sm text-yellow-600">To be confirmed</span>
+          )}
         </div>
+        
+        {/* Delivery Zone Name (if selected) */}
+        {selectedDeliveryTier && (
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Zone</span>
+            <span>{selectedDeliveryTier.tier_name}</span>
+          </div>
+        )}
         
         <div className="border-t border-dashed border-gray-200 pt-3 mt-2">
           <div className="flex justify-between font-bold text-black text-lg">
             <span>Total</span>
-            <span style={{ color: secondaryColor }}>KSh {subtotal.toLocaleString()}</span>
+            <span style={{ color: secondaryColor }}>KSh {total.toLocaleString()}</span>
           </div>
-          <p className="text-xs text-gray-800 mt-1 text-center">
-            * Delivery fee will be confirmed by seller after order
-          </p>
+          
+          {/* Dynamic message based on delivery selection */}
+          {!selectedDeliveryTier ? (
+            <p className="text-xs text-gray-800 mt-1 text-center">
+              * Delivery fee will be confirmed by seller after order
+            </p>
+          ) : numericDeliveryFee === 0 ? (
+            <p className="text-xs text-gray-800 mt-1 text-center">
+              Free delivery for this zone
+            </p>
+          ) : (
+            <p className="text-xs text-gray-800 mt-1 text-center">
+              Delivery fee of KSh {numericDeliveryFee.toLocaleString()} included
+            </p>
+          )}
         </div>
       </div>
       
@@ -228,8 +278,6 @@ export default function OrderSummary({
           </>
         )}
       </button>
-      
-    
     </div>
   );
 }

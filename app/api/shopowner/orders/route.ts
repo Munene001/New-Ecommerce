@@ -13,6 +13,9 @@ interface OrderRow extends RowDataPacket {
   customer_address: string;
   special_instructions: string | null;
   subtotal: number;
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
@@ -145,11 +148,12 @@ export async function GET(req: NextRequest) {
     );
     const unviewedCount = unviewedResult[0]?.total || 0;
 
-    // Get paginated orders
+    // Get paginated orders with delivery fields
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         order_id, order_number, customer_name, customer_email, customer_phone,
         customer_city, customer_address, special_instructions, subtotal,
+        delivery_fee, delivery_zone, total,
         payment_method, payment_status, order_status, created_at, updated_at,
         viewed_by_seller
        FROM orders
