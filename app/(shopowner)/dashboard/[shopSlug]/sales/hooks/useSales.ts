@@ -12,6 +12,9 @@ interface Order {
   customer_address: string;
   special_instructions: string | null;
   subtotal: number;
+  delivery_fee: number;        // ADDED
+  delivery_zone: string | null; // ADDED
+  total: number;               // ADDED
   payment_method: string;
   payment_status: string;
   order_status: string;
@@ -80,8 +83,8 @@ export function useSales(shopId: string): UseSalesReturn {
 
   const initialFetchDone = useRef(false);
 
-  // Helper function to safely parse subtotal
-  const parseSubtotal = (value: any): number => {
+  // Helper function to safely parse numbers
+  const parseNumber = (value: any): number => {
     if (typeof value === 'number') return value;
     if (typeof value === 'string') {
       const parsed = parseFloat(value);
@@ -123,7 +126,9 @@ export function useSales(shopId: string): UseSalesReturn {
       
       const ordersData = (data.orders || []).map((order: any) => ({
         ...order,
-        subtotal: parseSubtotal(order.subtotal)
+        subtotal: parseNumber(order.subtotal),
+        delivery_fee: parseNumber(order.delivery_fee) || 0,
+        total: parseNumber(order.total) || parseNumber(order.subtotal) + parseNumber(order.delivery_fee),
       }));
 
       const newOrders = append ? [...orders, ...ordersData] : ordersData;
@@ -133,8 +138,8 @@ export function useSales(shopId: string): UseSalesReturn {
       if (data.stats) {
         setMetrics({
           totalRevenue: data.stats.totalRevenue || 0,
-          totalOrders: data.stats.paidOrders || 0, // Use paidOrders from stats
-          pendingDelivery: data.stats.processingOrders || 0, // Orders that are paid but not delivered
+          totalOrders: data.stats.paidOrders || 0,
+          pendingDelivery: data.stats.processingOrders || 0,
           averageOrderValue: data.stats.paidOrders > 0 
             ? (data.stats.totalRevenue / data.stats.paidOrders) 
             : 0,
@@ -271,7 +276,9 @@ export function useSales(shopId: string): UseSalesReturn {
       if (data.success) {
         return {
           ...data.order,
-          subtotal: parseSubtotal(data.order.subtotal),
+          subtotal: parseNumber(data.order.subtotal),
+          delivery_fee: parseNumber(data.order.delivery_fee) || 0,
+          total: parseNumber(data.order.total) || parseNumber(data.order.subtotal) + parseNumber(data.order.delivery_fee),
           items: data.items || []
         };
       }

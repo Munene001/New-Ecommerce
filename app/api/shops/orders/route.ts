@@ -23,6 +23,8 @@ interface OrderBody {
   special_instructions?: string;
   payment_method: 'mpesa' | 'cash_on_delivery';
   subtotal: number;
+  delivery_fee?: number;
+  delivery_zone?: string | null;
   items: OrderItem[];
 }
 
@@ -149,7 +151,9 @@ export async function POST(request: NextRequest) {
     customer_city, 
     customer_address, 
     payment_method, 
-    subtotal, 
+    subtotal,
+    delivery_fee = 0,
+    delivery_zone = null,
     items 
   } = body;
 
@@ -216,16 +220,19 @@ export async function POST(request: NextRequest) {
         };
       });
 
+      // Calculate total with delivery fee
+      const total = Number(subtotal) + Number(delivery_fee);
+
       const [orderResult] = await connection.query<ResultSetHeader>(
         `INSERT INTO orders (
           order_number, shop_id, customer_id, customer_name, customer_email, 
           customer_phone, customer_city, customer_address, special_instructions, 
-          subtotal, payment_method, payment_status, order_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')`,
+          subtotal, delivery_fee, delivery_zone, total, payment_method, payment_status, order_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')`,
         [
           orderNumber, shop_id, customerId, customer_name, customer_email,
           customer_phone, customer_city || null, customer_address || null, body.special_instructions || null,
-          subtotal, payment_method
+          subtotal, delivery_fee, delivery_zone, total, payment_method
         ]
       );
 
@@ -257,6 +264,9 @@ export async function POST(request: NextRequest) {
         orderId,
         orderNumber,
         subtotal,
+        delivery_fee,
+        delivery_zone,
+        total,
         customer_name,
         customer_email,
         customer_phone,
@@ -282,6 +292,9 @@ export async function POST(request: NextRequest) {
             order_number: orderNumber,
             items: emailData.items,
             subtotal: subtotal,
+            delivery_fee: delivery_fee,
+            delivery_zone: delivery_zone,
+            total: total,
             seller_name: shopDetails.shop_name,
             seller_email: shopDetails.contact_email,
             seller_phone: shopDetails.contact_phone,
@@ -297,6 +310,9 @@ export async function POST(request: NextRequest) {
               order_number: orderNumber,
               items: emailData.items,
               subtotal: subtotal,
+              delivery_fee: delivery_fee,
+              delivery_zone: delivery_zone,
+              total: total,
               special_instructions: body.special_instructions,
               payment_method: payment_method,
             });
@@ -313,7 +329,7 @@ export async function POST(request: NextRequest) {
         data: {
           order_id: orderId,
           order_number: orderNumber,
-          total_amount: subtotal,
+          total_amount: total,
           message: payment_method === 'cash_on_delivery' 
             ? 'Order placed successfully' 
             : 'Order created. Complete payment to confirm your order.'

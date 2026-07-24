@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Button from "@/app/components/ui/button";
-import {  CreditCard } from "lucide-react";
+import { CreditCard, Truck } from "lucide-react";
 import PaymentsStatsCards from "./components/pstatsCard";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
 
@@ -28,30 +28,25 @@ export default function PaymentsPage() {
         monthlyRevenue={dummyStats.monthlyRevenue}
       />
 
-
-
-      {/* 
-      <div className="flex justify-end pt-6">
-        <Link href={`/dashboard/${shopSlug}/payments/delivery`}>
-          <Button
-            className="flex flex-row gap-2 items-center justify-center"
-            variant="secondary"
-          >
-            <Truck size={18} />
-            <span>Delivery Fee Settings</span>
-          </Button>
-        </Link>
-      </div> */}
-
-        {/* Payment Configuration Button */}
-      <div className="flex justify-end pt-6">
+      {/* Action Buttons - Same Row */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6">
         <Link href={`/dashboard/${shopSlug}/payments/configuration`}>
           <Button
-            className="flex flex-row gap-2 items-center justify-center"
+            className="flex flex-row gap-2 items-center justify-center w-full sm:w-auto"
             variant="secondary"
           >
             <CreditCard size={18} />
             <span>Payment Configuration</span>
+          </Button>
+        </Link>
+
+        <Link href={`/dashboard/${shopSlug}/payments/delivery`}>
+          <Button
+            className="flex flex-row gap-2 items-center justify-center w-full sm:w-auto"
+            variant="secondary"
+          >
+            <Truck size={18} />
+            <span>Delivery Fee Settings</span>
           </Button>
         </Link>
       </div>

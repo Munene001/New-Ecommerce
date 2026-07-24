@@ -1,4 +1,3 @@
-// app/(dashboard)/[shopSlug]/sales/components/SalesTable.tsx
 "use client";
 
 import { useState, useRef, useCallback } from "react";
@@ -13,6 +12,9 @@ interface Order {
   customer_phone: string;
   customer_city: string;
   subtotal: number;
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
@@ -31,13 +33,14 @@ interface SalesTableProps {
 
 const SkeletonRow = () => (
   <div className="flex flex-row border-b border-gray-300 h-[72px] items-center w-full">
-    <div className="w-[18%] px-4"><div className="h-4 bg-gray-300 rounded w-28 animate-pulse"></div></div>
-    <div className="w-[22%] px-4"><div className="h-4 bg-gray-300 rounded w-32 animate-pulse"></div></div>
-    <div className="w-[15%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
+    <div className="w-[15%] px-4"><div className="h-4 bg-gray-300 rounded w-28 animate-pulse"></div></div>
+    <div className="w-[18%] px-4"><div className="h-4 bg-gray-300 rounded w-32 animate-pulse"></div></div>
+    <div className="w-[12%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
+    <div className="w-[10%] px-4"><div className="h-4 bg-gray-300 rounded w-20 animate-pulse"></div></div>
     <div className="w-[10%] px-4"><div className="h-4 bg-gray-300 rounded w-20 animate-pulse"></div></div>
     <div className="w-[10%] px-4"><div className="h-6 bg-gray-300 rounded-full w-20 animate-pulse"></div></div>
-    <div className="w-[15%] px-4"><div className="h-6 bg-gray-300 rounded-full w-24 animate-pulse"></div></div>
-    <div className="w-[10%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
+    <div className="w-[13%] px-4"><div className="h-6 bg-gray-300 rounded-full w-24 animate-pulse"></div></div>
+    <div className="w-[12%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
   </div>
 );
 
@@ -115,16 +118,17 @@ export default function SalesTable({
   return (
     <div className="w-full relative">
       <div className="w-full overflow-x-auto">
-        <div className="min-w-[1000px] md:min-w-0">
+        <div className="min-w-[1100px] md:min-w-0">
           {/* Table header */}
           <div className="flex flex-row border-b border-gray-400 h-[52px] items-center text-gray-700 font-semibold text-sm bg-gray-100 w-full">
-            <div className="w-[18%] px-4">Sales #</div>
-            <div className="w-[22%] px-4">Customer</div>
-            <div className="w-[15%] px-4">Phone</div>
-            <div className="w-[10%] px-4">Amount</div>
-            <div className="w-[10%] px-4">Payment</div>
-            <div className="w-[15%] px-4">Delivery Status</div>
-            <div className="w-[10%] px-4">Date</div>
+            <div className="w-[15%] px-4 text-left">Sales #</div>
+            <div className="w-[18%] px-4 text-left">Customer</div>
+            <div className="w-[14%] px-4 text-left">Phone</div>
+            <div className="w-[10%] px-4 text-left">Subtotal</div>
+            <div className="w-[10%] px-4 text-left">Delivery</div>
+            <div className="w-[10%] px-4 text-left">Payment</div>
+            <div className="w-[13%] px-4 text-left">Status</div>
+            <div className="w-[10%] px-4 text-left">Date</div>
           </div>
 
           {/* Table content */}
@@ -145,13 +149,13 @@ export default function SalesTable({
                   onClick={() => handleRowClick(order.order_id)}
                   className="flex flex-row border-b border-gray-300 min-h-[72px] items-center hover:bg-gray-100 transition-colors cursor-pointer w-full"
                 >
-                  <div className="w-[18%] px-4">
+                  <div className="w-[15%] px-4 text-left">
                     <div className="font-semibold text-gray-800 text-sm">
                       {order.order_number}
                     </div>
                   </div>
 
-                  <div className="w-[22%] px-4">
+                  <div className="w-[18%] px-4 text-left">
                     <div className="text-black text-sm font-medium">
                       {order.customer_name}
                     </div>
@@ -160,7 +164,7 @@ export default function SalesTable({
                     </div>
                   </div>
 
-                  <div className="w-[15%]  px-4">
+                  <div className="w-[14%] px-4 text-left">
                     <div className="text-black font-medium text-sm">
                       {order.customer_phone}
                     </div>
@@ -169,22 +173,34 @@ export default function SalesTable({
                     </div>
                   </div>
 
-                  <div className="w-[10%] px-4">
+                  <div className="w-[10%] px-4 text-left">
                     <div className="text-gray-800 font-semibold text-sm">
                       KSh {order.subtotal.toLocaleString()}
                     </div>
-                    <div className="text-gray-500 text-xs capitalize">
-                      {order.payment_method === 'cash_on_delivery' ? 'COD' : order.payment_method}
-                    </div>
                   </div>
 
-                  <div className="w-[10%] px-4">
+                  <div className="w-[10%] px-4 text-left">
+                    <div className="text-black text-sm">
+                      {order.delivery_fee > 0 ? (
+                        <span>KSh {order.delivery_fee.toLocaleString()}</span>
+                      ) : (
+                        <span className="text-gray-500 text-xs">Free</span>
+                      )}
+                    </div>
+                    {order.delivery_zone && (
+                      <div className="text-gray-500 text-xs truncate">
+                        {order.delivery_zone}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-[10%] px-4 text-left">
                     <div className="text-xs px-2 py-1 rounded-full border font-medium bg-emerald-100 text-emerald-800 border-emerald-300">
                       {order.payment_status === 'paid' ? 'Paid' : 'Pending'}
                     </div>
                   </div>
 
-                  <div className="w-[15%] px-4">
+                  <div className="w-[13%] px-4 text-left">
                     <div onClick={(e) => e.stopPropagation()}>
                       <select
                         value={order.order_status}
@@ -201,7 +217,7 @@ export default function SalesTable({
                     </div>
                   </div>
 
-                  <div className="w-[10%] px-4">
+                  <div className="w-[10%] px-4 text-left">
                     <div className="text-black text-sm">
                       {formatDate(order.created_at)}
                     </div>

@@ -12,11 +12,14 @@ interface Order {
   customer_phone: string;
   customer_city: string;
   subtotal: number;
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
   created_at: string;
-  viewed_by_seller: number; // ADDED
+  viewed_by_seller: number;
 }
 
 interface OrdersTableProps {
@@ -32,13 +35,14 @@ interface OrdersTableProps {
 
 const SkeletonRow = () => (
   <div className="flex flex-row border-b border-gray-300 h-[72px] items-center w-full">
-    <div className="w-[18%] px-4"><div className="h-4 bg-gray-300 rounded w-28 animate-pulse"></div></div>
-    <div className="w-[22%] px-4"><div className="h-4 bg-gray-300 rounded w-32 animate-pulse"></div></div>
-    <div className="w-[15%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
+    <div className="w-[14%] px-4"><div className="h-4 bg-gray-300 rounded w-28 animate-pulse"></div></div>
+    <div className="w-[18%] px-4"><div className="h-4 bg-gray-300 rounded w-32 animate-pulse"></div></div>
+    <div className="w-[12%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
+    <div className="w-[10%] px-4"><div className="h-4 bg-gray-300 rounded w-20 animate-pulse"></div></div>
     <div className="w-[10%] px-4"><div className="h-4 bg-gray-300 rounded w-20 animate-pulse"></div></div>
     <div className="w-[10%] px-4"><div className="h-6 bg-gray-300 rounded-full w-20 animate-pulse"></div></div>
-    <div className="w-[10%] px-4"><div className="h-6 bg-gray-300 rounded-full w-20 animate-pulse"></div></div>
-    <div className="w-[15%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
+    <div className="w-[14%] px-4"><div className="h-6 bg-gray-300 rounded-full w-20 animate-pulse"></div></div>
+    <div className="w-[12%] px-4"><div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div></div>
   </div>
 );
 
@@ -140,16 +144,17 @@ export default function OrdersTable({
   return (
     <div className="w-full relative">
       <div className="w-full overflow-x-auto">
-        <div className="min-w-[1000px] md:min-w-0">
-          {/* Table header */}
+        <div className="min-w-[1200px] md:min-w-0">
+          {/* Table header - all left-aligned */}
           <div className="flex flex-row border-b border-gray-400 h-[52px] items-center text-gray-700 font-semibold text-sm bg-gray-100 w-full">
-            <div className="w-[18%] px-4">Order #</div>
-            <div className="w-[22%] px-4">Customer</div>
-            <div className="w-[15%] px-4">Phone</div>
-            <div className="w-[10%] px-4">Amount</div>
-            <div className="w-[10%] px-4">Payment</div>
-            <div className="w-[15%] px-4">Status</div>
-            <div className="w-[10%] px-4">Date</div>
+            <div className="w-[14%] px-4 text-left">Order #</div>
+            <div className="w-[18%] px-4 text-left">Customer</div>
+            <div className="w-[14%] px-4 text-left">Phone</div>
+            <div className="w-[10%] px-4 text-left">Amount</div>
+            <div className="w-[10%] px-4 text-left">Delivery</div>
+            <div className="w-[10%] px-4 text-left">Payment</div>
+            <div className="w-[14%] px-4 text-left">Status</div>
+            <div className="w-[10%] px-4 text-left">Date</div>
           </div>
 
           {/* Table content */}
@@ -170,21 +175,21 @@ export default function OrdersTable({
                   onClick={() => handleRowClick(order.order_id)}
                   className="flex flex-row border-b border-gray-300 min-h-[72px] items-center hover:bg-gray-100 transition-colors cursor-pointer w-full"
                 >
-                  <div className="w-[18%] px-4">
+                  <div className="w-[14%] px-4 text-left">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-gray-800 text-sm">
                         {order.order_number}
                       </span>
                       {order.viewed_by_seller === 0 && (
-                        <span className="bg-magenta text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                        <span className="bg-magenta text-white text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
                           NEW
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="w-[22%] px-4">
-                    <div className="text-black text-sm font-medium">
+                  <div className="w-[18%] px-4 text-left">
+                    <div className="text-black text-sm font-medium truncate">
                       {order.customer_name}
                     </div>
                     <div className="text-gray-700 text-xs truncate">
@@ -192,25 +197,37 @@ export default function OrdersTable({
                     </div>
                   </div>
 
-                  <div className="w-[15%] px-4">
+                  <div className="w-[14%] px-4 text-left">
                     <div className="text-black font-medium text-sm">
                       {order.customer_phone}
                     </div>
-                    <div className="text-gray-700 text-xs">
+                    <div className="text-gray-700 text-xs truncate">
                       {order.customer_city}
                     </div>
                   </div>
 
-                  <div className="w-[10%] px-4">
+                  <div className="w-[10%] px-4 text-left">
                     <div className="text-gray-800 font-semibold text-sm">
                       KSh {order.subtotal.toLocaleString()}
                     </div>
-                    <div className="text-gray-500 text-xs capitalize">
-                      {order.payment_method === 'cash_on_delivery' ? 'COD' : order.payment_method}
-                    </div>
                   </div>
 
-                  <div className="w-[10%] px-4">
+                  <div className="w-[10%] px-4 text-left">
+                    <div className="text-black text-sm">
+                      {order.delivery_fee > 0 ? (
+                        <span>KSh {order.delivery_fee.toLocaleString()}</span>
+                      ) : (
+                        <span className="text-gray-500 text-xs">Free</span>
+                      )}
+                    </div>
+                    {order.delivery_zone && (
+                      <div className="text-gray-500 text-xs truncate">
+                        {order.delivery_zone}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-[10%] px-4 text-left">
                     <div onClick={(e) => e.stopPropagation()}>
                       <select
                         value={order.payment_status}
@@ -227,7 +244,7 @@ export default function OrdersTable({
                     </div>
                   </div>
 
-                  <div className="w-[15%] px-4">
+                  <div className="w-[14%] px-4 text-left">
                     <div onClick={(e) => e.stopPropagation()}>
                       <select
                         value={order.order_status}
@@ -244,7 +261,7 @@ export default function OrdersTable({
                     </div>
                   </div>
 
-                  <div className="w-[10%] px-4">
+                  <div className="w-[10%] px-4 text-left">
                     <div className="text-black text-sm">
                       {formatDate(order.created_at)}
                     </div>

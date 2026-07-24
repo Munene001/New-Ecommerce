@@ -1,4 +1,3 @@
-// app/api/shops/customers/orders/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
@@ -17,6 +16,9 @@ interface OrderRow extends RowDataPacket {
   customer_address: string;
   special_instructions: string | null;
   subtotal: number;
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
@@ -67,7 +69,7 @@ export async function GET(
       );
     }
 
-    // Fetch order details - verify it belongs to this customer
+    // Fetch order details with delivery fields - verify it belongs to this customer
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         o.order_id,
@@ -82,6 +84,9 @@ export async function GET(
         o.customer_address,
         o.special_instructions,
         o.subtotal,
+        o.delivery_fee,
+        o.delivery_zone,
+        o.total,
         o.payment_method,
         o.payment_status,
         o.order_status,
@@ -130,6 +135,9 @@ export async function GET(
         customer_address: order.customer_address,
         special_instructions: order.special_instructions,
         subtotal: order.subtotal,
+        delivery_fee: order.delivery_fee || 0,
+        delivery_zone: order.delivery_zone,
+        total: order.total || order.subtotal + order.delivery_fee,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
         order_status: order.order_status,
