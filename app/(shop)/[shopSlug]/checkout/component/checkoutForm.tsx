@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CreditCard, Wallet, Truck } from "lucide-react";
+import { CreditCard, Wallet, MapPin, ChevronDown } from "lucide-react";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import FormInput from "@/app/components/ui/formInput";
+
+interface DeliveryTier {
+  tier_id: number;
+  tier_name: string;
+  fee: number;
+}
 
 interface CheckoutFormProps {
   formData: {
@@ -21,6 +27,11 @@ interface CheckoutFormProps {
   secondaryColor?: string;
   codEnabled?: boolean;
   mpesaEnabled?: boolean;
+  deliveryTiers: DeliveryTier[];
+  deliveryEnabled: boolean;
+  selectedDeliveryTier: DeliveryTier | null;
+  onDeliveryChange: (tier: DeliveryTier) => void;
+  loadingDelivery: boolean;
 }
 
 const convertToE164 = (phone: string): string | undefined => {
@@ -50,10 +61,16 @@ export default function CheckoutForm({
   secondaryColor,
   codEnabled = true,
   mpesaEnabled = true,
+  deliveryTiers,
+  deliveryEnabled,
+  selectedDeliveryTier,
+  onDeliveryChange,
+  loadingDelivery,
 }: CheckoutFormProps) {
   const [phoneValue, setPhoneValue] = useState<string | undefined>(() => 
     convertToE164(formData.phone)
   );
+  const [isDeliveryOpen, setIsDeliveryOpen] = useState(false);
 
   const handlePhoneChange = (value: string | undefined) => {
     setPhoneValue(value);
@@ -67,8 +84,25 @@ export default function CheckoutForm({
     }
   }, [formData.phone]);
 
+  // Sort delivery tiers by fee (lowest first)
+  const sortedDeliveryTiers = [...deliveryTiers].sort((a, b) => a.fee - b.fee);
+
+  // Auto-select first tier (lowest fee) when available
+  useEffect(() => {
+    if (deliveryEnabled && sortedDeliveryTiers.length > 0 && !selectedDeliveryTier) {
+      onDeliveryChange(sortedDeliveryTiers[0]);
+    }
+  }, [deliveryEnabled, sortedDeliveryTiers, selectedDeliveryTier, onDeliveryChange]);
+
+  // Format fee display
+  const formatFee = (fee: number) => {
+    if (fee === 0) return "Free";
+    return `KES ${fee.toLocaleString()}`;
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6">
+      {/* Payment Method Section */}
       <div>
         <h3 className="font-semibold text-black mb-3 flex items-center gap-2">
           <CreditCard className="w-5 h-5" style={{ color: secondaryColor }} />
@@ -145,11 +179,80 @@ export default function CheckoutForm({
       
       <div className="border-t border-gray-200 my-6"></div>
       
+      {/* Delivery Information - Form Style */}
       <h2 className="text-xl font-semibold text-black mb-5 flex items-center gap-2">
+        <MapPin className="w-5 h-5" style={{ color: secondaryColor }} />
         Delivery Information
       </h2>
       
       <div className="space-y-4">
+        {/* Delivery Zone - Clean dropdown style */}
+        {deliveryEnabled && sortedDeliveryTiers.length > 0 && (
+          <div className="relative">
+            <label className="block text-sm font-medium text-black mb-2">
+              Delivery Zone <span className="text-red-500">*</span>
+            </label>
+            
+            {loadingDelivery ? (
+              <div className="flex items-center justify-center p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-black"></div>
+                <span className="ml-3 text-sm text-gray-500">Loading zones...</span>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsDeliveryOpen(!isDeliveryOpen)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:border-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+                >
+                  <span className="text-black">
+                    {selectedDeliveryTier ? selectedDeliveryTier.tier_name : "Select delivery zone"}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    {selectedDeliveryTier && (
+                      <span className="text-sm font-medium" style={{ color: secondaryColor }}>
+                        {selectedDeliveryTier.fee === 0 ? 'Free' : `+ KES ${selectedDeliveryTier.fee.toLocaleString()}`}
+                      </span>
+                    )}
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isDeliveryOpen ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+                
+                {isDeliveryOpen && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {sortedDeliveryTiers.map((tier) => (
+                      <button
+                        key={tier.tier_id}
+                        type="button"
+                        onClick={() => {
+                          onDeliveryChange(tier);
+                          setIsDeliveryOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors ${
+                          selectedDeliveryTier?.tier_id === tier.tier_id ? 'bg-gray-50' : ''
+                        }`}
+                      >
+                        <span className="text-black">{tier.tier_name}</span>
+                        <span className="text-sm font-medium" style={{ color: secondaryColor }}>
+                          {formatFee(tier.fee)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+            
+            {selectedDeliveryTier && (
+              <p className="text-xs text-gray-500 mt-1.5">
+                {selectedDeliveryTier.fee === 0 
+                  ? 'Free delivery for this zone' 
+                  : `Delivery fee of KES ${selectedDeliveryTier.fee.toLocaleString()} will be added to your total`}
+              </p>
+            )}
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormInput
             label="Full Name"
@@ -245,16 +348,6 @@ export default function CheckoutForm({
           <span>* Required fields</span>
           <span className="mx-1">•</span>
           <span>City and Address are optional</span>
-        </div>
-      </div>
-      
-      <div className="mt-5 p-4 bg-yellow-50 rounded-lg border-l-4" style={{ borderLeftColor: secondaryColor }}>
-        <div className="flex gap-3">
-          <Truck className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-          <p className="text-sm text-black">
-            <strong>Delivery Fee:</strong> Not included in total. The seller will contact you after 
-            order placement to confirm delivery fee based on your location and package size.
-          </p>
         </div>
       </div>
     </div>

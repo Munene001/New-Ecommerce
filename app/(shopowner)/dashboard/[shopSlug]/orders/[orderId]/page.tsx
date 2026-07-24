@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import SimpleToast from "@/app/components/ui/simpleToast";
 import Button from "@/app/components/ui/button";
-import { ArrowLeft, Trash2, Package, User, CreditCard, MapPin, Calendar } from "lucide-react";
+import { ArrowLeft, Trash2, Package, User, CreditCard, MapPin, Calendar, Truck } from "lucide-react";
 import { useDashboardOrders } from "../hooks/useDashboardOrders";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
 import OrderSkeleton from "./components/orderSkeleton";
@@ -34,6 +34,12 @@ interface OrderItemWithImage extends OrderItem {
   imageUrl?: string;
   imageError?: boolean;
 }
+
+// Helper to safely parse numbers
+const safeNumber = (value: any): number => {
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
+};
 
 export default function IndividualOrder({ params }: PageProps) {
   const router = useRouter();
@@ -188,6 +194,11 @@ export default function IndividualOrder({ params }: PageProps) {
     );
   }
 
+  // Safely calculate amounts
+  const subtotal = safeNumber(order.subtotal);
+  const deliveryFee = safeNumber(order.delivery_fee);
+  const totalAmount = safeNumber(order.total) || subtotal + deliveryFee;
+
   return (
     <div className="md:p-6 px-4 py-6 font-[Poppins] max-w-7xl mx-auto">
       <div className="flex gap-6 items-center justify-between mb-6">
@@ -268,11 +279,37 @@ export default function IndividualOrder({ params }: PageProps) {
                 </div>
               ))}
               <div className="px-6 py-4 bg-gray-100">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-800">Total</span>
-                  <span className="font-bold text-lg text-gray-900">
-                    KSh {formatPrice(order.subtotal)}
+                <div className="flex justify-between items-center text-gray-800">
+                  <span className="font-semibold">Subtotal</span>
+                  <span className="font-semibold">
+                    KSh {formatPrice(subtotal)}
                   </span>
+                </div>
+                {/* Delivery Fee */}
+                <div className="flex justify-between items-center text-gray-800 mt-2">
+                  <span className="flex items-center gap-1">
+                    <Truck size={16} />
+                    Delivery Fee
+                  </span>
+                  <span className="font-semibold">
+                    {deliveryFee > 0 ? (
+                      `KSh ${formatPrice(deliveryFee)}`
+                    ) : (
+                      <span className="text-gray-500">Free</span>
+                    )}
+                  </span>
+                </div>
+                {/* Delivery Zone */}
+                {order.delivery_zone && (
+                  <div className="flex justify-between items-center text-gray-500 text-sm mt-1">
+                    <span>Delivery Zone</span>
+                    <span>{order.delivery_zone}</span>
+                  </div>
+                )}
+                {/* Total */}
+                <div className="flex justify-between items-center text-gray-900 border-t border-gray-300 pt-3 mt-3 font-bold text-lg">
+                  <span>Total</span>
+                  <span>KSh {formatPrice(totalAmount)}</span>
                 </div>
               </div>
             </div>

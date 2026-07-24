@@ -1,4 +1,3 @@
-// app/api/shops/customers/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
@@ -14,6 +13,9 @@ interface OrderRow extends RowDataPacket {
   customer_email: string;
   customer_phone: string;
   subtotal: number;
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all orders for this customer email
+    // Fetch all orders for this customer email with delivery fields
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         o.order_id,
@@ -54,6 +56,9 @@ export async function GET(request: NextRequest) {
         o.customer_email,
         o.customer_phone,
         o.subtotal,
+        o.delivery_fee,
+        o.delivery_zone,
+        o.total,
         o.payment_method,
         o.payment_status,
         o.order_status,
@@ -77,6 +82,9 @@ export async function GET(request: NextRequest) {
         customer_email: order.customer_email,
         customer_phone: order.customer_phone,
         subtotal: order.subtotal,
+        delivery_fee: order.delivery_fee || 0,
+        delivery_zone: order.delivery_zone,
+        total: order.total || order.subtotal + order.delivery_fee,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
         order_status: order.order_status,

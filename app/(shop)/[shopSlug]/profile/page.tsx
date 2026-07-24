@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/authcontext";
 import { useShop } from "@/app/(shop)/ShopContext";
-import { LogOut, Package, Clock, ChevronRight, ShoppingBag, User, Mail, Phone, Heart } from "lucide-react";
+import { LogOut, Package, Clock, ChevronRight, ShoppingBag, User, Mail, Phone, Heart, Truck } from "lucide-react";
 import Link from "next/link";
 import PageBar from "@/app/components/layout/pageBar";
 
@@ -15,8 +15,17 @@ type Order = {
   shop_slug: string;
   shop_name: string;
   subtotal: number;
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   order_status: string;
   created_at: string;
+};
+
+// Helper to safely parse numbers
+const safeNumber = (value: any): number => {
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
 };
 
 // Overall Skeleton Loader
@@ -284,41 +293,54 @@ const handleLogout = async () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {orders.map((order) => (
-                <Link
-                  key={order.order_id}
-                  href={`/${order.shop_slug}/orders/${order.order_id}`}
-                  className="block rounded-2xl border border-gray-100 p-5 active:scale-[0.99] transition-all duration-200 hover:shadow-md hover:border-gray-200"
-                  style={{ backgroundColor: `${secondaryColor}08` }}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className=" text-[16px] font-semibold text-black px-2.5 py-1 rounded-md">
-                          #{order.order_number}
-                        </span>
-                        {getStatusBadge(order.order_status)}
+              {orders.map((order) => {
+                // Safely calculate values
+                const subtotal = safeNumber(order.subtotal);
+                const deliveryFee = safeNumber(order.delivery_fee);
+                const total = safeNumber(order.total) || subtotal + deliveryFee;
+
+                return (
+                  <Link
+                    key={order.order_id}
+                    href={`/${order.shop_slug}/orders/${order.order_id}`}
+                    className="block rounded-2xl border border-gray-100 p-5 active:scale-[0.99] transition-all duration-200 hover:shadow-md hover:border-gray-200"
+                    style={{ backgroundColor: `${secondaryColor}08` }}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <span className=" text-[16px] font-semibold text-black px-2.5 py-1 rounded-md">
+                            #{order.order_number}
+                          </span>
+                          {getStatusBadge(order.order_status)}
+                        </div>
+               
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-black">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>{formatDate(order.created_at)}</span>
+                          </span>
+                          {deliveryFee > 0 && (
+                            <span className="flex items-center gap-1 text-gray-500 text-xs">
+                              <Truck className="w-3 h-3" />
+                              + {formatCurrency(deliveryFee)} delivery
+                            </span>
+                          )}
+                          <span className="font-bold text-gray-900 text-base">
+                            {formatCurrency(total)}
+                          </span>
+                        </div>
                       </div>
-             
-                      <div className="flex items-center gap-4 text-sm text-black">
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{formatDate(order.created_at)}</span>
-                        </span>
-                        <span className="font-bold text-gray-900 text-base">
-                          {formatCurrency(order.subtotal)}
-                        </span>
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                        style={{ backgroundColor: `${secondaryColor}25` }}
+                      >
+                        <ChevronRight className="w-5 h-5" style={{ color: secondaryColor }} />
                       </div>
                     </div>
-                    <div 
-                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-                      style={{ backgroundColor: `${secondaryColor}25` }}
-                    >
-                      <ChevronRight className="w-5 h-5" style={{ color: secondaryColor }} />
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

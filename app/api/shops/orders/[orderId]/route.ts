@@ -6,6 +6,9 @@ interface OrderRow extends RowDataPacket {
   order_id: number;
   order_number: string;
   subtotal: number;
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
@@ -42,6 +45,9 @@ export async function GET(
         order_id, 
         order_number, 
         subtotal,
+        delivery_fee,
+        delivery_zone,
+        total,
         payment_method,
         payment_status,
         order_status,
@@ -74,14 +80,15 @@ export async function GET(
       [orderId]
     );
 
-    const total_amount = order.subtotal;
-
     return NextResponse.json({
       success: true,
       data: {
         order_id: order.order_id,
         order_number: order.order_number,
-        total_amount: total_amount,
+        subtotal: order.subtotal,
+        delivery_fee: order.delivery_fee || 0,
+        delivery_zone: order.delivery_zone,
+        total_amount: order.total || order.subtotal + order.delivery_fee,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
         order_status: order.order_status,
