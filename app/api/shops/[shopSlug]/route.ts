@@ -35,6 +35,8 @@ interface ShopRow extends RowDataPacket {
   max_price: number | null;
   categories: string | Category[] | null;
   active_banner: string | Banner | null;
+  account_status: string;
+  status_expiry_date: string | null;
 }
 
 export async function GET(
@@ -121,10 +123,15 @@ export async function GET(
           WHERE t.tenant_id = s.tenant_id 
           AND a.user_id = (SELECT user_id FROM users WHERE supabase_uid = ?)
         )
-      ) as is_owner
+      ) as is_owner,
+      
+      -- Tenant account status
+      t.account_status,
+      t.status_expiry_date
       
     FROM shops s
     LEFT JOIN shop_settings ss ON s.shop_id = ss.shop_id
+    INNER JOIN tenant t ON s.tenant_id = t.tenant_id
     WHERE s.shop_slug = ?
     `;
 
@@ -152,7 +159,7 @@ export async function GET(
         : shop.categories
       : [];
 
-    // Return complete shop data with ownership info
+    // Return complete shop data with ownership info and tenant status
     return NextResponse.json({
       shopId: shop.shop_id,
       shopName: shop.shop_name,
@@ -177,6 +184,10 @@ export async function GET(
       
       isAuthenticated,
       isOwner,
+      
+      // Tenant status
+      tenantStatus: shop.account_status,
+      statusExpiryDate: shop.status_expiry_date,
     });
   } catch (error) {
     console.error("Database error:", error);

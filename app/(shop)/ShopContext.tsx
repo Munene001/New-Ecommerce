@@ -31,12 +31,18 @@ interface ShopData {
     category_id?: number;
     is_active: boolean;
   } | null;
+  
+  // Tenant status fields
+  tenantStatus?: string;
+  statusExpiryDate?: string | null;
 }
 
 interface ShopContextType {
   shop: ShopData | null;
   loading: boolean;
   error: string | null;
+  isExpired: boolean;
+  isSuspended: boolean;
   trackEvent: (eventType: string, metadata?: Record<string, any>) => void;
 }
 
@@ -50,24 +56,29 @@ export function ShopProvider({
   initialShopData: ShopData;
 }) {
   const [shop, setShop] = useState<ShopData | null>(initialShopData);
-  const [loading] = useState(false);
-  const [error] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const { track } = useLeadTracking();
 
+  // Status checks - only expired and suspended are blocked
+  const isExpired = shop?.tenantStatus === 'expired';
+  const isSuspended = shop?.tenantStatus === 'suspended';
+  // Note: 'active' and 'free_trial' are both treated as active - no blocking
+
   // Simple track function - just uses shopId from context
   const trackEvent = (eventType: string, metadata: Record<string, any> = {}) => {
-    if (shop?.shopId) {
+    if (shop?.shopId && !isExpired && !isSuspended) {
       track(shop.shopId, eventType, metadata);
     }
   };
 
   // Track shop view when page loads
   useEffect(() => {
-    if (shop?.shopId) {
+    if (shop?.shopId && !isExpired && !isSuspended) {
       trackEvent('shop_view');
     }
-  }, [shop?.shopId]);
+  }, [shop?.shopId, isExpired, isSuspended]);
 
   // Optional: Fetch updates if needed (e.g., every 5 minutes)
   useEffect(() => {
@@ -87,7 +98,14 @@ export function ShopProvider({
   }, [initialShopData.shopSlug]);
 
   return (
-    <ShopContext.Provider value={{ shop, loading, error, trackEvent }}>
+    <ShopContext.Provider value={{ 
+      shop, 
+      loading, 
+      error, 
+      isExpired,
+      isSuspended,
+      trackEvent 
+    }}>
       {children}
     </ShopContext.Provider>
   );

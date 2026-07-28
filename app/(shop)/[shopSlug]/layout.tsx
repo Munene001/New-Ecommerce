@@ -55,12 +55,15 @@ export default async function ShopLayout({
   
   const shopData = await getShopData(shopSlug);
   
-  if (!shopData) {
+  // Check if shop is expired, suspended, or doesn't exist
+  const isExpired = shopData?.tenantStatus === 'expired';
+  const isSuspended = shopData?.tenantStatus === 'suspended';
+  
+  if (!shopData || isExpired || isSuspended) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Shop Not Found</h1>
-          <p className="text-gray-600">The shop you&apos;re looking for doesn&apos;t exist.</p>
+          <h1 className="text-2xl font-bold text-gray-800">Shop not found</h1>
         </div>
       </div>
     );
