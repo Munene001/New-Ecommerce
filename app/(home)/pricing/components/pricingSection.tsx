@@ -59,11 +59,10 @@ const tiers = [
       "Cards Payments Integration",
       "Free custom domain (we provide it)",
       "Aggressive SEO (rich snippets, advanced sitemaps, search console)",
-      "SMS integration (order updates, promo SMS)",
       "Priority 24/7 chat & phone support",
       "Blog writing (we write for you)",
       "Product upload assistance (we help you upload)",
-      "Point of Sale software"
+      "Point of Sale software tied to your shop"
     ],
     cta: "Go Pro",
     popular: false,
