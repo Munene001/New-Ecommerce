@@ -55,14 +55,15 @@ const tiers = [
     description: "Full‑service scale with hands‑on support from our team.",
     features: [
       "Unlimited products",
-      "Mpesa Integratiion",
+      "Mpesa Integration",
+      "Cards Payments Integration",
       "Free custom domain (we provide it)",
       "Aggressive SEO (rich snippets, advanced sitemaps, search console)",
       "SMS integration (order updates, promo SMS)",
       "Priority 24/7 chat & phone support",
       "Blog writing (we write for you)",
       "Product upload assistance (we help you upload)",
-      "Social media auto‑posting – add a product, it posts to your Facebook & Instagram",
+      "Point of Sale software"
     ],
     cta: "Go Pro",
     popular: false,
