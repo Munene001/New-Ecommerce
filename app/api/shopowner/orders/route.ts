@@ -126,11 +126,10 @@ export async function GET(req: NextRequest) {
       queryParams
     );
 
-    // Get unviewed count (global, not affected by filters except shop_id)
+    // Get unviewed count
     let unviewedWhereClause = 'WHERE shop_id = ?';
     const unviewedParams: (string | number)[] = [shopId];
     
-    // Optional: Apply date filters to unviewed count if needed
     if (dateFrom) {
       unviewedWhereClause += ' AND DATE(created_at) >= ?';
       unviewedParams.push(dateFrom);
@@ -148,7 +147,7 @@ export async function GET(req: NextRequest) {
     );
     const unviewedCount = unviewedResult[0]?.total || 0;
 
-    // Get paginated orders with delivery fields
+    // Get paginated orders
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         order_id, order_number, customer_name, customer_email, customer_phone,
@@ -163,15 +162,33 @@ export async function GET(req: NextRequest) {
       [...queryParams, limit, offset]
     );
 
+    // ✅ FIX: Convert all numeric values to Number
+    const stats = statsResult[0];
+    const formattedOrders = orders.map(order => ({
+      ...order,
+      subtotal: Number(order.subtotal) || 0,
+      delivery_fee: Number(order.delivery_fee) || 0,
+      total: Number(order.total) || 0,
+    }));
+
     return NextResponse.json({
       success: true,
-      orders,
-      stats: statsResult[0],
-      unviewedCount,
+      orders: formattedOrders,
+      stats: {
+        totalOrders: Number(stats?.totalOrders) || 0,
+        pendingOrders: Number(stats?.pendingOrders) || 0,
+        processingOrders: Number(stats?.processingOrders) || 0,
+        completedOrders: Number(stats?.completedOrders) || 0,
+        cancelledOrders: Number(stats?.cancelledOrders) || 0,
+        totalRevenue: Number(stats?.totalRevenue) || 0,
+        paidOrders: Number(stats?.paidOrders) || 0,
+        pendingPayment: Number(stats?.pendingPayment) || 0,
+      },
+      unviewedCount: Number(unviewedCount) || 0,
       pagination: {
         currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
-        totalCount,
+        totalPages: Math.ceil(Number(totalCount) / limit),
+        totalCount: Number(totalCount),
         limit
       }
     });

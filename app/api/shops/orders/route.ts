@@ -1,15 +1,16 @@
+// app/api/shops/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { sendBuyerOrderEmail, sendSellerOrderEmail } from '@/lib/email/ordermail';
+import jwt from 'jsonwebtoken';
 
 interface OrderItem {
   product_id: number;
   variant_id?: number | null;
   quantity: number;
-  price: number;
-  product_name: string;
+  product_name?: string;
   variant_name?: string | null;
 }
 
@@ -22,8 +23,7 @@ interface OrderBody {
   customer_address?: string | null;
   special_instructions?: string;
   payment_method: 'mpesa' | 'cash_on_delivery';
-  subtotal: number;
-  delivery_fee?: number;
+  delivery_tier_id?: number | null;
   delivery_zone?: string | null;
   items: OrderItem[];
 }
@@ -35,6 +35,7 @@ interface ProductRow extends RowDataPacket {
   discount_price: number | null;
   shop_id: number;
   product_type: 'simple' | 'variable';
+  stock_quantity: number;
 }
 
 interface VariantRow extends RowDataPacket {
@@ -55,6 +56,10 @@ interface ShopRow extends RowDataPacket {
 
 interface UserRow extends RowDataPacket {
   user_id: number;
+}
+
+interface DeliveryTierRow extends RowDataPacket {
+  fee: number;
 }
 
 async function getInternalUserId(supabaseUserId: string): Promise<number | null> {
@@ -81,14 +86,26 @@ async function generateOrderNumber(shopId: number): Promise<string> {
   return `ORD-${shopId}-${dateStr}-${sequence}`;
 }
 
-async function validateProducts(shopId: number, items: OrderItem[]): Promise<{ valid: boolean; products: ProductRow[]; variants: VariantRow[]; error?: string }> {
+function getEffectivePrice(row: ProductRow | VariantRow): number {
+  if (row.discount_price !== null && row.discount_price !== undefined && row.discount_price > 0) {
+    return Number(row.discount_price);
+  }
+  return Number(row.price);
+}
+
+async function validateProductsAndStock(shopId: number, items: OrderItem[]): Promise<{ 
+  valid: boolean; 
+  products: ProductRow[]; 
+  variants: VariantRow[]; 
+  error?: string 
+}> {
   const productIds = items.map(item => item.product_id);
   const variantIds = items.filter(item => item.variant_id).map(item => item.variant_id);
   
   const uniqueProductIds = [...new Set(productIds)];
   const productPlaceholders = uniqueProductIds.map(() => '?').join(',');
   const [products] = await pool.query<ProductRow[]>(
-    `SELECT product_id, product_name, price, discount_price, shop_id, product_type
+    `SELECT product_id, product_name, price, discount_price, shop_id, product_type, stock_quantity
      FROM products 
      WHERE product_id IN (${productPlaceholders}) AND shop_id = ?`,
     [...uniqueProductIds, shopId]
@@ -114,6 +131,22 @@ async function validateProducts(shopId: number, items: OrderItem[]): Promise<{ v
       return { valid: false, products: [], variants: [], error: 'One or more variants not found' };
     }
   }
+
+  for (const item of items) {
+    const product = products.find(p => p.product_id === item.product_id);
+    const variant = item.variant_id ? variants.find(v => v.variant_id === item.variant_id) : null;
+    
+    const availableStock = variant ? variant.stock_quantity : product?.stock_quantity || 0;
+    
+    if (item.quantity > availableStock) {
+      return { 
+        valid: false, 
+        products: [], 
+        variants: [], 
+        error: `Insufficient stock for ${product?.product_name || 'item'}. Available: ${availableStock}` 
+      };
+    }
+  }
   
   return { valid: true, products, variants };
 }
@@ -124,6 +157,26 @@ async function getShopDetails(shopId: number): Promise<{ shop_name: string; cont
     [shopId]
   );
   return rows.length ? rows[0] : null;
+}
+
+async function getDeliveryFee(shopId: number, tierId: number | null): Promise<{ fee: number; valid: boolean }> {
+  if (!tierId) {
+    return { fee: 0, valid: true };
+  }
+  
+  const [rows] = await pool.query<DeliveryTierRow[]>(
+    'SELECT fee FROM delivery_tiers WHERE tier_id = ? AND shop_id = ?',
+    [tierId, shopId]
+  );
+  
+  if (rows.length === 0) {
+    return { fee: 0, valid: false };
+  }
+  
+  return { 
+    fee: Number(rows[0].fee) || 0, 
+    valid: true 
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -151,22 +204,17 @@ export async function POST(request: NextRequest) {
     customer_city, 
     customer_address, 
     payment_method, 
-    subtotal,
-    delivery_fee = 0,
-    delivery_zone = null,
+    delivery_tier_id,
+    delivery_zone,
     items 
   } = body;
 
-  if (!shop_id || !customer_name || !customer_email || !customer_phone || !payment_method || subtotal === undefined || !items || items.length === 0) {
+  if (!shop_id || !customer_name || !customer_email || !customer_phone || !payment_method || !items || items.length === 0) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
   if (!['mpesa', 'cash_on_delivery'].includes(payment_method)) {
     return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 });
-  }
-
-  if (subtotal <= 0) {
-    return NextResponse.json({ error: 'Subtotal must be greater than 0' }, { status: 400 });
   }
 
   for (const item of items) {
@@ -187,15 +235,22 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
       }
 
-      const productValidation = await validateProducts(shop_id, items);
+      const productValidation = await validateProductsAndStock(shop_id, items);
       if (!productValidation.valid) {
         await connection.rollback();
         connection.release();
         return NextResponse.json({ error: productValidation.error }, { status: 400 });
       }
 
-      const orderNumber = await generateOrderNumber(shop_id);
+      const deliveryResult = await getDeliveryFee(shop_id, delivery_tier_id || null);
+      if (!deliveryResult.valid) {
+        await connection.rollback();
+        connection.release();
+        return NextResponse.json({ error: 'Invalid delivery tier' }, { status: 400 });
+      }
+      const deliveryFee = Number(deliveryResult.fee) || 0;
 
+      let realSubtotal = 0;
       const orderItemsWithDetails = items.map(item => {
         const product = productValidation.products.find(p => p.product_id === item.product_id);
         let variant: VariantRow | undefined;
@@ -203,25 +258,26 @@ export async function POST(request: NextRequest) {
           variant = productValidation.variants.find(v => v.variant_id === item.variant_id);
         }
         
-        const priceAtTime = item.price || (variant?.discount_price || variant?.price || product?.discount_price || product?.price || 0);
-        const productName = item.product_name || product?.product_name || '';
-        const variantName = item.variant_name || (variant ? JSON.stringify(variant.attributes) : null);
-        const variantAttributes = variant 
-          ? (typeof variant.attributes === 'string' ? variant.attributes : JSON.stringify(variant.attributes))
-          : null;
+        const realPrice = variant ? getEffectivePrice(variant) : (product ? getEffectivePrice(product) : 0);
+        const productName = product?.product_name || '';
+        const variantAttributes = variant?.attributes || null;
+        const variantName = variantAttributes ? JSON.parse(variantAttributes) : null;
+        
+        realSubtotal += realPrice * item.quantity;
         
         return {
-          ...item,
+          product_id: item.product_id,
+          quantity: item.quantity,
           product_name: productName,
-          price_at_time: priceAtTime,
+          price_at_time: realPrice,
           variant_id: item.variant_id || null,
-          variant_name: variantName,
+          variant_name: variantName ? JSON.stringify(variantName) : null,
           variant_attributes: variantAttributes
         };
       });
 
-      // Calculate total with delivery fee
-      const total = Number(subtotal) + Number(delivery_fee);
+      const total = Number(realSubtotal) + Number(deliveryFee);
+      const orderNumber = await generateOrderNumber(shop_id);
 
       const [orderResult] = await connection.query<ResultSetHeader>(
         `INSERT INTO orders (
@@ -232,7 +288,7 @@ export async function POST(request: NextRequest) {
         [
           orderNumber, shop_id, customerId, customer_name, customer_email,
           customer_phone, customer_city || null, customer_address || null, body.special_instructions || null,
-          subtotal, delivery_fee, delivery_zone, total, payment_method
+          realSubtotal, deliveryFee, delivery_zone || null, total, payment_method
         ]
       );
 
@@ -260,75 +316,83 @@ export async function POST(request: NextRequest) {
       await connection.commit();
       connection.release();
 
-      const emailData = {
-        orderId,
-        orderNumber,
-        subtotal,
-        delivery_fee,
-        delivery_zone,
-        total,
-        customer_name,
-        customer_email,
-        customer_phone,
-        customer_address: customer_address && customer_city ? `${customer_address}, ${customer_city}` : customer_address || customer_city || '',
-        special_instructions: body.special_instructions,
-        payment_method,
-        items: orderItemsWithDetails.map(item => ({
-          product_name: item.product_name,
-          variant_name: item.variant_name,
-          quantity: item.quantity,
-          price_at_time: item.price_at_time
-        })),
-        seller_name: shopDetails.shop_name,
-        seller_email: shopDetails.contact_email,
-        seller_phone: shopDetails.contact_phone
-      };
+      if (payment_method === 'cash_on_delivery') {
+        const emailData = {
+          orderId,
+          orderNumber,
+          subtotal: realSubtotal,
+          delivery_fee: deliveryFee,
+          delivery_zone: delivery_zone,
+          total,
+          customer_name,
+          customer_email,
+          customer_phone,
+          customer_address: customer_address && customer_city ? `${customer_address}, ${customer_city}` : customer_address || customer_city || '',
+          special_instructions: body.special_instructions,
+          payment_method,
+          items: orderItemsWithDetails.map(item => ({
+            product_name: item.product_name,
+            variant_name: item.variant_name,
+            quantity: item.quantity,
+            price_at_time: item.price_at_time
+          })),
+          seller_name: shopDetails.shop_name,
+          seller_email: shopDetails.contact_email,
+          seller_phone: shopDetails.contact_phone
+        };
 
-      (async () => {
-        try {
-          await sendBuyerOrderEmail({
-            to: customer_email,
-            customer_name: customer_name,
-            order_number: orderNumber,
-            items: emailData.items,
-            subtotal: subtotal,
-            delivery_fee: delivery_fee,
-            delivery_zone: delivery_zone,
-            total: total,
-            seller_name: shopDetails.shop_name,
-            seller_email: shopDetails.contact_email,
-            seller_phone: shopDetails.contact_phone,
-          });
-          
-          if (shopDetails.contact_email) {
-            await sendSellerOrderEmail({
-              to: shopDetails.contact_email,
+        (async () => {
+          try {
+            await sendBuyerOrderEmail({
+              to: customer_email,
               customer_name: customer_name,
-              customer_email: customer_email,
-              customer_phone: customer_phone,
-              customer_address: customer_address && customer_city ? `${customer_address}, ${customer_city}` : customer_address || customer_city || '',
               order_number: orderNumber,
               items: emailData.items,
-              subtotal: subtotal,
-              delivery_fee: delivery_fee,
+              subtotal: realSubtotal,
+              delivery_fee: deliveryFee,
               delivery_zone: delivery_zone,
               total: total,
-              special_instructions: body.special_instructions,
-              payment_method: payment_method,
+              seller_name: shopDetails.shop_name,
+              seller_email: shopDetails.contact_email,
+              seller_phone: shopDetails.contact_phone,
             });
+            
+            if (shopDetails.contact_email) {
+              await sendSellerOrderEmail({
+                to: shopDetails.contact_email,
+                customer_name: customer_name,
+                customer_email: customer_email,
+                customer_phone: customer_phone,
+                customer_address: customer_address && customer_city ? `${customer_address}, ${customer_city}` : customer_address || customer_city || '',
+                order_number: orderNumber,
+                items: emailData.items,
+                subtotal: realSubtotal,
+                delivery_fee: deliveryFee,
+                delivery_zone: delivery_zone,
+                total: total,
+                special_instructions: body.special_instructions,
+                payment_method: payment_method,
+              });
+            }
+          } catch (emailError) {
+            console.error('Email sending failed for COD order:', orderNumber, emailError);
           }
-          
-          
-        } catch (emailError) {
-          console.error('❌ Email sending failed for order:', orderNumber, emailError);
-        }
-      })();
+        })();
+      }
+
+      // Generate JWT token for guest access
+      const orderToken = jwt.sign(
+        { orderId, orderNumber },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      );
 
       return NextResponse.json({
         success: true,
         data: {
           order_id: orderId,
           order_number: orderNumber,
+          order_token: orderToken,
           total_amount: total,
           message: payment_method === 'cash_on_delivery' 
             ? 'Order placed successfully' 

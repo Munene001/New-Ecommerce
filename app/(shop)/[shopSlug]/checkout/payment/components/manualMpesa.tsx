@@ -51,7 +51,49 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
   const safeOrderId = orderId || "";
   const safeTotalAmount = totalAmount || 0;
 
-  const handleOrderComplete = () => {
+  const handleOrderComplete = async () => {
+    // 1. Update order payment status to "paid"
+    try {
+      const updateResponse = await fetch(`/api/shops/orders/${safeOrderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // ← ADDED
+        body: JSON.stringify({ 
+          action: 'payment', 
+          value: 'paid' 
+        }),
+      });
+      
+      if (updateResponse.ok) {
+        console.log('✅ Order marked as paid');
+      } else {
+        const errorData = await updateResponse.json();
+        console.error('❌ Failed to update order status:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ Failed to update order:', error);
+    }
+
+    // 2. Send confirmation emails via API
+    try {
+      const response = await fetch('/api/shops/orders/direct-mpesa', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // ← ADDED
+        body: JSON.stringify({ orderId: safeOrderId }),
+      });
+      
+      if (response.ok) {
+        console.log('✅ Confirmation emails sent for Direct MPesa order');
+      } else {
+        console.error('❌ Failed to send confirmation emails');
+      }
+    } catch (error) {
+      console.error('❌ Failed to send confirmation emails:', error);
+    }
+    
     setOrderComplete(true);
     // Update URL to include success status
     const newParams = new URLSearchParams(searchParams.toString());

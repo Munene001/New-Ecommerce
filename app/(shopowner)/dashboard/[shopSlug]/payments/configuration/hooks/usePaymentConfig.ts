@@ -12,6 +12,17 @@ interface DirectMpesaConfig {
   phone_number: string | null;
 }
 
+interface StkPushConfig {
+  type: 'paybill' | 'till' | null;
+  shortcode: string | null;
+  consumer_key: string | null;
+  consumer_secret: string | null;
+  passkey: string | null;
+  business_number: string | null;
+  till_number: string | null;
+  account_number: string | null;
+}
+
 interface PaymentSettings {
   cod_enabled: boolean;
   has_direct_mpesa: boolean;
@@ -20,6 +31,7 @@ interface PaymentSettings {
   can_disable_cod: boolean;
   active_payment_type: 'direct_mpesa' | 'stk_push' | null;
   direct_mpesa: DirectMpesaConfig | null;
+  stk_push: StkPushConfig | null;
 }
 
 export function usePaymentConfig() {
@@ -34,6 +46,7 @@ export function usePaymentConfig() {
     can_disable_cod: false,
     active_payment_type: null,
     direct_mpesa: null,
+    stk_push: null,
   });
 
   const fetchSettings = useCallback(async () => {
@@ -100,11 +113,10 @@ export function usePaymentConfig() {
   }) => {
     setLoading(true);
     try {
-      // ✅ Fixed: Remove /direct-mpesa from URL
       const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify({ payment_method: 'direct_mpesa', ...config }),
       });
       
       const data = await res.json();
@@ -128,7 +140,6 @@ export function usePaymentConfig() {
   const deleteDirectMpesa = async () => {
     setLoading(true);
     try {
-      // ✅ Fixed: Remove /direct-mpesa from URL and add action body
       const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -153,12 +164,77 @@ export function usePaymentConfig() {
     }
   };
 
+  const saveStkPush = async (config: {
+    type: 'paybill' | 'till';
+    shortcode: string;
+    consumer_key: string;
+    consumer_secret: string;
+    passkey: string;
+    business_number?: string;
+    till_number?: string;
+    account_number?: string;
+  }) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_method: 'stk_push', ...config }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        showToast("STK Push configuration saved successfully", "success");
+        await fetchSettings();
+        return true;
+      } else {
+        showToast(data.error || "Failed to save STK Push configuration", "error");
+        return false;
+      }
+    } catch (error) {
+      showToast("Network error", "error");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteStkPush = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stk-push' }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        showToast("STK Push configuration removed", "success");
+        await fetchSettings();
+        return true;
+      } else {
+        showToast(data.error || "Failed to remove STK Push configuration", "error");
+        return false;
+      }
+    } catch (error) {
+      showToast("Network error", "error");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     settings,
     loading,
     toggleCod,
     saveDirectMpesa,
     deleteDirectMpesa,
+    saveStkPush,
+    deleteStkPush,
     refresh: fetchSettings,
   };
 }

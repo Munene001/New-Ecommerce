@@ -151,7 +151,7 @@ export default function DirectMpesaTab({ config, isActive, onSave, onDelete, loa
   ];
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white rounded-lg border border-gray-200 py-6 px-3">
       {isActive && activeMessage && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
           <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />

@@ -35,6 +35,10 @@ interface PaymentConfig {
   } | null;
 }
 
+const getOrderToken = (orderId: string, searchParams: URLSearchParams): string | null => {
+  return searchParams.get('token') || localStorage.getItem(`guest_order_token_${orderId}`);
+};
+
 export default function PaymentPage() {
   const searchParams = useSearchParams();
   const { shop, trackEvent } = useShop();
@@ -62,7 +66,14 @@ export default function PaymentPage() {
     
     const fetchOrder = async () => {
       try {
-        const response = await fetch(`/api/shops/orders/${orderId}`);
+        const token = orderId ? getOrderToken(orderId, searchParams) : null;
+        
+        const response = await fetch(`/api/shops/orders/${orderId}`, {
+          credentials: 'include',
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+        });
         const result = await response.json();
         
         if (result.success) {
@@ -79,13 +90,15 @@ export default function PaymentPage() {
     };
     
     fetchOrder();
-  }, [orderId, showToast]);
+  }, [orderId, searchParams, showToast]);
   
   useEffect(() => {
     if (order?.payment_method === "mpesa" && shop?.shopId) {
       const fetchPaymentSettings = async () => {
         try {
-          const response = await fetch(`/api/shops/payments?shop_id=${shop?.shopId}`);
+          const response = await fetch(`/api/shops/payments?shop_id=${shop?.shopId}`, {
+            credentials: 'include',
+          });
           const result = await response.json();
           if (result.success) {
             setPaymentConfig(result.data);

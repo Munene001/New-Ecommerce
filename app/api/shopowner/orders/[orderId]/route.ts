@@ -173,13 +173,23 @@ export async function GET(
       [orderId]
     );
 
+    // ✅ FIX: Convert all numeric values to Number
+    const order = orders[0];
+    const formattedItems = items.map(item => ({
+      ...item,
+      price_at_time: Number(item.price_at_time) || 0,
+      variant_attributes: safeParseVariantAttributes(item.variant_attributes)
+    }));
+
     return NextResponse.json({
       success: true,
-      order: orders[0],
-      items: items.map(item => ({
-        ...item,
-        variant_attributes: safeParseVariantAttributes(item.variant_attributes)
-      }))
+      order: {
+        ...order,
+        subtotal: Number(order.subtotal) || 0,
+        delivery_fee: Number(order.delivery_fee) || 0,
+        total: Number(order.total) || 0,
+      },
+      items: formattedItems
     });
 
   } catch (error) {
