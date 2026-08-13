@@ -40,7 +40,7 @@ interface ProductRow extends RowDataPacket {
 interface VariantRow extends RowDataPacket {
   variant_id: number;
   product_id: number;
-  attributes: string;
+  attributes: string | object;
   price: number;
   discount_price: number | null;
   stock_quantity: number;
@@ -228,7 +228,17 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+  }
+
+  // Handle case where items might be sent as string or object
+  let parsedItems = body.items;
+  if (typeof parsedItems === 'string') {
+    try {
+      parsedItems = JSON.parse(parsedItems);
+    } catch {
+      return NextResponse.json({ error: 'Invalid items format' }, { status: 400 });
+    }
   }
 
   const { 
@@ -240,11 +250,12 @@ export async function POST(request: NextRequest) {
     customer_address, 
     payment_method, 
     delivery_tier_id,
-    delivery_zone,
-    items 
+    delivery_zone
   } = body;
 
-  if (!shop_id || !customer_name || !customer_email || !customer_phone || !payment_method || !items || items.length === 0) {
+  const items = parsedItems;
+
+  if (!shop_id || !customer_name || !customer_email || !customer_phone || !payment_method || !items || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
@@ -468,7 +479,13 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Create order error:', error);
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : typeof error === 'object' 
+        ? JSON.stringify(error) 
+        : String(error);
+
+    console.error('Create order outer error:', errorMessage);
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
 }
