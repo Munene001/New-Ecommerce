@@ -56,9 +56,14 @@ export async function GET(
       return NextResponse.json({ error: 'Delivery tier not found' }, { status: 404 });
     }
 
+    // ✅ FIX: Convert fee to Number
+    const tier = tiers[0];
     return NextResponse.json({
       success: true,
-      data: tiers[0]
+      data: {
+        ...tier,
+        fee: Number(tier.fee) || 0,
+      }
     });
   } catch (error) {
     console.error('GET delivery tier error:', error);
@@ -101,7 +106,10 @@ export async function PUT(
       }, { status: 400 });
     }
 
-    if (fee !== undefined && fee < 0) {
+    // ✅ FIX: Convert fee to Number
+    const feeNumber = fee !== undefined ? Number(fee) || 0 : undefined;
+
+    if (feeNumber !== undefined && feeNumber < 0) {
       return NextResponse.json({ error: 'Fee cannot be negative' }, { status: 400 });
     }
 
@@ -116,9 +124,9 @@ export async function PUT(
       updates.push('tier_name = ?');
       values.push(tier_name);
     }
-    if (fee !== undefined) {
+    if (feeNumber !== undefined) {
       updates.push('fee = ?');
-      values.push(fee);
+      values.push(feeNumber);
     }
 
     values.push(tierIdNum);

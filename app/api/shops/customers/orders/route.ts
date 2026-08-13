@@ -20,6 +20,7 @@ interface OrderRow extends RowDataPacket {
   payment_status: string;
   order_status: string;
   created_at: string;
+  customer_id: number | null;
 }
 
 export async function GET(request: NextRequest) {
@@ -28,23 +29,38 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !user) {
+    if (authError || !user || !user.email) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const customerEmail = user.email;
-    
-    if (!customerEmail) {
+    // Get user_id from internal users table
+    const [userRows] = await pool.query<RowDataPacket[]>(
+      'SELECT user_id FROM users WHERE supabase_uid = ?',
+      [user.id]
+    );
+
+    if (userRows.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'User email not found' },
-        { status: 400 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
       );
     }
 
-    // Fetch all orders for this customer email with delivery fields
+    const userId = userRows[0].user_id;
+    const userEmail = user.email.toLowerCase().trim();
+
+    // ✅ AUTO-CLAIM: Link any guest orders matching this user's email
+    await pool.query(
+      `UPDATE orders 
+       SET customer_id = ? 
+       WHERE customer_id IS NULL AND LOWER(TRIM(customer_email)) = ?`,
+      [userId, userEmail]
+    );
+
+    // ✅ Fetch orders by customer_id OR matching email
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         o.order_id,
@@ -62,17 +78,22 @@ export async function GET(request: NextRequest) {
         o.payment_method,
         o.payment_status,
         o.order_status,
-        o.created_at
+        o.created_at,
+        o.customer_id
       FROM orders o
       INNER JOIN shops s ON o.shop_id = s.shop_id
-      WHERE o.customer_email = ?
+      WHERE o.customer_id = ? OR LOWER(TRIM(o.customer_email)) = ?
       ORDER BY o.created_at DESC`,
-      [customerEmail]
+      [userId, userEmail]
     );
 
-    return NextResponse.json({
-      success: true,
-      orders: orders.map(order => ({
+    // Convert numeric values to Number
+    const formattedOrders = orders.map(order => {
+      const subtotal = Number(order.subtotal) || 0;
+      const deliveryFee = Number(order.delivery_fee) || 0;
+      const total = Number(order.total) || subtotal + deliveryFee;
+
+      return {
         order_id: order.order_id,
         order_number: order.order_number,
         shop_id: order.shop_id,
@@ -81,15 +102,20 @@ export async function GET(request: NextRequest) {
         customer_name: order.customer_name,
         customer_email: order.customer_email,
         customer_phone: order.customer_phone,
-        subtotal: order.subtotal,
-        delivery_fee: order.delivery_fee || 0,
+        subtotal: subtotal,
+        delivery_fee: deliveryFee,
         delivery_zone: order.delivery_zone,
-        total: order.total || order.subtotal + order.delivery_fee,
+        total: total,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
         order_status: order.order_status,
         created_at: order.created_at
-      }))
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      orders: formattedOrders
     });
 
   } catch (error) {

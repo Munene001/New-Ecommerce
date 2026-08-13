@@ -19,6 +19,8 @@ export default function PaymentConfigurationPage() {
     toggleCod,
     saveDirectMpesa,
     deleteDirectMpesa,
+    saveStkPush,
+    deleteStkPush,
   } = usePaymentConfig();
 
   const tabs = ["Manual M-Pesa", "STK Push"];
@@ -30,17 +32,17 @@ export default function PaymentConfigurationPage() {
         { text: "Cash on Delivery is currently active" },
         { text: "Configure M-Pesa below to offer mobile payments" },
         { text: "Choose Manual M-Pesa or STK Push as your preferred method" },
-         { text: "Stk Push is the recommended faster and modern option but it is complex to set up" },
+        { text: "STK Push is the recommended faster and modern option but it is complex to set up" },
         { text: "You cannot disable COD until M-Pesa is configured" }
       ];
     }
     
     if (settings.active_payment_type === 'direct_mpesa') {
       return [
-        { text: "✓ manual M-Pesa is currently ACTIVE" },
+        { text: "✓ Manual M-Pesa is currently ACTIVE" },
         { text: "Customers will see your M-Pesa details at checkout" },
         { text: "You can now disable COD if you want only mobile payments" },
-        { text: "Switch to STK Push tab to configure it (coming soon)" }
+        { text: "Switch to STK Push tab to configure it" }
       ];
     }
     
@@ -48,7 +50,8 @@ export default function PaymentConfigurationPage() {
       return [
         { text: "✓ STK Push is currently ACTIVE" },
         { text: "Customers will receive a prompt on their phone" },
-        { text: "No manual entry required by customers" }
+        { text: "No manual entry required by customers" },
+        { text: "Switch to Manual M-Pesa tab to configure it" }
       ];
     }
     
@@ -58,15 +61,8 @@ export default function PaymentConfigurationPage() {
     ];
   };
 
-  const instructionVariant = () => {
-    if (!settings.has_direct_mpesa && !settings.has_stk_push) return "blue";
-    if (settings.active_payment_type === 'direct_mpesa') return "green";
-    if (settings.active_payment_type === 'stk_push') return "green";
-    return "blue";
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6 font-[Poppins]">
+    <div className="min-h-screen bg-gray-50 py-6 px-3 font-[Poppins]">
       {/* Back Button */}
       <div className="mb-6">
         <Link
@@ -86,7 +82,7 @@ export default function PaymentConfigurationPage() {
         </p>
       </div>
 
-       {/* Instructions Box */}
+      {/* Instructions Box */}
       <div className="mb-6">
         <InstructionsList
           items={getInstructionItems()}
@@ -101,8 +97,6 @@ export default function PaymentConfigurationPage() {
         onToggle={toggleCod}
         loading={loading}
       />
-
-     
 
       {/* Tab Bar */}
       <div className="w-full mb-8">
@@ -157,7 +151,11 @@ export default function PaymentConfigurationPage() {
           />
         ) : (
           <StkPushTab
+            config={settings.stk_push}
             isActive={settings.active_payment_type === 'stk_push'}
+            onSave={saveStkPush}
+            onDelete={deleteStkPush}
+            loading={loading}
           />
         )}
       </div>

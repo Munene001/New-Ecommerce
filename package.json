@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "^2.93.3",
     "browser-image-compression": "^2.0.2",
     "embla-carousel-react": "^8.6.0",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.563.0",
     "mysql2": "^3.16.2",
     "next": "16.1.6",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^19",
