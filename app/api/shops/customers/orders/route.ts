@@ -1,9 +1,7 @@
-// app/api/shops/customers/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
-import { getOrderAccess } from '@/lib/auth/order-access';
 
 interface OrderRow extends RowDataPacket {
   order_id: number;
@@ -31,7 +29,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !user) {
+    if (authError || !user || !user.email) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -52,8 +50,17 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = userRows[0].user_id;
+    const userEmail = user.email.toLowerCase().trim();
 
-    // Fetch all orders for this customer
+    // ✅ AUTO-CLAIM: Link any guest orders matching this user's email
+    await pool.query(
+      `UPDATE orders 
+       SET customer_id = ? 
+       WHERE customer_id IS NULL AND LOWER(TRIM(customer_email)) = ?`,
+      [userId, userEmail]
+    );
+
+    // ✅ Fetch orders by customer_id OR matching email
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         o.order_id,
@@ -75,12 +82,12 @@ export async function GET(request: NextRequest) {
         o.customer_id
       FROM orders o
       INNER JOIN shops s ON o.shop_id = s.shop_id
-      WHERE o.customer_id = ?
+      WHERE o.customer_id = ? OR LOWER(TRIM(o.customer_email)) = ?
       ORDER BY o.created_at DESC`,
-      [userId]
+      [userId, userEmail]
     );
 
-    // ✅ FIX: Convert all numeric values to Number and verify each order
+    // Convert numeric values to Number
     const formattedOrders = orders.map(order => {
       const subtotal = Number(order.subtotal) || 0;
       const deliveryFee = Number(order.delivery_fee) || 0;

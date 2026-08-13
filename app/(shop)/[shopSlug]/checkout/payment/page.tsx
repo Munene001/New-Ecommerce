@@ -51,6 +51,34 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
   
+  // Restore persisted payment state if present
+  const [paymentState, setPaymentState] = useState(() => {
+    if (!orderId) return null;
+    
+    try {
+      const saved = sessionStorage.getItem(`payment_state_${orderId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Date.now() - parsed.timestamp < 3600000) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // Invalid JSON, ignore
+    }
+    return null;
+  });
+
+  // Save updated state to sessionStorage
+  useEffect(() => {
+    if (paymentState && orderId) {
+      sessionStorage.setItem(`payment_state_${orderId}`, JSON.stringify({
+        ...paymentState,
+        timestamp: Date.now()
+      }));
+    }
+  }, [paymentState, orderId]);
+  
   useEffect(() => {
     if (order && !hasTrackedPageView) {
       trackEvent('payment_page_view');
@@ -66,7 +94,7 @@ export default function PaymentPage() {
     
     const fetchOrder = async () => {
       try {
-        const token = orderId ? getOrderToken(orderId, searchParams) : null;
+        const token = getOrderToken(orderId, searchParams);
         
         const response = await fetch(`/api/shops/orders/${orderId}`, {
           credentials: 'include',
@@ -154,11 +182,15 @@ export default function PaymentPage() {
     }
     
     if (paymentConfig.active_payment_type === 'stk_push') {
-      return <STKPushPayment 
-        orderId={orderId} 
-        orderNumber={order.order_number}
-        onPaymentSuccess={handlePaymentSuccess}
-      />;
+      return (
+        <STKPushPayment 
+          orderId={orderId} 
+          order={order}
+          initialSavedState={paymentState}
+          onPaymentSuccess={handlePaymentSuccess}
+          onStateChange={setPaymentState}
+        />
+      );
     }
     
     if (paymentConfig.active_payment_type === 'direct_mpesa' && paymentConfig.direct_mpesa) {

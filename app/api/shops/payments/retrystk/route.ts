@@ -1,4 +1,3 @@
-// app/api/shops/payments/retrystk/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
@@ -31,54 +30,45 @@ interface TransactionRow extends RowDataPacket {
   status: string;
 }
 
+function normalizeKenyanPhone(phone: string): string | null {
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('0')) {
+    cleaned = '254' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+    cleaned = '254' + cleaned;
+  }
+  
+  if (/^254(7|1)\d{8}$/.test(cleaned)) {
+    return cleaned;
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
+  ('🔁 [RETRY] Retry STK Push request received');
+  
   try {
     const body = await req.json();
     const { orderId, phoneNumber } = body;
 
-    if (!orderId) {
+    if (!orderId || !phoneNumber) {
       return NextResponse.json(
-        { success: false, error: 'orderId is required' },
+        { success: false, error: 'orderId and phoneNumber are required' },
         { status: 400 }
       );
     }
 
-    if (!phoneNumber) {
+    const formattedPhone = normalizeKenyanPhone(String(phoneNumber));
+    if (!formattedPhone) {
       return NextResponse.json(
-        { success: false, error: 'phoneNumber is required' },
+        { success: false, error: 'Invalid Kenyan phone number format.' },
         { status: 400 }
       );
     }
 
-    // Check if order exists and get customer_id for auth
-    const [orderCheck] = await pool.query<OrderRow[]>(
-      `SELECT order_id, customer_id FROM orders WHERE order_id = ?`,
-      [orderId]
-    );
-
-    if (orderCheck.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Order not found' },
-        { status: 404 }
-      );
-    }
-
-    // Verify access
-    const { granted, error } = await getOrderAccess(
-      req,
-      orderId,
-      orderCheck[0].customer_id
-    );
-
-    if (!granted) {
-      return NextResponse.json(
-        { success: false, error: error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
+    // Consolidated single order query pass
     const [orders] = await pool.query<OrderRow[]>(
-      `SELECT order_id, order_number, total, shop_id, payment_status, customer_phone
+      `SELECT order_id, order_number, total, shop_id, payment_status, customer_phone, customer_id
        FROM orders 
        WHERE order_id = ?`,
       [orderId]
@@ -93,6 +83,20 @@ export async function POST(req: NextRequest) {
 
     const order = orders[0];
 
+    // Verify user authorization
+    const { granted, error: authError } = await getOrderAccess(
+      req,
+      orderId,
+      order.customer_id
+    );
+
+    if (!granted) {
+      return NextResponse.json(
+        { success: false, error: authError || 'Unauthorized access to order' },
+        { status: 401 }
+      );
+    }
+
     if (order.payment_status === 'paid') {
       return NextResponse.json(
         { success: false, error: 'Order is already paid' },
@@ -100,6 +104,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check last transaction retryability
     const [transactions] = await pool.query<TransactionRow[]>(
       `SELECT transaction_id, retryable, status
        FROM stk_push_transactions 
@@ -111,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     if (transactions.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'No transaction found for this order' },
+        { success: false, error: 'No existing transaction found to retry' },
         { status: 400 }
       );
     }
@@ -120,11 +125,12 @@ export async function POST(req: NextRequest) {
 
     if (lastTransaction.retryable !== 1) {
       return NextResponse.json(
-        { success: false, error: 'This transaction cannot be retried' },
+        { success: false, error: 'This transaction cannot be retried at this time' },
         { status: 400 }
       );
     }
 
+    // Fetch STK configuration
     const [configs] = await pool.query<StkConfigRow[]>(
       `SELECT s.type, s.shortcode, s.consumer_key, s.consumer_secret, 
               s.passkey, s.business_number, s.till_number, s.account_number
@@ -143,16 +149,7 @@ export async function POST(req: NextRequest) {
 
     const stkConfig = configs[0];
 
-    let formattedPhone = phoneNumber.replace(/\s/g, '');
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '254' + formattedPhone.substring(1);
-    } else if (formattedPhone.startsWith('+')) {
-      formattedPhone = formattedPhone.substring(1);
-    }
-    if (!formattedPhone.startsWith('254')) {
-      formattedPhone = '254' + formattedPhone;
-    }
-
+    // Reset payment_status to pending if it was set to failed or cancelled
     await pool.query(
       `UPDATE orders 
        SET payment_status = 'pending',
@@ -162,13 +159,13 @@ export async function POST(req: NextRequest) {
     );
 
     const springBootUrl = process.env.SPRING_BOOT_URL || 'http://localhost:8081';
-    // ✅ FIX: Convert order.total to Number
-    const totalAmount = Number(order.total) || 0;
+    const totalAmount = Math.round(Number(order.total) || 0);
     
     const springBootResponse = await fetch(`${springBootUrl}/api/payments/stk-push`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(process.env.INTERNAL_API_KEY && { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY }),
       },
       body: JSON.stringify({
         type: stkConfig.type,
@@ -188,13 +185,14 @@ export async function POST(req: NextRequest) {
     const data = await springBootResponse.json();
 
     if (!springBootResponse.ok) {
-      console.error('Spring Boot error:', data);
+      console.error('❌ [RETRY] Spring Boot error:', data);
       return NextResponse.json(
-        { success: false, error: data.error || 'Payment service error' },
+        { success: false, error: data.error || 'Payment gateway retry failed' },
         { status: springBootResponse.status }
       );
     }
 
+    // Save new retry transaction record
     await pool.query(
       `INSERT INTO stk_push_transactions 
        (order_id, checkout_request_id, merchant_request_id, phone_number, amount, status, retryable)
@@ -220,9 +218,9 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Retry STK Push error:', error);
+    console.error('❌ [RETRY] Retry STK Push error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to retry payment' },
+      { success: false, error: 'Failed to process retry payment' },
       { status: 500 }
     );
   }

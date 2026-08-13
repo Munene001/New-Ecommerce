@@ -1,4 +1,3 @@
-// app/api/shops/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
@@ -93,14 +92,41 @@ function getEffectivePrice(row: ProductRow | VariantRow): number {
   return Number(row.price);
 }
 
+function normalizeId(id: any): number | null {
+  if (id === null || id === undefined) return null;
+  const num = Number(id);
+  return isNaN(num) ? null : num;
+}
+
+function findVariantSafe(
+  variants: VariantRow[], 
+  variantId: any
+): VariantRow | undefined {
+  const normalizedId = normalizeId(variantId);
+  if (normalizedId === null) return undefined;
+  return variants.find(v => Number(v.variant_id) === normalizedId);
+}
+
+function findProductSafe(
+  products: ProductRow[], 
+  productId: any
+): ProductRow | undefined {
+  const normalizedId = normalizeId(productId);
+  if (normalizedId === null) return undefined;
+  return products.find(p => Number(p.product_id) === normalizedId);
+}
+
 async function validateProductsAndStock(shopId: number, items: OrderItem[]): Promise<{ 
   valid: boolean; 
   products: ProductRow[]; 
   variants: VariantRow[]; 
   error?: string 
 }> {
-  const productIds = items.map(item => item.product_id);
-  const variantIds = items.filter(item => item.variant_id).map(item => item.variant_id);
+  const productIds = items.map(item => normalizeId(item.product_id)).filter(id => id !== null) as number[];
+  const variantIds = items
+    .filter(item => item.variant_id)
+    .map(item => normalizeId(item.variant_id))
+    .filter(id => id !== null) as number[];
   
   const uniqueProductIds = [...new Set(productIds)];
   const productPlaceholders = uniqueProductIds.map(() => '?').join(',');
@@ -133,8 +159,17 @@ async function validateProductsAndStock(shopId: number, items: OrderItem[]): Pro
   }
 
   for (const item of items) {
-    const product = products.find(p => p.product_id === item.product_id);
-    const variant = item.variant_id ? variants.find(v => v.variant_id === item.variant_id) : null;
+    const product = findProductSafe(products, item.product_id);
+    const variant = item.variant_id ? findVariantSafe(variants, item.variant_id) : null;
+    
+    if (item.variant_id && !variant) {
+      return { 
+        valid: false, 
+        products: [], 
+        variants: [], 
+        error: `Variant ${item.variant_id} not found for product ${product?.product_name || 'unknown'}` 
+      };
+    }
     
     const availableStock = variant ? variant.stock_quantity : product?.stock_quantity || 0;
     
@@ -251,26 +286,46 @@ export async function POST(request: NextRequest) {
       const deliveryFee = Number(deliveryResult.fee) || 0;
 
       let realSubtotal = 0;
+      
       const orderItemsWithDetails = items.map(item => {
-        const product = productValidation.products.find(p => p.product_id === item.product_id);
+        const product = findProductSafe(productValidation.products, item.product_id);
+        
         let variant: VariantRow | undefined;
         if (item.variant_id) {
-          variant = productValidation.variants.find(v => v.variant_id === item.variant_id);
+          variant = findVariantSafe(productValidation.variants, item.variant_id);
         }
         
-        const realPrice = variant ? getEffectivePrice(variant) : (product ? getEffectivePrice(product) : 0);
+        if (item.variant_id && !variant) {
+          console.error(
+            `[ORDER API ERROR] Variant ${item.variant_id} not found! ` +
+            `Available variants: ${productValidation.variants.map(v => v.variant_id).join(', ')}`
+          );
+          throw new Error(`Variant ${item.variant_id} not found. Please check your cart.`);
+        }
+        
+        const realPrice = variant 
+          ? getEffectivePrice(variant) 
+          : (product ? getEffectivePrice(product) : 0);
+        
+        if (item.variant_id && realPrice === 0) {
+          console.warn(
+            `[ORDER API WARNING] Variant ${item.variant_id} has price 0. ` +
+            `Variant price: ${variant?.price}, Discount: ${variant?.discount_price}`
+          );
+        }
+        
         const productName = product?.product_name || '';
         const variantAttributes = variant?.attributes || null;
         const variantName = variantAttributes ? JSON.parse(variantAttributes) : null;
         
-        realSubtotal += realPrice * item.quantity;
+        realSubtotal += Number(realPrice) * Number(item.quantity);
         
         return {
-          product_id: item.product_id,
-          quantity: item.quantity,
+          product_id: Number(item.product_id),
+          quantity: Number(item.quantity),
           product_name: productName,
           price_at_time: realPrice,
-          variant_id: item.variant_id || null,
+          variant_id: item.variant_id ? Number(item.variant_id) : null,
           variant_name: variantName ? JSON.stringify(variantName) : null,
           variant_attributes: variantAttributes
         };
@@ -316,71 +371,72 @@ export async function POST(request: NextRequest) {
       await connection.commit();
       connection.release();
 
-      if (payment_method === 'cash_on_delivery') {
-        const emailData = {
-          orderId,
-          orderNumber,
-          subtotal: realSubtotal,
-          delivery_fee: deliveryFee,
-          delivery_zone: delivery_zone,
-          total,
-          customer_name,
-          customer_email,
-          customer_phone,
-          customer_address: customer_address && customer_city ? `${customer_address}, ${customer_city}` : customer_address || customer_city || '',
-          special_instructions: body.special_instructions,
-          payment_method,
-          items: orderItemsWithDetails.map(item => ({
-            product_name: item.product_name,
-            variant_name: item.variant_name,
-            quantity: item.quantity,
-            price_at_time: item.price_at_time
-          })),
-          seller_name: shopDetails.shop_name,
-          seller_email: shopDetails.contact_email,
-          seller_phone: shopDetails.contact_phone
-        };
+      (`✅ Order ${orderNumber} created successfully with ${orderItemsWithDetails.length} items`);
 
-        (async () => {
-          try {
-            await sendBuyerOrderEmail({
+      // ✉️ Send emails synchronously for Cash on Delivery orders
+      if (payment_method === 'cash_on_delivery') {
+        const formattedAddress = customer_address && customer_city 
+          ? `${customer_address}, ${customer_city}` 
+          : customer_address || customer_city || '';
+
+        const emailItems = orderItemsWithDetails.map(item => ({
+          product_name: item.product_name,
+          variant_name: item.variant_name,
+          quantity: item.quantity,
+          price_at_time: item.price_at_time
+        }));
+
+        try {
+          const emailPromises: Promise<any>[] = [
+            sendBuyerOrderEmail({
               to: customer_email,
-              customer_name: customer_name,
+              customer_name,
               order_number: orderNumber,
-              items: emailData.items,
+              items: emailItems,
               subtotal: realSubtotal,
               delivery_fee: deliveryFee,
-              delivery_zone: delivery_zone,
-              total: total,
+              delivery_zone,
+              total,
               seller_name: shopDetails.shop_name,
               seller_email: shopDetails.contact_email,
               seller_phone: shopDetails.contact_phone,
-            });
-            
-            if (shopDetails.contact_email) {
-              await sendSellerOrderEmail({
+            })
+          ];
+
+          if (shopDetails.contact_email) {
+            emailPromises.push(
+              sendSellerOrderEmail({
                 to: shopDetails.contact_email,
-                customer_name: customer_name,
-                customer_email: customer_email,
-                customer_phone: customer_phone,
-                customer_address: customer_address && customer_city ? `${customer_address}, ${customer_city}` : customer_address || customer_city || '',
+                customer_name,
+                customer_email,
+                customer_phone,
+                customer_address: formattedAddress,
                 order_number: orderNumber,
-                items: emailData.items,
+                items: emailItems,
                 subtotal: realSubtotal,
                 delivery_fee: deliveryFee,
-                delivery_zone: delivery_zone,
-                total: total,
+                delivery_zone,
+                total,
                 special_instructions: body.special_instructions,
-                payment_method: payment_method,
-              });
-            }
-          } catch (emailError) {
-            console.error('Email sending failed for COD order:', orderNumber, emailError);
+                payment_method,
+              })
+            );
           }
-        })();
+
+          const results = await Promise.allSettled(emailPromises);
+          
+          // Log individual failures if any occurred without failing the overall route
+          results.forEach((res, index) => {
+            if (res.status === 'rejected') {
+              console.error(`❌ Email dispatch error [Index ${index}]:`, res.reason);
+            }
+          });
+
+        } catch (emailError) {
+          console.error('Email sending process encountered an unexpected failure:', emailError);
+        }
       }
 
-      // Generate JWT token for guest access
       const orderToken = jwt.sign(
         { orderId, orderNumber },
         process.env.JWT_SECRET!,
@@ -403,6 +459,11 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       await connection.rollback();
       connection.release();
+      
+      if (error instanceof Error) {
+        console.error('Order creation error:', error.message);
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
       throw error;
     }
 

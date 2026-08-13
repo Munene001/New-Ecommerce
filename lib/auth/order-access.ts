@@ -10,6 +10,7 @@ interface UserRow extends RowDataPacket {
 
 interface OrderRow extends RowDataPacket {
   customer_id: number | null;
+  customer_email: string;
 }
 
 export async function getOrderAccess(
@@ -28,7 +29,7 @@ export async function getOrderAccess(
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (user) {
+    if (user && user.email) {
       const [rows] = await pool.query<UserRow[]>(
         'SELECT user_id FROM users WHERE supabase_uid = ?',
         [user.id]
@@ -36,18 +37,35 @@ export async function getOrderAccess(
 
       if (rows.length > 0) {
         const userId = rows[0].user_id;
+        const userEmail = user.email.toLowerCase().trim();
         
         let customerId = existingCustomerId;
+        let orderEmail: string | null = null;
 
-        if (customerId === undefined) {
+        // ✅ OPTIMIZATION: Fetch order details if customerId is undefined OR null (to check email match)
+        if (customerId === undefined || customerId === null) {
           const [orderRows] = await pool.query<OrderRow[]>(
-            'SELECT customer_id FROM orders WHERE order_id = ?',
+            'SELECT customer_id, customer_email FROM orders WHERE order_id = ?',
             [orderId]
           );
-          customerId = orderRows.length > 0 ? orderRows[0].customer_id : null;
+          if (orderRows.length > 0) {
+            customerId = orderRows[0].customer_id;
+            orderEmail = orderRows[0].customer_email?.toLowerCase().trim() || null;
+          }
         }
 
-        if (customerId !== null && customerId === userId) {
+        // ✅ Check if user owns the order by customer_id OR matching email
+        const isOwnerByCustomerId = customerId !== null && customerId === userId;
+        const isOwnerByEmail = orderEmail !== null && orderEmail === userEmail;
+
+        if (isOwnerByCustomerId || isOwnerByEmail) {
+          // ✅ If order is a guest order (customer_id IS NULL), claim it!
+          if (customerId === null && orderEmail === userEmail) {
+            await pool.query(
+              'UPDATE orders SET customer_id = ? WHERE order_id = ?',
+              [userId, orderId]
+            );
+          }
           return { granted: true, userId };
         }
       }
@@ -56,6 +74,7 @@ export async function getOrderAccess(
     // Fall through to guest JWT check
   }
 
+  // Guest JWT token check
   const authHeader = req.headers.get('authorization');
   const token = 
     authHeader?.replace('Bearer ', '') || 

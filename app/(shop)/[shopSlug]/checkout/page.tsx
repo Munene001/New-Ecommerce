@@ -169,28 +169,34 @@ export default function CheckoutPage() {
     trackEvent('order_placed');
 
     try {
+      // ✅ FIX: Normalize all items before sending to API
+      const normalizedItems = items.map((item) => ({
+        product_id: Number(item.product_id), // ✅ Ensure number
+        variant_id: item.variant_id ? Number(item.variant_id) : null, // ✅ Ensure number or null
+        quantity: Number(item.quantity), // ✅ Ensure number
+        price: Number(item.discount_price ?? item.price), // ✅ Ensure number
+        product_name: String(item.product_name || ''),
+        variant_name: item.variant_name ? String(item.variant_name) : null,
+      }));
+
+      // ✅ FIX: Ensure all numeric values are actually numbers
       const orderData = {
-        shop_id: shop?.shopId,
-        customer_name: formData.fullName,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        customer_city: formData.city || null,
-        customer_address: formData.address || null,
-        special_instructions: formData.specialInstructions || undefined,
+        shop_id: Number(shop?.shopId), // ✅ Ensure number
+        customer_name: String(formData.fullName).trim(),
+        customer_email: String(formData.email).trim(),
+        customer_phone: String(formData.phone).trim(),
+        customer_city: formData.city ? String(formData.city).trim() : null,
+        customer_address: formData.address ? String(formData.address).trim() : null,
+        special_instructions: formData.specialInstructions ? String(formData.specialInstructions).trim() : undefined,
         payment_method: paymentMethod === "cod" ? "cash_on_delivery" : "mpesa",
-        subtotal: subtotal,
-        delivery_fee: deliveryFee,
-        delivery_tier_id: selectedDeliveryTier?.tier_id || null,
-        delivery_zone: selectedDeliveryTier?.tier_name || null,
-        items: items.map((item) => ({
-          product_id: item.product_id,
-          variant_id: item.variant_id || null,
-          quantity: item.quantity,
-          price: item.discount_price || item.price,
-          product_name: item.product_name,
-          variant_name: item.variant_name || null,
-        })),
+        subtotal: Number(subtotal), // ✅ Ensure number
+        delivery_fee: Number(deliveryFee), // ✅ Ensure number
+        delivery_tier_id: selectedDeliveryTier?.tier_id ? Number(selectedDeliveryTier.tier_id) : null,
+        delivery_zone: selectedDeliveryTier?.tier_name ? String(selectedDeliveryTier.tier_name) : null,
+        items: normalizedItems,
       };
+
+ 
 
       const response = await fetch("/api/shops/orders", {
         method: "POST",

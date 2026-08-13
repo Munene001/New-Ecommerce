@@ -32,6 +32,27 @@ interface OrderItemRow extends RowDataPacket {
   variant_attributes: string | null;
 }
 
+// ✅ NEW: Safe parser for variant attributes
+function safeParseVariantAttributes(value: string | null): any {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      console.error('Failed to parse variant_attributes:', value);
+      return null;
+    }
+  }
+  return value;
+}
+
+// ✅ NEW: Normalize helper
+function normalizeId(id: any): number | null {
+  if (id === null || id === undefined) return null;
+  const num = Number(id);
+  return isNaN(num) ? null : num;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
@@ -138,7 +159,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        order_id: order.order_id,
+        order_id: Number(order.order_id),
         order_number: order.order_number,
         subtotal: Number(order.subtotal) || 0,
         delivery_fee: Number(order.delivery_fee) || 0,
@@ -154,15 +175,11 @@ export async function GET(
         transaction_status: order.transaction_status || null,
         items: items.map(item => ({
           name: item.product_name,
-          quantity: item.quantity,
+          quantity: Number(item.quantity),
           price: Number(item.price_at_time) || 0,
-          variant_id: item.variant_id,
+          variant_id: normalizeId(item.variant_id), // ✅ Normalize
           variant_name: item.variant_name,
-          variant_attributes: item.variant_attributes 
-            ? (typeof item.variant_attributes === 'string' 
-                ? JSON.parse(item.variant_attributes) 
-                : item.variant_attributes)
-            : null
+          variant_attributes: safeParseVariantAttributes(item.variant_attributes) // ✅ Safe parse
         }))
       }
     });

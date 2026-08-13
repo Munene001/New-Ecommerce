@@ -1,13 +1,18 @@
-// app/api/shops/payments/update-order/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { sendBuyerOrderEmail, sendSellerOrderEmail } from '@/lib/email/ordermail';
 
+function normalizeId(id: any): number | null {
+  if (id === null || id === undefined) return null;
+  const num = Number(id);
+  return isNaN(num) ? null : num;
+}
+
 interface TransactionRow extends RowDataPacket {
   transaction_id: number;
   order_id: number;
-  status: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   retryable: number;
 }
 
@@ -24,9 +29,12 @@ interface OrderRow extends RowDataPacket {
   delivery_zone: string | null;
   total: number;
   special_instructions: string | null;
+  stock_deducted: number | boolean;
 }
 
 interface OrderItemRow extends RowDataPacket {
+  product_id: number | null;
+  variant_id: number | null;
   product_name: string;
   variant_name: string | null;
   quantity: number;
@@ -39,49 +47,69 @@ interface ShopRow extends RowDataPacket {
   contact_phone: string;
 }
 
+function parseVariantName(variantNameStr: string | null): string | null {
+  if (!variantNameStr) return null;
+  try {
+    const parsed = JSON.parse(variantNameStr);
+    if (typeof parsed === 'object' && parsed !== null) {
+      return Object.entries(parsed)
+        .map(([key, val]) => `${key}: ${val}`)
+        .join(', ');
+    }
+    return String(parsed);
+  } catch {
+    return variantNameStr;
+  }
+}
+
+/**
+ * Deducts stock atomically based on variant or base product IDs
+ */
 async function deductStockForOrder(orderId: number): Promise<{ success: boolean; deducted: boolean }> {
-  const [items] = await pool.query<any[]>(
+  (`📦 [UPDATE] Starting atomic stock deduction for order ${orderId}`);
+  
+  const [items] = await pool.query<OrderItemRow[]>(
     `SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?`,
     [orderId]
   );
 
-  let deducted = false;
+  if (items.length === 0) {
+    console.warn(`⚠️ [UPDATE] No items found for order ${orderId} to deduct stock`);
+    return { success: true, deducted: false };
+  }
+
+  let anyDeducted = false;
 
   for (const item of items) {
-    if (item.variant_id) {
-      const [stock] = await pool.query<any[]>(
-        `SELECT stock_quantity FROM product_variants WHERE variant_id = ?`,
-        [item.variant_id]
+    const variantId = normalizeId(item.variant_id);
+    const productId = normalizeId(item.product_id);
+    const qty = Number(item.quantity) || 0;
+
+    if (qty <= 0) continue;
+
+    if (variantId !== null) {
+      (`🔍 [UPDATE] Deducting variant_id ${variantId} by ${qty}`);
+      const [res] = await pool.query<ResultSetHeader>(
+        `UPDATE product_variants 
+         SET stock_quantity = GREATEST(0, stock_quantity - ?)
+         WHERE variant_id = ? AND stock_quantity > 0`,
+        [qty, variantId]
       );
-      
-      if (stock.length > 0 && stock[0].stock_quantity > 0) {
-        deducted = true;
-        await pool.query(
-          `UPDATE product_variants 
-           SET stock_quantity = GREATEST(0, stock_quantity - ?)
-           WHERE variant_id = ?`,
-          [item.quantity, item.variant_id]
-        );
-      }
-    } else {
-      const [stock] = await pool.query<any[]>(
-        `SELECT stock_quantity FROM products WHERE product_id = ?`,
-        [item.product_id]
+      if (res.affectedRows > 0) anyDeducted = true;
+    } else if (productId !== null) {
+      (`🔍 [UPDATE] Deducting product_id ${productId} by ${qty}`);
+      const [res] = await pool.query<ResultSetHeader>(
+        `UPDATE products 
+         SET stock_quantity = GREATEST(0, stock_quantity - ?)
+         WHERE product_id = ? AND stock_quantity > 0`,
+        [qty, productId]
       );
-      
-      if (stock.length > 0 && stock[0].stock_quantity > 0) {
-        deducted = true;
-        await pool.query(
-          `UPDATE products 
-           SET stock_quantity = GREATEST(0, stock_quantity - ?)
-           WHERE product_id = ?`,
-          [item.quantity, item.product_id]
-        );
-      }
+      if (res.affectedRows > 0) anyDeducted = true;
     }
   }
   
-  return { success: true, deducted };
+  (`✅ [UPDATE] Stock deduction completed. Any deducted: ${anyDeducted}`);
+  return { success: true, deducted: anyDeducted };
 }
 
 async function getShopDetailsForOrder(orderId: number): Promise<ShopRow | null> {
@@ -96,50 +124,43 @@ async function getShopDetailsForOrder(orderId: number): Promise<ShopRow | null> 
 }
 
 export async function POST(req: NextRequest) {
+  ('🔵 [UPDATE] Payment callback received from Spring Boot');
+  
   try {
-    // 🔒 STEP 1: Verify the internal secret header
+    // STEP 1: Verify internal secret header
     const internalSecret = req.headers.get('x-internal-secret');
     const EXPECTED_SECRET = process.env.SPRING_BOOT_INTERNAL_SECRET;
 
     if (!EXPECTED_SECRET || internalSecret !== EXPECTED_SECRET) {
-      console.warn('🚨 Unauthorized callback attempt detected!');
-      console.warn('📝 Received secret:', internalSecret);
-      console.warn('🔑 Expected secret:', EXPECTED_SECRET ? '✓ Set' : '❌ Not set');
+      console.warn('🚨 [UPDATE] Unauthorized callback attempt detected!');
       return NextResponse.json(
         { success: false, error: 'Unauthorized origin' },
         { status: 401 }
       );
     }
+    ('✅ [UPDATE] Internal secret verified');
 
-    console.log('✅ Internal secret verified - processing callback');
-
-    // STEP 2: Parse the payload
+    // STEP 2: Parse payload
     const body = await req.json();
     const { 
       checkoutRequestId, 
-      status, 
+      status: springStatus, 
       resultCode, 
       resultDesc, 
-      retryable, 
       displayMessage 
     } = body;
 
-    console.log('📞 Received from Spring Boot:', { 
-      checkoutRequestId, 
-      status, 
-      resultCode,
-      retryable,
-      displayMessage
-    });
+
 
     if (!checkoutRequestId) {
+      console.error('❌ [UPDATE] Missing checkoutRequestId');
       return NextResponse.json(
         { success: false, error: 'checkoutRequestId is required' },
         { status: 400 }
       );
     }
 
-    // STEP 3: Rest of your existing logic...
+    // STEP 3: Lookup transaction
     const [transactions] = await pool.query<TransactionRow[]>(
       `SELECT transaction_id, order_id, status, retryable
        FROM stk_push_transactions 
@@ -148,7 +169,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (transactions.length === 0) {
-      console.error('❌ Transaction not found for:', checkoutRequestId);
+      console.error(`❌ [UPDATE] Transaction not found for: ${checkoutRequestId}`);
       return NextResponse.json(
         { success: false, error: 'Transaction not found' },
         { status: 404 }
@@ -157,9 +178,11 @@ export async function POST(req: NextRequest) {
 
     const transaction = transactions[0];
     const orderId = transaction.order_id;
+    (`✅ [UPDATE] Transaction ID=${transaction.transaction_id}, OrderID=${orderId}, DB Status=${transaction.status}`);
 
+    // Idempotency check: Process only if status is 'pending'
     if (transaction.status !== 'pending') {
-      console.log(`⚠️ Transaction already ${transaction.status}, ignoring duplicate`);
+      (`ℹ️ [UPDATE] Transaction already in final state: ${transaction.status}`);
       return NextResponse.json({
         success: true,
         message: 'Already processed',
@@ -168,13 +191,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const isSuccess = status === 'COMPLETED';
+    // STEP 4: Resolve database ENUM values strictly matching table schema
+    const isSuccess = springStatus === 'COMPLETED' || resultCode === 0;
     const retryableCodes = [1032, 1, 2001, 1037, 8006];
     const isRetryable = retryableCodes.includes(resultCode);
-    const transactionStatus = isSuccess ? 'completed' : 'failed';
+
+    // Matches ENUM('pending','processing','completed','failed','cancelled')
+    const dbTransactionStatus: 'completed' | 'failed' | 'cancelled' = isSuccess 
+      ? 'completed' 
+      : (resultCode === 1032 ? 'cancelled' : 'failed');
+
     const orderPaymentStatus = isSuccess ? 'paid' : 'pending';
     const orderOrderStatus = isSuccess ? 'processing' : 'pending';
 
+    // STEP 5: Update transaction state
+    (`💾 [UPDATE] Updating transaction ${transaction.transaction_id} to status=${dbTransactionStatus}`);
     const [updateResult] = await pool.query<ResultSetHeader>(
       `UPDATE stk_push_transactions 
        SET status = ?,
@@ -185,7 +216,7 @@ export async function POST(req: NextRequest) {
        WHERE checkout_request_id = ? 
          AND status = 'pending'`,
       [
-        transactionStatus,
+        dbTransactionStatus,
         resultCode,
         resultDesc,
         isRetryable ? 1 : 0,
@@ -194,7 +225,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (updateResult.affectedRows === 0) {
-      console.log('⚠️ No rows updated (already processed)');
+      (`ℹ️ [UPDATE] Race condition avoided: Transaction already updated`);
       return NextResponse.json({
         success: true,
         message: 'Already processed',
@@ -202,6 +233,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // STEP 6: Update main order status
+    (`💾 [UPDATE] Updating order ${orderId}...`);
     await pool.query(
       `UPDATE orders 
        SET payment_status = ?,
@@ -211,14 +244,14 @@ export async function POST(req: NextRequest) {
       [orderPaymentStatus, orderOrderStatus, orderId]
     );
 
-    console.log(`✅ Order ${orderId} payment_status: ${orderPaymentStatus}, retryable: ${isRetryable}`);
-
-    // Handle successful payment: stock deduction + emails
+    // STEP 7: Handle successful payment actions (Stock + Emails)
     if (isSuccess) {
+      (`💰 [UPDATE] Processing post-payment steps for order ${orderId}`);
+      
       const [orderRows] = await pool.query<OrderRow[]>(
         `SELECT order_id, order_number, customer_email, customer_name, 
                 customer_phone, customer_address, customer_city,
-                subtotal, delivery_fee, delivery_zone, total, special_instructions
+                subtotal, delivery_fee, delivery_zone, total, special_instructions, stock_deducted
          FROM orders 
          WHERE order_id = ?`,
         [orderId]
@@ -226,124 +259,110 @@ export async function POST(req: NextRequest) {
 
       if (orderRows.length > 0) {
         const order = orderRows[0];
-        
-        try {
-          const stockResult = await deductStockForOrder(orderId);
-          if (stockResult.deducted) {
-            await pool.query(
-              `UPDATE orders SET stock_deducted = TRUE WHERE order_id = ?`,
-              [orderId]
-            );
-            console.log(`✅ Stock deducted for order ${orderId}`);
-          } else {
-            console.log(`⚠️ No stock to deduct for order ${orderId}`);
+        const isStockAlreadyDeducted = Boolean(order.stock_deducted) && Number(order.stock_deducted) !== 0;
+
+        // Atomic stock deduction logic
+        if (!isStockAlreadyDeducted) {
+          try {
+            const stockResult = await deductStockForOrder(orderId);
+            if (stockResult.deducted) {
+              await pool.query(
+                `UPDATE orders SET stock_deducted = TRUE WHERE order_id = ?`,
+                [orderId]
+              );
+              (`✅ [UPDATE] Stock deducted and flag set for order ${orderId}`);
+            }
+          } catch (stockError) {
+            console.error(`❌ [UPDATE] Stock deduction error for order ${orderId}:`, stockError);
           }
-        } catch (stockError) {
-          console.error(`❌ Failed to deduct stock for order ${orderId}:`, stockError);
         }
-        
-        const [orderItems] = await pool.query<OrderItemRow[]>(
-          `SELECT product_name, variant_name, quantity, price_at_time
-           FROM order_items 
-           WHERE order_id = ?`,
-          [orderId]
-        );
-        
+
+        // Send Email Notifications asynchronously
         try {
           const shopDetails = await getShopDetailsForOrder(orderId);
-          
-          // ✅ FIX: Convert all numeric values to Number
-          const subtotal = Number(order.subtotal) || 0;
-          const deliveryFee = Number(order.delivery_fee) || 0;
-          const total = Number(order.total) || subtotal + deliveryFee;
-          
-          console.log('🔍 ====== EMAIL DEBUG ======');
-          console.log('Order ID:', orderId);
-          console.log('Order Number:', order.order_number);
-          console.log('Subtotal:', subtotal);
-          console.log('Delivery Fee:', deliveryFee);
-          console.log('Total:', total);
-          console.log('Shop Details exists:', !!shopDetails);
-          console.log('Shop Name:', shopDetails?.shop_name);
-          console.log('Contact Email:', shopDetails?.contact_email);
-          console.log('============================');
-          
+          const [orderItems] = await pool.query<OrderItemRow[]>(
+            `SELECT product_name, variant_name, quantity, price_at_time
+             FROM order_items 
+             WHERE order_id = ?`,
+            [orderId]
+          );
+
           if (shopDetails) {
-            console.log('📧 Sending buyer email to:', order.customer_email);
-            await sendBuyerOrderEmail({
-              to: order.customer_email,
-              customer_name: order.customer_name,
-              order_number: order.order_number,
-              items: orderItems.map(item => ({
-                product_name: item.product_name,
-                variant_name: item.variant_name,
-                quantity: item.quantity,
-                price_at_time: Number(item.price_at_time) || 0
-              })),
-              subtotal: subtotal,
-              delivery_fee: deliveryFee,
-              delivery_zone: order.delivery_zone,
-              total: total,
-              seller_name: shopDetails.shop_name,
-              seller_email: shopDetails.contact_email,
-              seller_phone: shopDetails.contact_phone,
-            });
-            console.log('✅ Buyer email sent successfully to:', order.customer_email);
-            
+            const subtotal = Number(order.subtotal) || 0;
+            const deliveryFee = Number(order.delivery_fee) || 0;
+            const total = Number(order.total) || subtotal + deliveryFee;
+
+            const formattedItems = orderItems.map(item => ({
+              product_name: item.product_name,
+              variant_name: parseVariantName(item.variant_name),
+              quantity: item.quantity,
+              price_at_time: Number(item.price_at_time) || 0
+            }));
+
+            const formattedAddress = order.customer_address && order.customer_city
+              ? `${order.customer_address}, ${order.customer_city}`
+              : order.customer_address || order.customer_city || '';
+
+            const emailPromises: Promise<any>[] = [
+              sendBuyerOrderEmail({
+                to: order.customer_email,
+                customer_name: order.customer_name,
+                order_number: order.order_number,
+                items: formattedItems,
+                subtotal,
+                delivery_fee: deliveryFee,
+                delivery_zone: order.delivery_zone,
+                total,
+                seller_name: shopDetails.shop_name,
+                seller_email: shopDetails.contact_email,
+                seller_phone: shopDetails.contact_phone,
+              })
+            ];
+
             if (shopDetails.contact_email) {
-              console.log(`📤 Attempting to send seller email to: ${shopDetails.contact_email}`);
-              try {
-                await sendSellerOrderEmail({
+              emailPromises.push(
+                sendSellerOrderEmail({
                   to: shopDetails.contact_email,
                   customer_name: order.customer_name,
                   customer_email: order.customer_email,
                   customer_phone: order.customer_phone,
-                  customer_address: order.customer_address || '',
+                  customer_address: formattedAddress,
                   order_number: order.order_number,
-                  items: orderItems.map(item => ({
-                    product_name: item.product_name,
-                    variant_name: item.variant_name,
-                    quantity: item.quantity,
-                    price_at_time: Number(item.price_at_time) || 0
-                  })),
-                  subtotal: subtotal,
+                  items: formattedItems,
+                  subtotal,
                   delivery_fee: deliveryFee,
                   delivery_zone: order.delivery_zone,
-                  total: total,
+                  total,
                   special_instructions: order.special_instructions || '',
                   payment_method: 'mpesa',
-                });
-                console.log(`✅ Seller email sent successfully to: ${shopDetails.contact_email}`);
-              } catch (sellerError) {
-                console.error(`❌ Seller email FAILED for ${shopDetails.contact_email}:`, sellerError);
-              }
-            } else {
-              console.warn(`⚠️ No contact_email found for shop: ${shopDetails.shop_name}`);
+                })
+              );
             }
-            
-            console.log(`📧 Confirmation emails processed for order ${order.order_number}`);
-          } else {
-            console.error(`❌ No shop details found for order ${orderId}`);
+
+            (`📧 [UPDATE] Dispatching buyer/seller emails...`);
+            const results = await Promise.allSettled(emailPromises);
+            results.forEach((res, i) => {
+              if (res.status === 'rejected') console.error(`❌ [UPDATE] Email ${i} failed:`, res.reason);
+              else (`✅ [UPDATE] Email ${i} sent`);
+            });
           }
-        } catch (emailError) {
-          console.error(`❌ Failed to send emails for order ${orderId}:`, emailError);
+        } catch (emailErr) {
+          console.error(`❌ [UPDATE] Email orchestration failed:`, emailErr);
         }
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: isSuccess ? 'Payment confirmed' : (isRetryable ? 'Payment failed - retry allowed' : 'Payment failed'),
+      message: isSuccess ? 'Payment confirmed' : 'Payment failed',
       orderId,
-      status: transactionStatus,
+      status: dbTransactionStatus,
       retryable: isRetryable,
-      displayMessage: displayMessage,
-      resultCode: resultCode,
-      shouldRetry: isRetryable && !isSuccess
+      displayMessage
     });
 
   } catch (error) {
-    console.error('❌ Update order error:', error);
+    console.error('❌ [UPDATE] Critical update-order failure:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update order' },
       { status: 500 }

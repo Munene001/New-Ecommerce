@@ -1,4 +1,3 @@
-// lib/email/ordermail.ts
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -50,17 +49,11 @@ const formatItemName = (item: OrderItem): string => {
 };
 
 export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
-  console.log('📧 ====== sendBuyerOrderEmail START ======');
-  console.log('Recipient (to):', orderData.to);
-  console.log('Order Number:', orderData.order_number);
-  console.log('Customer Name:', orderData.customer_name);
-  
   if (!orderData.to || orderData.to.trim() === '') {
     console.error('❌ ERROR: No recipient email provided for buyer!');
     throw new Error('No recipient email provided for buyer order confirmation');
   }
 
-  // ✅ FIX: Convert all numeric values to Number
   const subtotal = Number(orderData.subtotal) || 0;
   const deliveryFee = Number(orderData.delivery_fee) || 0;
   const total = Number(orderData.total) || subtotal + deliveryFee;
@@ -168,17 +161,20 @@ export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
   `;
 
   try {
-    console.log(`📤 Sending buyer email via Resend to: ${to}`);
-    const result = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: `PaziaTech <noreply@paziatech.co.ke>`,
       replyTo: seller_email,
       to: to,
       subject: `Order Confirmation #${order_number}`,
       html,
     });
-    console.log(`✅ Buyer email sent successfully to ${to}`);
-    console.log('📧 Resend response:', result);
-    return result;
+
+    if (error) {
+      console.error(`❌ Resend returned an error for buyer email to ${to}:`, error);
+      throw error;
+    }
+
+    return data;
   } catch (error) {
     console.error(`❌ Resend failed for buyer email to ${to}:`, error);
     throw error;
@@ -186,12 +182,6 @@ export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
 }
 
 export async function sendSellerOrderEmail(orderData: SellerOrderData) {
-  console.log('📧 ====== sendSellerOrderEmail START ======');
-  console.log('Recipient (to):', orderData.to);
-  console.log('Order Number:', orderData.order_number);
-  console.log('Customer Name:', orderData.customer_name);
-  console.log('Customer Email:', orderData.customer_email);
-  
   if (!orderData.to || orderData.to.trim() === '') {
     console.error('❌ ERROR: No recipient email provided for seller!');
     console.error('Full orderData:', JSON.stringify(orderData, null, 2));
@@ -203,7 +193,6 @@ export async function sendSellerOrderEmail(orderData: SellerOrderData) {
     throw new Error(`Invalid email format: ${orderData.to}`);
   }
 
-  // ✅ FIX: Convert all numeric values to Number
   const subtotal = Number(orderData.subtotal) || 0;
   const deliveryFee = Number(orderData.delivery_fee) || 0;
   const total = Number(orderData.total) || subtotal + deliveryFee;
@@ -312,17 +301,20 @@ export async function sendSellerOrderEmail(orderData: SellerOrderData) {
   `;
 
   try {
-    console.log(`📤 Sending seller email via Resend to: ${to}`);
-    const result = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: `PaziaTech <noreply@paziatech.co.ke>`,
       replyTo: customer_email,
       to: to,
       subject: `New Order #${order_number}`,
       html,
     });
-    console.log(`✅ Seller email sent successfully to ${to}`);
-    console.log('📧 Resend response:', result);
-    return result;
+
+    if (error) {
+      console.error(`❌ Resend returned an error for seller email to ${to}:`, error);
+      throw error;
+    }
+
+    return data;
   } catch (error) {
     console.error(`❌ Resend failed for seller email to ${to}:`, error);
     throw error;

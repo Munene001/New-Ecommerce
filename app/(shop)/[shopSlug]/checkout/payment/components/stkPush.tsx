@@ -1,4 +1,3 @@
-// components/STKPushPayment.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,17 +9,41 @@ import { storeRedirect } from "@/lib/redirect/helper";
 import { STKPushForm } from "./stk-ui/stkPushForm";
 import { STKPushStatus } from "./stk-ui/stkPushStatus";
 
+interface Order {
+  order_id: number;
+  order_number: string;
+  total_amount: number;
+  payment_method: string;
+  payment_status: string;
+  order_status: string;
+  customer_phone: string;
+  customer_email: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
+}
+
 interface STKPushPaymentProps {
   orderId: string | null;
-  orderNumber: string | null;
+  order: Order | null;
+  initialSavedState?: any;
   onPaymentSuccess?: () => void;
+  onStateChange?: (state: any) => void;
 }
 
 const getOrderToken = (orderId: string, searchParams: URLSearchParams): string | null => {
   return searchParams.get('token') || localStorage.getItem(`guest_order_token_${orderId}`);
 };
 
-export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPushPaymentProps) {
+export function STKPushPayment({ 
+  orderId, 
+  order, 
+  initialSavedState,
+  onPaymentSuccess,
+  onStateChange 
+}: STKPushPaymentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -30,14 +53,52 @@ export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPu
   
   const [loading, setLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'completed' | 'failed'>('idle');
-  const [statusMessage, setStatusMessage] = useState('');
+  
+  // Initialize state based on order or persisted session state
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'completed' | 'failed'>(() => {
+    if (order?.payment_status === 'paid') return 'completed';
+    if (order?.payment_status === 'failed') return 'failed';
+    return initialSavedState?.status || 'idle';
+  });
+  
+  const [statusMessage, setStatusMessage] = useState(() => {
+    if (order?.payment_status === 'paid') return 'Payment successful! Your order is confirmed.';
+    if (order?.payment_status === 'failed') return 'Payment failed. Please try again.';
+    return initialSavedState?.statusMessage || '';
+  });
+
   const [retryable, setRetryable] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollCount, setPollCount] = useState(0);
-  const [retryCount, setRetryCount] = useState(0);
+  const [retryCount, setRetryCount] = useState(initialSavedState?.retryCount || 0);
   const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
   const [savedPhoneNumber, setSavedPhoneNumber] = useState("");
+
+  // Sync state cleanly if the backend order status changes
+  useEffect(() => {
+    if (order?.payment_status === 'paid' && paymentStatus !== 'completed') {
+      setPaymentStatus('completed');
+      setStatusMessage('Payment successful! Your order is confirmed.');
+      sessionStorage.removeItem('pendingPaymentOrderId');
+      if (orderId) sessionStorage.removeItem(`payment_phone_${orderId}`);
+    } else if (order?.payment_status === 'failed' && paymentStatus !== 'failed') {
+      setPaymentStatus('failed');
+      setStatusMessage('Payment failed. Please try again.');
+    }
+  }, [order?.payment_status, orderId, paymentStatus]);
+
+  // Save state to parent whenever status changes
+  useEffect(() => {
+    if (onStateChange && paymentStatus !== 'idle') {
+      onStateChange({
+        status: paymentStatus,
+        statusMessage,
+        orderNumber: order?.order_number || null,
+        retryCount,
+        timestamp: Date.now()
+      });
+    }
+  }, [paymentStatus, statusMessage, order?.order_number, retryCount, onStateChange]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -78,9 +139,9 @@ export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPu
         const result = await response.json();
         
         if (result.success) {
-          const order = result.data;
+          const orderData = result.data;
           
-          if (order.payment_status === 'paid') {
+          if (orderData.payment_status === 'paid') {
             setPaymentStatus('completed');
             setStatusMessage('Payment successful! Your order is confirmed.');
             setIsPolling(false);
@@ -92,22 +153,22 @@ export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPu
             return;
           }
           
-          const isRetryable = order.retryable === true || order.retryable === 1;
-          const isTransactionFailed = order.transaction_status === 'failed';
+          const isRetryable = orderData.retryable === true || orderData.retryable === 1;
+          const isTransactionFailed = orderData.transaction_status === 'failed';
           
-          if (order.payment_status === 'pending' && isRetryable && isTransactionFailed) {
+          if (orderData.payment_status === 'pending' && isRetryable && isTransactionFailed) {
             setPaymentStatus('failed');
             setRetryable(isRetryable);
-            setStatusMessage(order.displayMessage || 'Payment failed. Please try again.');
+            setStatusMessage(orderData.displayMessage || 'Payment failed. Please try again.');
             setIsPolling(false);
             setPollCount(0);
             return;
           }
           
-          if (order.payment_status === 'failed') {
+          if (orderData.payment_status === 'failed') {
             setPaymentStatus('failed');
             setRetryable(false);
-            setStatusMessage(order.displayMessage || 'Payment failed. Please contact support.');
+            setStatusMessage(orderData.displayMessage || 'Payment failed. Please contact support.');
             setIsPolling(false);
             setPollCount(0);
             return;
@@ -221,7 +282,7 @@ export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPu
       const result = await response.json();
 
       if (result.success) {
-        setRetryCount(prev => prev + 1);
+        setRetryCount((prev: number) => prev + 1);
         setStatusMessage('Retry initiated. Check your phone for the M-Pesa prompt.');
         setIsPolling(true);
         setPollCount(0);
@@ -244,17 +305,27 @@ export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPu
   };
 
   const handleContinueShopping = () => {
+    if (orderId) {
+      sessionStorage.removeItem(`payment_state_${orderId}`);
+    }
     router.push(`/${shop?.shopSlug}`);
   };
 
-  const handleViewOrder = () => {
-    router.push(`/${shop?.shopSlug}/orders/${orderId}`);
-  };
-
+  // ✅ BULLETPROOF FIX: Handle authenticated and guest users distinctly
   const handleSignIn = () => {
-    const currentFullPath = `${pathname}?order_id=${orderId}&status=success`;
-    storeRedirect(currentFullPath);
-    router.push('/auth/login');
+    const profileUrl = `/${shop?.shopSlug}/profile`;
+
+    // 1. IF ALREADY LOGGED IN: Go straight to profile page!
+    if (isAuthenticated) {
+      router.push(profileUrl);
+      return;
+    }
+
+    // 2. IF GUEST: Send to login with redirect parameter set to profile
+    const paymentPage = `${pathname}?order_id=${orderId}&status=success`;
+    sessionStorage.setItem('payment_page_after_signin', paymentPage);
+
+    router.push(`/auth/login?redirect=${encodeURIComponent(profileUrl)}`);
   };
 
   const handlePhoneChange = (value: string) => {
@@ -271,7 +342,7 @@ export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPu
         onPhoneChange={handlePhoneChange}
         loading={loading}
         onSubmit={handleSTKPush}
-        orderNumber={orderNumber}
+        orderNumber={order?.order_number || null}
         disabled={loading}
       />
     );
@@ -281,16 +352,16 @@ export function STKPushPayment({ orderId, orderNumber, onPaymentSuccess }: STKPu
     <STKPushStatus
       status={paymentStatus}
       statusMessage={statusMessage}
-      orderNumber={orderNumber}
+      orderNumber={order?.order_number || null}
       retryable={retryable}
       retryCount={retryCount}
       onRetry={handleRetry}
       onContinue={handleContinueShopping}
-      onViewOrder={handleViewOrder}
       onSignIn={handleSignIn}
       isAuthenticated={isAuthenticated}
       shopColor={shop?.secondaryColor}
       loading={loading}
+      totalAmount={order?.total_amount || 0}  
     />
   );
 }

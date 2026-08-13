@@ -2,11 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/context/authcontext";
 import { useShop } from "@/app/(shop)/ShopContext";
-import { CheckCircle, Phone, Gift, ShoppingBag, PartyPopper, Package, Truck } from "lucide-react";
-import { storeRedirect } from "@/lib/redirect/helper";
+import { ShoppingBag, PartyPopper, Package, Truck, User } from "lucide-react";
 
 interface CODPaymentProps {
   orderId: string | null;
@@ -21,51 +19,36 @@ export function CODPayment({ orderId, orderNumber, onPaymentSuccess }: CODPaymen
   const { shop, trackEvent } = useShop();
   const { isAuthenticated } = useAuth();
 
-  // Track payment success when component loads
+  const safeOrderId = orderId || "";
+  const safeOrderNumber = orderNumber || "N/A";
+
+  // Track payment success and clean session storage when component loads
   useEffect(() => {
     trackEvent('payment_success');
     onPaymentSuccess?.();
-  }, []);
 
-  // Build the full current URL with query params for redirect
-  const currentFullPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-
-  const TrackOrderButton = () => {
-    if (isAuthenticated) {
-      return (
-        <button
-          onClick={() => router.push(`/${shop?.shopSlug}/profile`)}
-          className="w-full py-3 px-4 rounded-xl text-white font-semibold transition-all duration-200 transform hover:scale-[1.02]"
-          style={{ backgroundColor: shop?.secondaryColor }}
-        >
-          Track Your Order
-        </button>
-      );
+    if (orderId) {
+      sessionStorage.removeItem('pendingPaymentOrderId');
+      sessionStorage.removeItem(`payment_state_${orderId}`);
     }
-    
-    const handleSignInClick = () => {
-      // Store the full current path before navigating to login
-      storeRedirect(currentFullPath);
-      router.push('/auth/login');
-    };
-    
-    return (
-      <div className="space-y-3">
-        <button
-          onClick={handleSignInClick}
-          className="w-full py-3 px-4 rounded-xl text-white font-semibold transition-all duration-200 transform hover:scale-[1.02] text-center block"
-          style={{ backgroundColor: shop?.secondaryColor }}
-        >
-          Sign in to Track Order
-        </button>
-        <p className="text-xs text-gray-500 text-center">
-          Sign in to view your order history and track deliveries
-        </p>
-      </div>
-    );
-  };
+  }, [orderId, trackEvent, onPaymentSuccess]);
 
-  const safeOrderNumber = orderNumber || "N/A";
+  // ✅ BULLETPROOF FIX: Redirect handler for customer tracking
+  const handleSignIn = () => {
+    const profileUrl = `/${shop?.shopSlug}/profile`;
+
+    // 1. IF LOGGED IN: Go directly to profile page
+    if (isAuthenticated) {
+      router.push(profileUrl);
+      return;
+    }
+
+    // 2. IF GUEST: Set session redirect and navigate to login
+    const paymentPage = `${pathname}?order_id=${safeOrderId}&status=success`;
+    sessionStorage.setItem('payment_page_after_signin', paymentPage);
+
+    router.push(`/auth/login?redirect=${encodeURIComponent(profileUrl)}`);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-12">
@@ -118,7 +101,19 @@ export function CODPayment({ orderId, orderNumber, onPaymentSuccess }: CODPaymen
 
             {/* Action Buttons */}
             <div className="space-y-3 pt-4">
-              <TrackOrderButton />
+              <button
+                onClick={handleSignIn}
+                className="w-full py-3 px-4 rounded-xl text-white font-semibold transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                style={{ backgroundColor: shop?.secondaryColor }}
+              >
+                <User className="w-4 h-4" />
+                {isAuthenticated ? "Go to Profile" : "Sign in to Track Order"}
+              </button>
+              {!isAuthenticated && (
+                <p className="text-xs text-gray-500 text-center">
+                  Sign in to view your order history and track deliveries
+                </p>
+              )}
               
               <button
                 onClick={() => router.push(`/${shop?.shopSlug}`)}
