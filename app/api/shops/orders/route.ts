@@ -327,7 +327,21 @@ export async function POST(request: NextRequest) {
         
         const productName = product?.product_name || '';
         const variantAttributes = variant?.attributes || null;
-        const variantName = variantAttributes ? JSON.parse(variantAttributes) : null;
+        
+        // Safe variant name parsing - handles both string and object
+        let variantName: string | null = null;
+        if (variantAttributes) {
+          try {
+            if (typeof variantAttributes === 'string') {
+              const parsed = JSON.parse(variantAttributes);
+              variantName = typeof parsed === 'object' ? JSON.stringify(parsed) : String(parsed);
+            } else {
+              variantName = JSON.stringify(variantAttributes);
+            }
+          } catch {
+            variantName = String(variantAttributes);
+          }
+        }
         
         realSubtotal += Number(realPrice) * Number(item.quantity);
         
@@ -337,8 +351,10 @@ export async function POST(request: NextRequest) {
           product_name: productName,
           price_at_time: realPrice,
           variant_id: item.variant_id ? Number(item.variant_id) : null,
-          variant_name: variantName ? JSON.stringify(variantName) : null,
-          variant_attributes: variantAttributes
+          variant_name: variantName,
+          variant_attributes: typeof variantAttributes === 'string' 
+            ? variantAttributes 
+            : (variantAttributes ? JSON.stringify(variantAttributes) : null)
         };
       });
 
@@ -382,9 +398,7 @@ export async function POST(request: NextRequest) {
       await connection.commit();
       connection.release();
 
-      (`✅ Order ${orderNumber} created successfully with ${orderItemsWithDetails.length} items`);
-
-      // ✉️ Send emails synchronously for Cash on Delivery orders
+      // Send emails for Cash on Delivery orders
       if (payment_method === 'cash_on_delivery') {
         const formattedAddress = customer_address && customer_city 
           ? `${customer_address}, ${customer_city}` 
@@ -434,17 +448,9 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          const results = await Promise.allSettled(emailPromises);
-          
-          // Log individual failures if any occurred without failing the overall route
-          results.forEach((res, index) => {
-            if (res.status === 'rejected') {
-              console.error(`❌ Email dispatch error [Index ${index}]:`, res.reason);
-            }
-          });
-
+          await Promise.allSettled(emailPromises);
         } catch (emailError) {
-          console.error('Email sending process encountered an unexpected failure:', emailError);
+          console.error('Email sending failed:', emailError);
         }
       }
 
