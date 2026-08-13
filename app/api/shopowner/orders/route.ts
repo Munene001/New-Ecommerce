@@ -28,7 +28,8 @@ interface CountResult extends RowDataPacket {
   total: number;
 }
 
-interface StatsResult extends RowDataPacket {
+interface CombinedStatsResult extends RowDataPacket {
+  totalCount: number;
   totalOrders: number;
   pendingOrders: number;
   processingOrders: number;
@@ -39,41 +40,63 @@ interface StatsResult extends RowDataPacket {
   pendingPayment: number;
 }
 
-// GET /api/shopowner/orders?shop_id=1&page=1&limit=20&status=pending&date_from=2024-01-01&date_to=2024-12-31&search=ORD
+// Parse and validate numeric params with fallback
+function parseNumberParam(param: string | null, defaultValue: number): number {
+  if (!param) return defaultValue;
+  const num = Number(param);
+  return isNaN(num) || num < 0 ? defaultValue : Math.floor(num);
+}
+
+// Strict ISO YYYY-MM-DD validator
+function isValidDateString(dateStr: string | null): boolean {
+  if (!dateStr) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.exec(dateStr)) return false;
+  const d = new Date(dateStr);
+  return d instanceof Date && !isNaN(d.getTime());
+}
+
+// GET /api/shopowner/orders?shop_id=1&page=1&limit=20&status=pending&date_from=2026-01-01&date_to=2026-12-31&search=ORD
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const shopIdParam = searchParams.get('shop_id');
     
     if (!shopIdParam) {
-      return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
+      return NextResponse.json({ error: 'shop_id is required' }, { status: 400 });
     }
 
-    const shopId = parseInt(shopIdParam, 10);
-    if (isNaN(shopId)) {
+    const shopId = parseNumberParam(shopIdParam, 0);
+    if (shopId === 0) {
       return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
-    // Verify access using helper
+    // Verify user authorization for this shop
     const { authorized, response } = await verifyShopAccess(req, shopId);
-    
     if (!authorized) {
       return response;
     }
 
-    // Pagination
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    // Pagination bounds protection
+    const page = Math.max(1, parseNumberParam(searchParams.get('page'), 1));
+    const rawLimit = parseNumberParam(searchParams.get('limit'), 20);
+    const limit = Math.min(100, Math.max(1, rawLimit)); // Cap at 100 max per page
     const offset = (page - 1) * limit;
 
     // Filters
-    const status = searchParams.get('status');
-    const paymentStatus = searchParams.get('payment_status');
-    const dateFrom = searchParams.get('date_from');
-    const dateTo = searchParams.get('date_to');
-    const search = searchParams.get('search');
+    const status = searchParams.get('status')?.trim();
+    const paymentStatus = searchParams.get('payment_status')?.trim();
+    const dateFrom = searchParams.get('date_from')?.trim();
+    const dateTo = searchParams.get('date_to')?.trim();
+    const search = searchParams.get('search')?.trim();
 
-    // Build WHERE clause
+    if (dateFrom && !isValidDateString(dateFrom)) {
+      return NextResponse.json({ error: 'Invalid date_from format (expected YYYY-MM-DD)' }, { status: 400 });
+    }
+    if (dateTo && !isValidDateString(dateTo)) {
+      return NextResponse.json({ error: 'Invalid date_to format (expected YYYY-MM-DD)' }, { status: 400 });
+    }
+
+    // Build base WHERE clause
     let whereClause = 'WHERE shop_id = ?';
     const queryParams: (string | number)[] = [shopId];
 
@@ -103,22 +126,16 @@ export async function GET(req: NextRequest) {
       queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
 
-    // Get total count
-    const [countResult] = await pool.query<CountResult[]>(
-      `SELECT COUNT(*) as total FROM orders ${whereClause}`,
-      queryParams
-    );
-    const totalCount = countResult[0].total;
-
-    // Get aggregated stats
-    const [statsResult] = await pool.query<StatsResult[]>(
+    // 1. Unified Aggregated Stats + Total Count in a single query pass
+    const [statsResult] = await pool.query<CombinedStatsResult[]>(
       `SELECT 
+        COUNT(*) as totalCount,
         COUNT(*) as totalOrders,
         SUM(CASE WHEN order_status = 'pending' THEN 1 ELSE 0 END) as pendingOrders,
         SUM(CASE WHEN order_status = 'processing' THEN 1 ELSE 0 END) as processingOrders,
         SUM(CASE WHEN order_status = 'delivered' THEN 1 ELSE 0 END) as completedOrders,
         SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) as cancelledOrders,
-        SUM(CASE WHEN payment_status = 'paid' THEN subtotal ELSE 0 END) as totalRevenue,
+        SUM(CASE WHEN payment_status = 'paid' THEN total ELSE 0 END) as totalRevenue,
         SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) as paidOrders,
         SUM(CASE WHEN payment_status = 'pending' THEN 1 ELSE 0 END) as pendingPayment
       FROM orders 
@@ -126,11 +143,13 @@ export async function GET(req: NextRequest) {
       queryParams
     );
 
-    // Get unviewed count (global, not affected by filters except shop_id)
-    let unviewedWhereClause = 'WHERE shop_id = ?';
+    const stats = statsResult[0];
+    const totalCount = Number(stats?.totalCount) || 0;
+
+    // 2. Unviewed Orders Count
+    let unviewedWhereClause = 'WHERE shop_id = ? AND viewed_by_seller = 0';
     const unviewedParams: (string | number)[] = [shopId];
     
-    // Optional: Apply date filters to unviewed count if needed
     if (dateFrom) {
       unviewedWhereClause += ' AND DATE(created_at) >= ?';
       unviewedParams.push(dateFrom);
@@ -141,14 +160,12 @@ export async function GET(req: NextRequest) {
     }
     
     const [unviewedResult] = await pool.query<CountResult[]>(
-      `SELECT COUNT(*) as total 
-       FROM orders 
-       ${unviewedWhereClause} AND viewed_by_seller = 0`,
+      `SELECT COUNT(*) as total FROM orders ${unviewedWhereClause}`,
       unviewedParams
     );
-    const unviewedCount = unviewedResult[0]?.total || 0;
+    const unviewedCount = Number(unviewedResult[0]?.total) || 0;
 
-    // Get paginated orders with delivery fields
+    // 3. Get Paginated Orders
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         order_id, order_number, customer_name, customer_email, customer_phone,
@@ -163,14 +180,35 @@ export async function GET(req: NextRequest) {
       [...queryParams, limit, offset]
     );
 
+    // Format output with guaranteed numeric primitives
+    const formattedOrders = orders.map(order => ({
+      ...order,
+      order_id: Number(order.order_id),
+      subtotal: Number(order.subtotal) || 0,
+      delivery_fee: Number(order.delivery_fee) || 0,
+      total: Number(order.total) || 0,
+      viewed_by_seller: Number(order.viewed_by_seller) || 0,
+    }));
+
+    const totalPages = Math.ceil(totalCount / limit);
+
     return NextResponse.json({
       success: true,
-      orders,
-      stats: statsResult[0],
+      orders: formattedOrders,
+      stats: {
+        totalOrders: Number(stats?.totalOrders) || 0,
+        pendingOrders: Number(stats?.pendingOrders) || 0,
+        processingOrders: Number(stats?.processingOrders) || 0,
+        completedOrders: Number(stats?.completedOrders) || 0,
+        cancelledOrders: Number(stats?.cancelledOrders) || 0,
+        totalRevenue: Number(stats?.totalRevenue) || 0,
+        paidOrders: Number(stats?.paidOrders) || 0,
+        pendingPayment: Number(stats?.pendingPayment) || 0,
+      },
       unviewedCount,
       pagination: {
         currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
+        totalPages,
         totalCount,
         limit
       }

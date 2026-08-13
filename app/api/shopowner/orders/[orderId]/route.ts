@@ -1,3 +1,4 @@
+// app/api/shopowner/orders/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyShopAccess } from '@/lib/role/helper';
 import pool from '@/lib/db';
@@ -37,6 +38,13 @@ interface OrderItemRow extends RowDataPacket {
   variant_attributes: string | null;
 }
 
+// ✅ NEW: Helper to normalize IDs
+function normalizeId(id: any): number | null {
+  if (id === null || id === undefined) return null;
+  const num = Number(id);
+  return isNaN(num) ? null : num;
+}
+
 async function getShopIdFromOrder(orderId: number): Promise<number | null> {
   const [rows] = await pool.query<OrderRow[]>(
     'SELECT shop_id FROM orders WHERE order_id = ?',
@@ -57,6 +65,7 @@ function safeParseVariantAttributes(value: string | null): any {
   return value;
 }
 
+// ✅ FIX: Deduct stock with normalized IDs
 async function deductStockForOrder(orderId: number): Promise<{ success: boolean; deducted: boolean }> {
   const [items] = await pool.query<OrderItemRow[]>(
     `SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?`,
@@ -66,10 +75,13 @@ async function deductStockForOrder(orderId: number): Promise<{ success: boolean;
   let deducted = false;
 
   for (const item of items) {
-    if (item.variant_id) {
+    // ✅ FIX: Normalize variant_id
+    const variantId = normalizeId(item.variant_id);
+    
+    if (variantId !== null) {
       const [stock] = await pool.query<RowDataPacket[]>(
         `SELECT stock_quantity FROM product_variants WHERE variant_id = ?`,
-        [item.variant_id]
+        [variantId] // ✅ Now guaranteed number
       );
       
       if (stock[0]?.stock_quantity > 0) {
@@ -78,23 +90,27 @@ async function deductStockForOrder(orderId: number): Promise<{ success: boolean;
           `UPDATE product_variants 
            SET stock_quantity = GREATEST(0, stock_quantity - ?)
            WHERE variant_id = ?`,
-          [item.quantity, item.variant_id]
+          [item.quantity, variantId] // ✅ Now guaranteed number
         );
       }
     } else {
-      const [stock] = await pool.query<RowDataPacket[]>(
-        `SELECT stock_quantity FROM products WHERE product_id = ?`,
-        [item.product_id]
-      );
-      
-      if (stock[0]?.stock_quantity > 0) {
-        deducted = true;
-        await pool.query(
-          `UPDATE products 
-           SET stock_quantity = GREATEST(0, stock_quantity - ?)
-           WHERE product_id = ?`,
-          [item.quantity, item.product_id]
+      // ✅ FIX: Normalize product_id
+      const productId = normalizeId(item.product_id);
+      if (productId !== null) {
+        const [stock] = await pool.query<RowDataPacket[]>(
+          `SELECT stock_quantity FROM products WHERE product_id = ?`,
+          [productId]
         );
+        
+        if (stock[0]?.stock_quantity > 0) {
+          deducted = true;
+          await pool.query(
+            `UPDATE products 
+             SET stock_quantity = GREATEST(0, stock_quantity - ?)
+             WHERE product_id = ?`,
+            [item.quantity, productId]
+          );
+        }
       }
     }
   }
@@ -102,6 +118,7 @@ async function deductStockForOrder(orderId: number): Promise<{ success: boolean;
   return { success: true, deducted };
 }
 
+// ✅ FIX: Restore stock with normalized IDs
 async function restoreStockForOrder(orderId: number): Promise<void> {
   const [items] = await pool.query<OrderItemRow[]>(
     `SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?`,
@@ -109,24 +126,32 @@ async function restoreStockForOrder(orderId: number): Promise<void> {
   );
 
   for (const item of items) {
-    if (item.variant_id) {
+    // ✅ FIX: Normalize variant_id
+    const variantId = normalizeId(item.variant_id);
+    
+    if (variantId !== null) {
       await pool.query(
         `UPDATE product_variants 
          SET stock_quantity = stock_quantity + ? 
          WHERE variant_id = ?`,
-        [item.quantity, item.variant_id]
+        [item.quantity, variantId]
       );
     } else {
-      await pool.query(
-        `UPDATE products 
-         SET stock_quantity = stock_quantity + ? 
-         WHERE product_id = ?`,
-        [item.quantity, item.product_id]
-      );
+      // ✅ FIX: Normalize product_id
+      const productId = normalizeId(item.product_id);
+      if (productId !== null) {
+        await pool.query(
+          `UPDATE products 
+           SET stock_quantity = stock_quantity + ? 
+           WHERE product_id = ?`,
+          [item.quantity, productId]
+        );
+      }
     }
   }
 }
 
+// GET endpoint - mostly safe
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
@@ -173,13 +198,31 @@ export async function GET(
       [orderId]
     );
 
+    // ✅ FIX: Convert all numeric values to Number
+    const order = orders[0];
+    const formattedItems = items.map(item => ({
+      ...item,
+      order_item_id: Number(item.order_item_id),
+      product_id: Number(item.product_id),
+      quantity: Number(item.quantity),
+      price_at_time: Number(item.price_at_time) || 0,
+      variant_id: item.variant_id ? Number(item.variant_id) : null, // ✅ Normalize
+      variant_attributes: safeParseVariantAttributes(item.variant_attributes)
+    }));
+
     return NextResponse.json({
       success: true,
-      order: orders[0],
-      items: items.map(item => ({
-        ...item,
-        variant_attributes: safeParseVariantAttributes(item.variant_attributes)
-      }))
+      order: {
+        ...order,
+        order_id: Number(order.order_id),
+        shop_id: Number(order.shop_id),
+        customer_id: order.customer_id ? Number(order.customer_id) : null,
+        subtotal: Number(order.subtotal) || 0,
+        delivery_fee: Number(order.delivery_fee) || 0,
+        total: Number(order.total) || 0,
+        stock_deducted: Number(order.stock_deducted) || 0,
+      },
+      items: formattedItems
     });
 
   } catch (error) {
@@ -188,6 +231,7 @@ export async function GET(
   }
 }
 
+// PUT endpoint - has stock operations
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
@@ -304,6 +348,7 @@ export async function PUT(
   }
 }
 
+// DELETE endpoint - mostly safe
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }

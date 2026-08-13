@@ -54,9 +54,15 @@ export async function GET(req: NextRequest) {
       [shopId]
     );
 
+    // ✅ FIX: Convert fee to Number
+    const formattedTiers = tiers.map(tier => ({
+      ...tier,
+      fee: Number(tier.fee) || 0,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: tiers
+      data: formattedTiers
     });
   } catch (error) {
     console.error('GET delivery tiers error:', error);
@@ -81,7 +87,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
-    if (fee < 0) {
+    // ✅ FIX: Convert fee to Number
+    const feeNumber = Number(fee) || 0;
+
+    if (feeNumber < 0) {
       return NextResponse.json({ error: 'Fee cannot be negative' }, { status: 400 });
     }
 
@@ -100,7 +109,7 @@ export async function POST(req: NextRequest) {
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO delivery_tiers (shop_id, tier_name, fee)
        VALUES (?, ?, ?)`,
-      [shopId, tier_name, fee]
+      [shopId, tier_name, feeNumber]
     );
 
     return NextResponse.json({
@@ -110,7 +119,7 @@ export async function POST(req: NextRequest) {
         tier_id: result.insertId,
         shop_id: shopId,
         tier_name,
-        fee
+        fee: feeNumber
       }
     }, { status: 201 });
   } catch (error) {

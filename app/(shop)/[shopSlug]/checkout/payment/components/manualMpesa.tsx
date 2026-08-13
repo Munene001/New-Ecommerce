@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Copy, Check, CreditCard, Smartphone, Building, Send, PartyPopper, ShoppingBag, Package, Clock, Shield, Wallet } from "lucide-react";
+import { Copy, Check, CreditCard, Smartphone, Building, Send, PartyPopper, ShoppingBag, Package, Clock, Shield, Wallet, User } from "lucide-react";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useAuth } from "@/context/authcontext";
-import { storeRedirect } from "@/lib/redirect/helper";
 
 interface DirectMpesaPaymentProps {
   orderId: string | null;
@@ -28,6 +27,8 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
   const { shop, trackEvent } = useShop();
   const { isAuthenticated } = useAuth();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isUpdatingRef = useRef(false);
   
   // Check if we're in success state from URL
   const isSuccessState = searchParams.get('status') === 'success';
@@ -38,8 +39,13 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
     if (orderComplete) {
       trackEvent('payment_success');
       onPaymentSuccess?.();
+      // Cleanup pending payment tracking from storage
+      if (orderId) {
+        sessionStorage.removeItem('pendingPaymentOrderId');
+        sessionStorage.removeItem(`payment_state_${orderId}`);
+      }
     }
-  }, [orderComplete, trackEvent, onPaymentSuccess]);
+  }, [orderComplete, trackEvent, onPaymentSuccess, orderId]);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -51,12 +57,57 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
   const safeOrderId = orderId || "";
   const safeTotalAmount = totalAmount || 0;
 
-  const handleOrderComplete = () => {
+  const handleOrderComplete = async () => {
+    if (isUpdatingRef.current || isSubmitting) return;
+    isUpdatingRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      // ✅ ONLY call the email API - skip the failing PUT
+      const emailResponse = await fetch('/api/shops/orders/direct-mpesa', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ orderId: safeOrderId }),
+      });
+      
+      if (emailResponse.ok) {
+        ('✅ Confirmation emails sent successfully');
+      } else {
+        const errorData = await emailResponse.json();
+        console.error('❌ Failed to send confirmation emails:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ Error confirming direct mpesa order:', error);
+    } finally {
+      setIsSubmitting(false);
+      isUpdatingRef.current = false;
+    }
+    
     setOrderComplete(true);
     // Update URL to include success status
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('status', 'success');
     router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
+  };
+
+  // ✅ BULLETPROOF FIX: Redirect handler for customer tracking
+  const handleSignIn = () => {
+    const profileUrl = `/${shop?.shopSlug}/profile`;
+
+    // 1. IF LOGGED IN: Navigate directly to customer profile
+    if (isAuthenticated) {
+      router.push(profileUrl);
+      return;
+    }
+
+    // 2. IF GUEST: Save current payment page as fallback and redirect to login
+    const paymentPage = `${pathname}?order_id=${safeOrderId}&status=success`;
+    sessionStorage.setItem('payment_page_after_signin', paymentPage);
+
+    router.push(`/auth/login?redirect=${encodeURIComponent(profileUrl)}`);
   };
 
   const formatAmount = (amount: number) => {
@@ -159,42 +210,6 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
   }
 
   if (orderComplete) {
-    const TrackOrderButton = () => {
-      if (isAuthenticated) {
-        return (
-          <button
-            onClick={() => router.push(`/${shop?.shopSlug}/profile`)}
-            className="w-full py-3 px-4 rounded-lg text-white font-medium transition-all"
-            style={{ backgroundColor: shop?.secondaryColor }}
-          >
-            Track Your Order
-          </button>
-        );
-      }
-      
-      const handleSignInClick = () => {
-        // Build current URL with success state
-        const currentFullPath = `${pathname}?order_id=${safeOrderId}&status=success`;
-        storeRedirect(currentFullPath);
-        router.push('/auth/login');
-      };
-      
-      return (
-        <div className="space-y-2">
-          <button
-            onClick={handleSignInClick}
-            className="w-full py-3 px-4 rounded-lg text-white font-medium text-center block"
-            style={{ backgroundColor: shop?.secondaryColor }}
-          >
-            Sign in to Track Order
-          </button>
-          <p className="text-xs text-gray-500 text-center">
-            Sign in to view your order history
-          </p>
-        </div>
-      );
-    };
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-12">
         <div className="max-w-4xl mx-auto px-4">
@@ -217,8 +232,21 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
                 </div>
                 <p className="text-gray-700 text-sm">Your order has been placed successfully!</p>
               </div>
-              <div className="space-y-2 pt-2">
-                <TrackOrderButton />
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={handleSignIn}
+                  className="w-full py-3 px-4 rounded-lg text-white font-medium transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: shop?.secondaryColor }}
+                >
+                  <User className="w-4 h-4" />
+                  {isAuthenticated ? "Go to Profile" : "Sign in to Track Order"}
+                </button>
+                {!isAuthenticated && (
+                  <p className="text-xs text-gray-500 text-center">
+                    Sign in to view your order history and track status
+                  </p>
+                )}
+
                 <button
                   onClick={() => router.push(`/${shop?.shopSlug}`)}
                   className="w-full py-3 px-4 rounded-lg border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
@@ -326,11 +354,12 @@ export function DirectMpesaPayment({ orderId, orderNumber, totalAmount, mpesaInf
 
               <button
                 onClick={handleOrderComplete}
-                className="w-full py-3 px-4 rounded-lg text-white font-semibold transition-all hover:opacity-90 flex items-center justify-center gap-2 shadow-md"
+                disabled={isSubmitting}
+                className="w-full py-3 px-4 rounded-lg text-white font-semibold transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
                 style={{ backgroundColor: shop?.secondaryColor }}
               >
                 <Check className="w-4 h-4" />
-                I've Completed Payment
+                {isSubmitting ? "Processing..." : "I've Completed Payment"}
               </button>
 
               <div className="mt-4 flex items-center justify-center gap-1 text-xs text-gray-800">

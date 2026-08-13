@@ -1,7 +1,9 @@
+// app/api/shops/customers/orders/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
+import { getOrderAccess } from '@/lib/auth/order-access';
 
 interface OrderRow extends RowDataPacket {
   order_id: number;
@@ -24,6 +26,7 @@ interface OrderRow extends RowDataPacket {
   order_status: string;
   created_at: string;
   updated_at: string;
+  customer_id: number | null;
 }
 
 interface OrderItemRow extends RowDataPacket {
@@ -39,17 +42,6 @@ export async function GET(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    // Get authenticated user
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { orderId: orderIdParam } = await params;
     const orderId = parseInt(orderIdParam);
     
@@ -60,16 +52,34 @@ export async function GET(
       );
     }
 
-    const customerEmail = user.email;
-    
-    if (!customerEmail) {
+    // First, check if order exists and get customer_id for auth check
+    const [orderCheck] = await pool.query<OrderRow[]>(
+      `SELECT customer_id FROM orders WHERE order_id = ?`,
+      [orderId]
+    );
+
+    if (orderCheck.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'User email not found' },
-        { status: 400 }
+        { success: false, error: 'Order not found' },
+        { status: 404 }
       );
     }
 
-    // Fetch order details with delivery fields - verify it belongs to this customer
+    // ✅ Verify access using JWT + Supabase auth
+    const { granted, error, userId } = await getOrderAccess(
+      request,
+      orderId,
+      orderCheck[0].customer_id
+    );
+
+    if (!granted) {
+      return NextResponse.json(
+        { success: false, error: error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Fetch order details with delivery fields
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         o.order_id,
@@ -94,8 +104,8 @@ export async function GET(
         o.updated_at
       FROM orders o
       INNER JOIN shops s ON o.shop_id = s.shop_id
-      WHERE o.order_id = ? AND o.customer_email = ?`,
-      [orderId, customerEmail]
+      WHERE o.order_id = ?`,
+      [orderId]
     );
 
     if (orders.length === 0) {
@@ -120,6 +130,11 @@ export async function GET(
       [orderId]
     );
 
+    // ✅ FIX: Convert all numeric values to Number
+    const subtotal = Number(order.subtotal) || 0;
+    const deliveryFee = Number(order.delivery_fee) || 0;
+    const total = Number(order.total) || subtotal + deliveryFee;
+
     return NextResponse.json({
       success: true,
       order: {
@@ -134,10 +149,10 @@ export async function GET(
         customer_city: order.customer_city,
         customer_address: order.customer_address,
         special_instructions: order.special_instructions,
-        subtotal: order.subtotal,
-        delivery_fee: order.delivery_fee || 0,
+        subtotal: subtotal,
+        delivery_fee: deliveryFee,
         delivery_zone: order.delivery_zone,
-        total: order.total || order.subtotal + order.delivery_fee,
+        total: total,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
         order_status: order.order_status,
@@ -148,8 +163,8 @@ export async function GET(
           product_id: item.product_id,
           product_name: item.product_name,
           quantity: item.quantity,
-          price_at_time: item.price_at_time,
-          total: item.quantity * item.price_at_time
+          price_at_time: Number(item.price_at_time) || 0,
+          total: (Number(item.price_at_time) || 0) * item.quantity
         }))
       }
     });

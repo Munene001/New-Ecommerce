@@ -1,36 +1,355 @@
 "use client";
 
-import { Hammer, CheckCircle } from "lucide-react";
+import { 
+  CheckCircle, 
+  Trash2, 
+  Building2, 
+  QrCode, 
+  Info, 
+  Save,
+  Loader2,
+  Key,
+  Shield,
+  Smartphone,
+  Zap,
+  HelpCircle
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import FormField from "@/app/components/ui/formField";
 
-interface StkPushTabProps {
-  isActive: boolean;
+interface StkPushConfig {
+  type: 'paybill' | 'till' | null;
+  shortcode: string | null;
+  consumer_key: string | null;
+  consumer_secret: string | null;
+  passkey: string | null;
+  business_number: string | null;
+  till_number: string | null;
+  account_number: string | null;
 }
 
-export default function StkPushTab({ isActive }: StkPushTabProps) {
+interface StkPushTabProps {
+  config: StkPushConfig | null;
+  isActive: boolean;
+  onSave: (config: any) => Promise<boolean>;
+  onDelete: () => Promise<boolean>;
+  loading: boolean;
+}
+
+export default function StkPushTab({ config, isActive, onSave, onDelete, loading }: StkPushTabProps) {
+  const [selectedType, setSelectedType] = useState<'paybill' | 'till'>('paybill');
+  const [shortcode, setShortcode] = useState('');
+  const [consumerKey, setConsumerKey] = useState('');
+  const [consumerSecret, setConsumerSecret] = useState('');
+  const [passkey, setPasskey] = useState('');
+  const [businessNumber, setBusinessNumber] = useState('');
+  const [tillNumber, setTillNumber] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+
+  // Load existing config
+  useEffect(() => {
+    if (config && config.type) {
+      setSelectedType(config.type);
+      setShortcode(config.shortcode || '');
+      setConsumerKey(config.consumer_key || '');
+      setConsumerSecret(config.consumer_secret || '');
+      setPasskey(config.passkey || '');
+      setBusinessNumber(config.business_number || '');
+      setTillNumber(config.till_number || '');
+      setAccountNumber(config.account_number || '');
+    }
+  }, [config]);
+
+  const hasConfig = config && config.type !== null;
+
+  const getInstruction = () => {
+    switch (selectedType) {
+      case 'paybill':
+        return {
+          title: "Safaricom Paybill STK Push",
+          instruction: "Customers will receive a prompt on their phone to complete payment. Enter your Safaricom Paybill details below.",
+        };
+      case 'till':
+        return {
+          title: "Safaricom Till STK Push",
+          instruction: "Customers will receive a prompt on their phone to complete payment. Enter your Safaricom Till number details below.",
+        };
+      default:
+        return { title: "", instruction: "" };
+    }
+  };
+
+  const instruction = getInstruction();
+
+  // Get formatted active message
+  const getActiveMessage = () => {
+    if (!config || !config.type) return null;
+    
+    const typeLabels = {
+      paybill: 'Paybill',
+      till: 'Till'
+    };
+    
+    const typeLabel = typeLabels[config.type];
+    return `${typeLabel} STK Push (${config.shortcode || 'N/A'})`;
+  };
+
+  const activeMessage = getActiveMessage();
+
+  const handleSave = async () => {
+    // Validation
+    if (!shortcode) {
+      alert('Shortcode is required');
+      return;
+    }
+    if (!consumerKey || !consumerSecret || !passkey) {
+      alert('Consumer Key, Consumer Secret, and Passkey are required');
+      return;
+    }
+
+    const payload: any = {
+      type: selectedType,
+      shortcode,
+      consumer_key: consumerKey,
+      consumer_secret: consumerSecret,
+      passkey,
+    };
+
+    if (selectedType === 'paybill') {
+      payload.business_number = businessNumber || null;
+      payload.account_number = accountNumber || null;
+    } else {
+      payload.till_number = tillNumber || null;
+    }
+
+    await onSave(payload);
+  };
+
+  const handleDelete = async () => {
+    if (confirm('Are you sure you want to remove your STK Push configuration?')) {
+      await onDelete();
+      // Reset form
+      setShortcode('');
+      setConsumerKey('');
+      setConsumerSecret('');
+      setPasskey('');
+      setBusinessNumber('');
+      setTillNumber('');
+      setAccountNumber('');
+    }
+  };
+
+  const typeButtons = [
+    { id: 'paybill' as const, label: 'Paybill', icon: Building2 },
+    { id: 'till' as const, label: 'Till Number', icon: QrCode },
+  ];
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-      {isActive && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 justify-center">
-          <CheckCircle className="w-5 h-5 text-green-600" />
-          <span className="text-sm text-green-700 font-medium">This is currently your ACTIVE payment method</span>
+    <div className="bg-white rounded-lg border border-gray-200 py-6 px-3">
+      {/* Active Status */}
+      {isActive && activeMessage && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+          <span className="text-sm text-green-700 font-medium">
+            Active: {activeMessage}
+          </span>
         </div>
       )}
-      
-      <Hammer className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-xl font-semibold text-gray-700 mb-2">STK Push Coming Soon</h3>
-      <p className="text-gray-500 max-w-md mx-auto">
-        Automatic payment prompts on customer phones will be available soon.
-        This will allow customers to pay by simply entering their PIN when prompted.
-      </p>
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg inline-block mx-auto">
-        <p className="text-sm text-gray-600 font-medium mb-2">Features coming:</p>
-        <ul className="text-sm text-gray-500 text-left space-y-1">
-          <li>• Paybill STK integration</li>
-          <li>• Till STK integration</li>
-          <li>• Real-time payment confirmation</li>
-          <li>• Automatic transaction verification</li>
-        </ul>
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-black">Safaricom STK Push Configuration</h3>
+        {hasConfig && (
+          <button
+            onClick={handleDelete}
+            disabled={loading}
+            className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-1 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Remove Configuration
+          </button>
+        )}
       </div>
+
+      {/* Type Selector */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Business Type
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {typeButtons.map((type) => {
+            const IconComponent = type.icon;
+            return (
+              <button
+                key={type.id}
+                onClick={() => setSelectedType(type.id)}
+                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                  selectedType === type.id
+                    ? "border-three bg-orange-50 text-three"
+                    : "border-gray-200 hover:border-gray-300 text-gray-700"
+                }`}
+              >
+                <IconComponent className="w-4 h-4" />
+                {type.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+        <div className="flex items-start gap-2">
+          <Smartphone className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <div className="text-black">
+            <h4 className="font-medium text-sm">{instruction.title}</h4>
+            <p className="text-sm mt-1">{instruction.instruction}</p>
+            <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
+              <Zap className="w-3 h-3" />
+              <span>Customers receive a prompt on their phone - no manual entry required</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Daraja Credentials Info */}
+      <div className="mb-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+        <div className="flex items-start gap-2">
+          <Shield className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+          <div className="text-black">
+            <p className="text-sm font-medium text-yellow-700">Safaricom Daraja API Credentials</p>
+            <p className="text-xs text-yellow-600 mt-1">
+              These credentials are obtained from the Safaricom Daraja Developer Portal after going live.
+              You need a registered Paybill or Till number to get these.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Dynamic Fields */}
+      <div className="space-y-4 mb-6">
+        {/* Shortcode - Main business identifier */}
+        <div>
+          <FormField
+            name="shortcode"
+            label={selectedType === 'paybill' ? "Business Number" : "Till Number"}
+            value={shortcode}
+            onChange={(e) => setShortcode((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            type="text"
+            placeholder={selectedType === 'paybill' ? "e.g., 174379" : "e.g., 123456"}
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            <HelpCircle className="w-3 h-3" />
+            {selectedType === 'paybill' 
+              ? "This is your main Paybill number that customers see (e.g., Safaricom's 174379)"
+              : "This is your Till number that customers use to pay"}
+          </p>
+        </div>
+
+        {/* Paybill fields */}
+        {selectedType === 'paybill' && (
+          <>
+            <div>
+              <FormField
+                name="business_number"
+                label="Business Sub Code (Optional - Sub-Code)"
+                value={businessNumber}
+                onChange={(e) => setBusinessNumber((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+                type="text"
+                placeholder="e.g., 123456"
+              />
+              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <HelpCircle className="w-3 h-3" />
+                Optional: Used to separate different branches or departments (e.g., Nairobi branch = 100, Mombasa = 200)
+              </p>
+            </div>
+
+            <div>
+              <FormField
+                name="account_number"
+                label="Account Number (Optional - Customer Reference)"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+                type="text"
+                placeholder="e.g., SHOP001 or Order ID"
+              />
+              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <HelpCircle className="w-3 h-3" />
+                Optional: Your customer's account/reference number to identify who paid
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Till - No optional fields (simpler) */}
+        {selectedType === 'till' && (
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600 flex items-center gap-2">
+              <Info className="w-4 h-4 text-gray-400" />
+              Till numbers don't require additional fields. Your Till number above is all that's needed.
+            </p>
+          </div>
+        )}
+
+        {/* Daraja API Credentials */}
+        <div className="border-t border-gray-200 py-4 mt-2">
+          <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            Safaricom Daraja API Credentials
+          </h4>
+          <div className="flex flex-col gap-3">
+          <FormField
+            name="consumer_key"
+            label="Consumer Key"
+            value={consumerKey}
+            onChange={(e) => setConsumerKey((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            type="text"
+            placeholder="Enter Consumer Key from Daraja portal"
+            required
+          />
+          
+          <FormField
+            name="consumer_secret"
+            label="Consumer Secret"
+            value={consumerSecret}
+            onChange={(e) => setConsumerSecret((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            type="password"
+            placeholder="Enter Consumer Secret from Daraja portal"
+            required
+          />
+          
+          <FormField
+            name="passkey"
+            label="Passkey"
+            value={passkey}
+            onChange={(e) => setPasskey((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            type="password"
+            placeholder="Enter Passkey from Daraja portal"
+            required
+          />
+          </div>
+        </div>
+      </div>
+
+      {/* Save Button */}
+      <button
+        onClick={handleSave}
+        disabled={loading}
+        className="w-full px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          <>
+            <Save className="w-5 h-5" />
+            {hasConfig ? "Update & Activate" : "Save & Activate"}
+          </>
+        )}
+      </button>
     </div>
   );
 }

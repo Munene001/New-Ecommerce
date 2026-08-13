@@ -49,15 +49,21 @@ const formatItemName = (item: OrderItem): string => {
 };
 
 export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
+  if (!orderData.to || orderData.to.trim() === '') {
+    console.error('❌ ERROR: No recipient email provided for buyer!');
+    throw new Error('No recipient email provided for buyer order confirmation');
+  }
+
+  const subtotal = Number(orderData.subtotal) || 0;
+  const deliveryFee = Number(orderData.delivery_fee) || 0;
+  const total = Number(orderData.total) || subtotal + deliveryFee;
+
   const { 
     to, 
     customer_name, 
     order_number, 
     items, 
-    subtotal, 
-    delivery_fee = 0,
     delivery_zone = null,
-    total = subtotal + delivery_fee,
     seller_name, 
     seller_email, 
     seller_phone 
@@ -69,8 +75,8 @@ export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
         ${formatItemName(item)}
       </td>
       <td style="padding: 12px 8px; text-align: center; color: #374151;">${item.quantity}</td>
-      <td style="padding: 12px 8px; text-align: right; color: #374151;">KSh ${item.price_at_time.toLocaleString()}</td>
-      <td style="padding: 12px 8px; text-align: right; color: #111827; font-weight: 600;">KSh ${(item.price_at_time * item.quantity).toLocaleString()}</td>
+      <td style="padding: 12px 8px; text-align: right; color: #374151;">KSh ${Number(item.price_at_time).toLocaleString()}</td>
+      <td style="padding: 12px 8px; text-align: right; color: #111827; font-weight: 600;">KSh ${(Number(item.price_at_time) * item.quantity).toLocaleString()}</td>
     </tr>
   `).join('');
 
@@ -117,10 +123,10 @@ export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
                     <td colspan="3" style="padding: 8px 8px; text-align: right; font-weight: 500; color: #111827;">Subtotal:</td>
                     <td style="padding: 8px 8px; text-align: right; color: #111827;">KSh ${subtotal.toLocaleString()}</td>
                   </tr>
-                  ${delivery_fee > 0 ? `
+                  ${deliveryFee > 0 ? `
                   <tr>
                     <td colspan="3" style="padding: 8px 8px; text-align: right; font-weight: 500; color: #111827;">Delivery Fee:</td>
-                    <td style="padding: 8px 8px; text-align: right; color: #111827;">KSh ${delivery_fee.toLocaleString()}</td>
+                    <td style="padding: 8px 8px; text-align: right; color: #111827;">KSh ${deliveryFee.toLocaleString()}</td>
                   </tr>
                   ` : `
                   <tr>
@@ -154,16 +160,43 @@ export async function sendBuyerOrderEmail(orderData: BuyerOrderData) {
     </html>
   `;
 
-  await resend.emails.send({
-    from: `PaziaTech <noreply@paziatech.co.ke>`,
-    replyTo: seller_email,
-    to: to,
-    subject: `Order Confirmation #${order_number}`,
-    html,
-  });
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `PaziaTech <noreply@paziatech.co.ke>`,
+      replyTo: seller_email,
+      to: to,
+      subject: `Order Confirmation #${order_number}`,
+      html,
+    });
+
+    if (error) {
+      console.error(`❌ Resend returned an error for buyer email to ${to}:`, error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error(`❌ Resend failed for buyer email to ${to}:`, error);
+    throw error;
+  }
 }
 
 export async function sendSellerOrderEmail(orderData: SellerOrderData) {
+  if (!orderData.to || orderData.to.trim() === '') {
+    console.error('❌ ERROR: No recipient email provided for seller!');
+    console.error('Full orderData:', JSON.stringify(orderData, null, 2));
+    throw new Error('No recipient email provided for seller order notification');
+  }
+
+  if (!orderData.to.includes('@')) {
+    console.error(`❌ ERROR: Invalid email format: ${orderData.to}`);
+    throw new Error(`Invalid email format: ${orderData.to}`);
+  }
+
+  const subtotal = Number(orderData.subtotal) || 0;
+  const deliveryFee = Number(orderData.delivery_fee) || 0;
+  const total = Number(orderData.total) || subtotal + deliveryFee;
+
   const { 
     to, 
     customer_name, 
@@ -172,10 +205,7 @@ export async function sendSellerOrderEmail(orderData: SellerOrderData) {
     customer_address, 
     order_number, 
     items, 
-    subtotal,
-    delivery_fee = 0,
     delivery_zone = null,
-    total = subtotal + delivery_fee,
     special_instructions, 
     payment_method 
   } = orderData;
@@ -186,8 +216,8 @@ export async function sendSellerOrderEmail(orderData: SellerOrderData) {
         ${formatItemName(item)}
       </td>
       <td style="padding: 12px 8px; text-align: center; color: #374151;">${item.quantity}</td>
-      <td style="padding: 12px 8px; text-align: right; color: #374151;">KSh ${item.price_at_time.toLocaleString()}</td>
-      <td style="padding: 12px 8px; text-align: right; color: #111827; font-weight: 600;">KSh ${(item.price_at_time * item.quantity).toLocaleString()}</td>
+      <td style="padding: 12px 8px; text-align: right; color: #374151;">KSh ${Number(item.price_at_time).toLocaleString()}</td>
+      <td style="padding: 12px 8px; text-align: right; color: #111827; font-weight: 600;">KSh ${(Number(item.price_at_time) * item.quantity).toLocaleString()}</td>
     </tr>
   `).join('');
 
@@ -233,10 +263,10 @@ export async function sendSellerOrderEmail(orderData: SellerOrderData) {
                     <td colspan="3" style="padding: 8px 8px; text-align: right; font-weight: 500; color: #111827;">Subtotal:</td>
                     <td style="padding: 8px 8px; text-align: right; color: #111827;">KSh ${subtotal.toLocaleString()}</td>
                   </tr>
-                  ${delivery_fee > 0 ? `
+                  ${deliveryFee > 0 ? `
                   <tr>
                     <td colspan="3" style="padding: 8px 8px; text-align: right; font-weight: 500; color: #111827;">Delivery Fee:</td>
-                    <td style="padding: 8px 8px; text-align: right; color: #111827;">KSh ${delivery_fee.toLocaleString()}</td>
+                    <td style="padding: 8px 8px; text-align: right; color: #111827;">KSh ${deliveryFee.toLocaleString()}</td>
                   </tr>
                   ` : `
                   <tr>
@@ -270,10 +300,23 @@ export async function sendSellerOrderEmail(orderData: SellerOrderData) {
     </html>
   `;
 
-  await resend.emails.send({
-    from: `PaziaTech <noreply@paziatech.co.ke>`,
-    to: to,
-    subject: `New Order #${order_number}`,
-    html,
-  });
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `PaziaTech <noreply@paziatech.co.ke>`,
+      replyTo: customer_email,
+      to: to,
+      subject: `New Order #${order_number}`,
+      html,
+    });
+
+    if (error) {
+      console.error(`❌ Resend returned an error for seller email to ${to}:`, error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error(`❌ Resend failed for seller email to ${to}:`, error);
+    throw error;
+  }
 }

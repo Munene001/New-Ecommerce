@@ -35,6 +35,10 @@ interface PaymentConfig {
   } | null;
 }
 
+const getOrderToken = (orderId: string, searchParams: URLSearchParams): string | null => {
+  return searchParams.get('token') || localStorage.getItem(`guest_order_token_${orderId}`);
+};
+
 export default function PaymentPage() {
   const searchParams = useSearchParams();
   const { shop, trackEvent } = useShop();
@@ -46,6 +50,34 @@ export default function PaymentPage() {
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
+  
+  // Restore persisted payment state if present
+  const [paymentState, setPaymentState] = useState(() => {
+    if (!orderId) return null;
+    
+    try {
+      const saved = sessionStorage.getItem(`payment_state_${orderId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Date.now() - parsed.timestamp < 3600000) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // Invalid JSON, ignore
+    }
+    return null;
+  });
+
+  // Save updated state to sessionStorage
+  useEffect(() => {
+    if (paymentState && orderId) {
+      sessionStorage.setItem(`payment_state_${orderId}`, JSON.stringify({
+        ...paymentState,
+        timestamp: Date.now()
+      }));
+    }
+  }, [paymentState, orderId]);
   
   useEffect(() => {
     if (order && !hasTrackedPageView) {
@@ -62,7 +94,14 @@ export default function PaymentPage() {
     
     const fetchOrder = async () => {
       try {
-        const response = await fetch(`/api/shops/orders/${orderId}`);
+        const token = getOrderToken(orderId, searchParams);
+        
+        const response = await fetch(`/api/shops/orders/${orderId}`, {
+          credentials: 'include',
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+        });
         const result = await response.json();
         
         if (result.success) {
@@ -79,13 +118,15 @@ export default function PaymentPage() {
     };
     
     fetchOrder();
-  }, [orderId, showToast]);
+  }, [orderId, searchParams, showToast]);
   
   useEffect(() => {
     if (order?.payment_method === "mpesa" && shop?.shopId) {
       const fetchPaymentSettings = async () => {
         try {
-          const response = await fetch(`/api/shops/payments?shop_id=${shop?.shopId}`);
+          const response = await fetch(`/api/shops/payments?shop_id=${shop?.shopId}`, {
+            credentials: 'include',
+          });
           const result = await response.json();
           if (result.success) {
             setPaymentConfig(result.data);
@@ -141,11 +182,15 @@ export default function PaymentPage() {
     }
     
     if (paymentConfig.active_payment_type === 'stk_push') {
-      return <STKPushPayment 
-        orderId={orderId} 
-        orderNumber={order.order_number}
-        onPaymentSuccess={handlePaymentSuccess}
-      />;
+      return (
+        <STKPushPayment 
+          orderId={orderId} 
+          order={order}
+          initialSavedState={paymentState}
+          onPaymentSuccess={handlePaymentSuccess}
+          onStateChange={setPaymentState}
+        />
+      );
     }
     
     if (paymentConfig.active_payment_type === 'direct_mpesa' && paymentConfig.direct_mpesa) {

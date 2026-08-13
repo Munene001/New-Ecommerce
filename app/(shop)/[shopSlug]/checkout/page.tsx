@@ -66,6 +66,9 @@ export default function CheckoutPage() {
       try {
         const response = await fetch(
           `/api/shops/payments?shop_id=${shop.shopId}`,
+          {
+            credentials: 'include',
+          }
         );
         const result = await response.json();
 
@@ -94,15 +97,15 @@ export default function CheckoutPage() {
       
       setLoadingDelivery(true);
       try {
-        const response = await fetch(`/api/shopowner/payments/delivery?shop_id=${shop.shopId}`);
+        const response = await fetch(`/api/shopowner/payments/delivery?shop_id=${shop.shopId}`, {
+          credentials: 'include',
+        });
         const result = await response.json();
         
         if (result.success) {
           setDeliveryTiers(result.data);
-          // If tiers exist, delivery is enabled
           if (result.data.length > 0) {
             setDeliveryEnabled(true);
-            // Auto-select first tier
             setSelectedDeliveryTier(result.data[0]);
             setDeliveryFee(result.data[0].fee);
           } else {
@@ -166,46 +169,61 @@ export default function CheckoutPage() {
     trackEvent('order_placed');
 
     try {
+      // ✅ FIX: Normalize all items before sending to API
+      const normalizedItems = items.map((item) => ({
+        product_id: Number(item.product_id), // ✅ Ensure number
+        variant_id: item.variant_id ? Number(item.variant_id) : null, // ✅ Ensure number or null
+        quantity: Number(item.quantity), // ✅ Ensure number
+        price: Number(item.discount_price ?? item.price), // ✅ Ensure number
+        product_name: String(item.product_name || ''),
+        variant_name: item.variant_name ? String(item.variant_name) : null,
+      }));
+
+      // ✅ FIX: Ensure all numeric values are actually numbers
       const orderData = {
-        shop_id: shop?.shopId,
-        customer_name: formData.fullName,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        customer_city: formData.city || null,
-        customer_address: formData.address || null,
-        special_instructions: formData.specialInstructions || undefined,
+        shop_id: Number(shop?.shopId), // ✅ Ensure number
+        customer_name: String(formData.fullName).trim(),
+        customer_email: String(formData.email).trim(),
+        customer_phone: String(formData.phone).trim(),
+        customer_city: formData.city ? String(formData.city).trim() : null,
+        customer_address: formData.address ? String(formData.address).trim() : null,
+        special_instructions: formData.specialInstructions ? String(formData.specialInstructions).trim() : undefined,
         payment_method: paymentMethod === "cod" ? "cash_on_delivery" : "mpesa",
-        subtotal: subtotal,
-        delivery_fee: deliveryFee,
-        delivery_tier_id: selectedDeliveryTier?.tier_id || null,
-        delivery_zone: selectedDeliveryTier?.tier_name || null,
-        items: items.map((item) => ({
-          product_id: item.product_id,
-          variant_id: item.variant_id || null,
-          quantity: item.quantity,
-          price: item.discount_price || item.price,
-          product_name: item.product_name,
-          variant_name: item.variant_name || null,
-        })),
+        subtotal: Number(subtotal), // ✅ Ensure number
+        delivery_fee: Number(deliveryFee), // ✅ Ensure number
+        delivery_tier_id: selectedDeliveryTier?.tier_id ? Number(selectedDeliveryTier.tier_id) : null,
+        delivery_zone: selectedDeliveryTier?.tier_name ? String(selectedDeliveryTier.tier_name) : null,
+        items: normalizedItems,
       };
+
+ 
 
       const response = await fetch("/api/shops/orders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: 'include',
         body: JSON.stringify(orderData),
       });
 
       const result = await response.json();
 
       if (result.success) {
+        const token = result.data.order_token;
+        if (token) {
+          localStorage.setItem(`guest_order_token_${result.data.order_id}`, token);
+        }
+
         orderPlacedRef.current = true;
         clearCart(true);
         showToast(result.data.message, "success");
-        router.push(
-          `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}`,
-        );
+
+        const paymentUrl = token 
+          ? `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}&token=${encodeURIComponent(token)}`
+          : `/${shop?.shopSlug}/checkout/payment?order_id=${result.data.order_id}`;
+
+        router.push(paymentUrl);
       } else {
         showToast(result.error || "Failed to place order", "error");
       }

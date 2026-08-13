@@ -44,74 +44,73 @@ function LoginFormContent() {
     }
   }, [searchParams]);
 
+  // ✅ Clean redirect handler
+  const handleRedirect = (role: string, shopSlug?: string) => {
+    // Check for stored redirect
+    const storedRedirect = getAndClearRedirect();
+    const redirectParam = searchParams.get("redirect");
+    const targetRedirect = storedRedirect || redirectParam;
+
+    // 1. SHOP OWNER
+    if (role === "shop_owner") {
+      // Block shop owners from /profile
+      if (targetRedirect && targetRedirect.includes("/profile")) {
+        return router.replace(shopSlug ? `/dashboard/${shopSlug}` : "/shopType");
+      }
+      // Honor dashboard redirects
+      if (targetRedirect && targetRedirect.startsWith("/dashboard")) {
+        return router.replace(targetRedirect);
+      }
+      // Default
+      return router.replace(shopSlug ? `/dashboard/${shopSlug}` : "/shopType");
+    }
+
+    // 2. CUSTOMER
+    if (role === "customer") {
+      // ✅ Check for payment page redirect (from "Sign in to Track Order")
+      const paymentRedirect = sessionStorage.getItem('payment_page_after_signin');
+      if (paymentRedirect) {
+        sessionStorage.removeItem('payment_page_after_signin');
+        return router.replace(paymentRedirect);
+      }
+
+      // Honor any redirect (checkout, profile, etc.)
+      if (targetRedirect) {
+        return router.replace(targetRedirect);
+      }
+
+      // Default: go to shop home or profile
+      const currentShopSlug = sessionStorage.getItem("currentShopSlug");
+      return router.replace(currentShopSlug ? `/${currentShopSlug}` : "/profile");
+    }
+
+    // 3. SUPER ADMIN
+    if (role === "super_admin") {
+      return router.replace(targetRedirect || "/view");
+    }
+
+    // 4. AFFILIATE
+    if (role === "affiliate") {
+      return router.replace("/affiliate/tenants");
+    }
+
+    // 5. FALLBACK
+    return router.replace("/");
+  };
+
+  // Auto-redirect if already authenticated
   useEffect(() => {
     if (loading) return;
 
-    // Only redirect if we're actually on the login page
     const currentPath = window.location.pathname;
     if (!currentPath.includes("/auth/login")) return;
 
     if (isAuthenticated && profile) {
-      // Check stored redirect WITHOUT clearing it first
-      const storedRedirect = getRedirect();
-
-      if (profile.role === "shop_owner") {
-        const restrictedForShopOwner = ["/profile"];
-
-        if (storedRedirect && restrictedForShopOwner.includes(storedRedirect)) {
-          getAndClearRedirect();
-          
-          return router.replace(
-            profile.shopSlug ? `/dashboard/${profile.shopSlug}` : "/shopType"
-          );
-        }
-      }
-
-    
-      const finalRedirect = getAndClearRedirect();
-      if (finalRedirect) {
-        router.replace(finalRedirect);
-        return;
-      }
-
-      
-      const redirectParam = searchParams.get("redirect");
-      if (redirectParam) {
-        router.replace(redirectParam);
-        return;
-      }
-
-      
-      if (profile.role === "shop_owner") {
-        if (profile.shopSlug) {
-          router.replace(`/dashboard/${profile.shopSlug}`);
-        } else {
-          router.replace("/shopType");
-        }
-      } else if (profile.role === "customer") {
-        const currentShopSlug = sessionStorage.getItem("currentShopSlug");
-        if (currentShopSlug) {
-          router.replace(`/${currentShopSlug}`);
-        } else {
-          router.replace("/");
-        }
-      } else if (profile.role === "super_admin") {
-        const finalRedirect = getAndClearRedirect();
-        if (finalRedirect) {
-          router.replace(finalRedirect);
-          return;
-        }
-        router.replace("/view");
-      } else if (profile.role === "affiliate") {
-        // Affiliate redirect – static route
-        router.replace("/affiliate/tenants");
-      } else {
-        router.replace("/");
-      }
+      handleRedirect(profile.role, profile.shopSlug);
     }
   }, [isAuthenticated, profile, router, loading, searchParams]);
 
-  // If already authenticated and profile loaded, don't render the form
+  // If already authenticated, don't render form
   if (!loading && isAuthenticated && profile) {
     return null;
   }
@@ -164,23 +163,8 @@ function LoginFormContent() {
 
       setUserProfile(profileData);
 
-      // IMMEDIATE REDIRECT after setting profile (fixes delay issues)
-      if (profileData.role === "shop_owner") {
-        if (profileData.shopSlug) {
-          router.replace(`/dashboard/${profileData.shopSlug}`);
-        } else {
-          router.replace("/shopType");
-        }
-      } else if (profileData.role === "customer") {
-        const currentShopSlug = sessionStorage.getItem("currentShopSlug");
-        router.replace(currentShopSlug ? `/${currentShopSlug}` : "/");
-      } else if (profileData.role === "super_admin") {
-        router.replace("/view");
-      } else if (profileData.role === "affiliate") {
-        router.replace("/affiliate/tenants");
-      } else {
-        router.replace("/");
-      }
+      // ✅ Use the redirect handler
+      handleRedirect(profileData.role, profileData.shopSlug);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Invalid email or password";
@@ -227,7 +211,7 @@ function LoginFormContent() {
           Enter your details
         </p>
 
-          <GoogleSignIn 
+        <GoogleSignIn 
           fullWidth={true}
           onError={(error) => setError(error)}
           redirectUrl={redirectParam || undefined}
