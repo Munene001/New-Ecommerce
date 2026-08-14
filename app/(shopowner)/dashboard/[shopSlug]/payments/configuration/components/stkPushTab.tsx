@@ -144,7 +144,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
     }
   };
 
-  // Dropdown options for business type
   const businessTypeOptions = [
     { id: 'paybill', name: 'Paybill' },
     { id: 'till', name: 'Till Number' },
@@ -175,7 +174,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
         )}
       </div>
 
-      {/* Business Type Dropdown */}
       <div className="mb-6">
         <FormField
           name="business_type"
@@ -217,7 +215,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
       </div>
 
       <div className="space-y-4 mb-6">
-        {/* Shortcode - Changed label to "Shortcode" */}
         <div>
           <FormField
             name="shortcode"
@@ -236,7 +233,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
           </p>
         </div>
 
-        {/* Paybill optional fields */}
         {selectedType === 'paybill' && (
           <>
             <div>
@@ -271,7 +267,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
           </>
         )}
 
-        {/* Till - No optional fields */}
         {selectedType === 'till' && (
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <p className="text-sm text-gray-600 flex items-center gap-2">
@@ -281,7 +276,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
           </div>
         )}
 
-        {/* Daraja API Credentials */}
         <div className="border-t border-gray-200 py-4 mt-2">
           <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
             <Key className="w-4 h-4" />
@@ -308,15 +302,20 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
               required
             />
             
-            <FormField
-              name="passkey"
-              label="Passkey"
-              value={passkey}
-              onChange={(e: any) => setPasskey(parseValue(e))}
-              type="password"
-              placeholder="Enter Passkey from Daraja portal"
-              required
-            />
+            <div>
+              <label className="block md:text-sm text-[16px] font-medium text-black mb-2">
+                Passkey <span className="text-red-500 ml-1">*</span>
+              </label>
+              <input
+                type="password"
+                name="passkey"
+                value={passkey}
+                onChange={(e) => setPasskey(e.target.value)}
+                placeholder="Enter Passkey from Daraja portal"
+                required
+                className="w-full px-4 md:py-3 py-4 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent font-[Poppins] text-black min-h-[52px] md:min-h-[44px]"
+              />
+            </div>
           </div>
         </div>
       </div>
