@@ -217,6 +217,7 @@ export async function PUT(req: NextRequest) {
 }
 
 // Save payment configuration (Direct M-Pesa OR STK Push)
+// Save payment configuration (Direct M-Pesa OR STK Push)
 export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -232,6 +233,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+
+    // 🔍 1. LOG RECEIVED PAYLOAD FROM FRONTEND
+    console.log('--- [DEBUG POST /api/shopowner/payments] ---');
+    console.log('Raw incoming body:', body);
+
     const { payment_method, ...config } = body;
     
     if (!payment_method || !['direct_mpesa', 'stk_push'].includes(payment_method)) {
@@ -268,7 +274,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Valid type required for direct_mpesa' }, { status: 400 });
       }
       
-      // Upsert direct mpesa configuration
       await pool.query(
         `INSERT INTO shop_direct_mpesa (payment_setting_id, type, business_number, account_number, till_number, phone_number)
          VALUES (?, ?, ?, ?, ?, ?)
@@ -281,7 +286,6 @@ export async function POST(req: NextRequest) {
         [paymentSettingId, type, business_number || null, account_number || null, till_number || null, phone_number || null]
       );
       
-      // Update active_payment_type
       await pool.query(
         `UPDATE shop_payment_settings SET active_payment_type = 'direct_mpesa' WHERE shop_id = ?`,
         [shopId]
@@ -297,6 +301,19 @@ export async function POST(req: NextRequest) {
     if (payment_method === 'stk_push') {
       const { type, shortcode, consumer_key, consumer_secret, passkey, business_number, till_number, account_number } = config;
       
+      // 🔍 2. LOG EXTRACTED STK PUSH VARIABLES BEFORE QUERY
+      console.log('--- [DEBUG STK_PUSH VARIABLES] ---', {
+        type,
+        shortcode,
+        consumer_key,
+        consumer_secret,
+        passkey,
+        passkeyType: typeof passkey,
+        business_number,
+        till_number,
+        account_number
+      });
+
       if (!type || !['paybill', 'till'].includes(type)) {
         return NextResponse.json({ error: 'Valid type required for stk_push (paybill or till)' }, { status: 400 });
       }
@@ -309,7 +326,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Consumer Key, Consumer Secret, and Passkey are required' }, { status: 400 });
       }
       
-      // Upsert STK Push configuration using the guaranteed paymentSettingId
+      // Upsert STK Push configuration
       await pool.query(
         `INSERT INTO shop_stk_push (payment_setting_id, type, shortcode, consumer_key, consumer_secret, passkey, business_number, till_number, account_number)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -325,7 +342,6 @@ export async function POST(req: NextRequest) {
         [paymentSettingId, type, shortcode, consumer_key, consumer_secret, passkey, business_number || null, till_number || null, account_number || null]
       );
       
-      // Update active_payment_type
       await pool.query(
         `UPDATE shop_payment_settings SET active_payment_type = 'stk_push' WHERE shop_id = ?`,
         [shopId]
@@ -344,7 +360,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save payment configuration' }, { status: 500 });
   }
 }
-
 // Remove payment configuration (Direct M-Pesa OR STK Push)
 export async function DELETE(req: NextRequest) {
   try {
