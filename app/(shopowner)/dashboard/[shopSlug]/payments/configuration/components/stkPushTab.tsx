@@ -46,6 +46,14 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
   const [tillNumber, setTillNumber] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
 
+  // Helper to extract value regardless of whether FormField returns an Event or raw value
+  const handleInputChange = (e: any) => {
+    if (e && typeof e === 'object' && 'target' in e) {
+      return e.target.value;
+    }
+    return typeof e === 'string' ? e : '';
+  };
+
   // Load existing config
   useEffect(() => {
     if (config && config.type) {
@@ -97,29 +105,35 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
   const activeMessage = getActiveMessage();
 
   const handleSave = async () => {
+    // Trim values to avoid accidental whitespace issues
+    const cleanShortcode = shortcode.trim();
+    const cleanKey = consumerKey.trim();
+    const cleanSecret = consumerSecret.trim();
+    const cleanPasskey = passkey.trim();
+
     // Validation
-    if (!shortcode) {
+    if (!cleanShortcode) {
       alert('Shortcode is required');
       return;
     }
-    if (!consumerKey || !consumerSecret || !passkey) {
+    if (!cleanKey || !cleanSecret || !cleanPasskey) {
       alert('Consumer Key, Consumer Secret, and Passkey are required');
       return;
     }
 
     const payload: any = {
       type: selectedType,
-      shortcode,
-      consumer_key: consumerKey,
-      consumer_secret: consumerSecret,
-      passkey,
+      shortcode: cleanShortcode,
+      consumer_key: cleanKey,
+      consumer_secret: cleanSecret,
+      passkey: cleanPasskey,
     };
 
     if (selectedType === 'paybill') {
-      payload.business_number = businessNumber || null;
-      payload.account_number = accountNumber || null;
+      payload.business_number = businessNumber.trim() || null;
+      payload.account_number = accountNumber.trim() || null;
     } else {
-      payload.till_number = tillNumber || null;
+      payload.till_number = tillNumber.trim() || null;
     }
 
     await onSave(payload);
@@ -234,7 +248,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
             name="shortcode"
             label={selectedType === 'paybill' ? "Business Number" : "Till Number"}
             value={shortcode}
-            onChange={(e) => setShortcode((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            onChange={(e) => setShortcode(handleInputChange(e))}
             type="text"
             placeholder={selectedType === 'paybill' ? "e.g., 174379" : "e.g., 123456"}
             required
@@ -255,7 +269,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
                 name="business_number"
                 label="Business Sub Code (Optional - Sub-Code)"
                 value={businessNumber}
-                onChange={(e) => setBusinessNumber((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+                onChange={(e) => setBusinessNumber(handleInputChange(e))}
                 type="text"
                 placeholder="e.g., 123456"
               />
@@ -270,7 +284,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
                 name="account_number"
                 label="Account Number (Optional - Customer Reference)"
                 value={accountNumber}
-                onChange={(e) => setAccountNumber((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+                onChange={(e) => setAccountNumber(handleInputChange(e))}
                 type="text"
                 placeholder="e.g., SHOP001 or Order ID"
               />
@@ -303,7 +317,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
             name="consumer_key"
             label="Consumer Key"
             value={consumerKey}
-            onChange={(e) => setConsumerKey((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            onChange={(e) => setConsumerKey(handleInputChange(e))}
             type="text"
             placeholder="Enter Consumer Key from Daraja portal"
             required
@@ -313,7 +327,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
             name="consumer_secret"
             label="Consumer Secret"
             value={consumerSecret}
-            onChange={(e) => setConsumerSecret((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            onChange={(e) => setConsumerSecret(handleInputChange(e))}
             type="password"
             placeholder="Enter Consumer Secret from Daraja portal"
             required
@@ -323,7 +337,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
             name="passkey"
             label="Passkey"
             value={passkey}
-            onChange={(e) => setPasskey((e as React.ChangeEvent<HTMLInputElement>).target.value)}
+            onChange={(e) => setPasskey(handleInputChange(e))}
             type="password"
             placeholder="Enter Passkey from Daraja portal"
             required
