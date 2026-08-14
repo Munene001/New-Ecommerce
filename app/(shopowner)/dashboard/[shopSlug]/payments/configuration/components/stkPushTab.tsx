@@ -47,12 +47,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
   const [accountNumber, setAccountNumber] = useState('');
 
   // Helper to extract value regardless of whether FormField returns an Event or raw value
-  const handleInputChange = (e: any) => {
-    if (e && typeof e === 'object' && 'target' in e) {
-      return e.target.value;
-    }
-    return typeof e === 'string' ? e : '';
-  };
+  const parseValue = (e: any) => (typeof e === 'string' ? e : e?.target?.value) ?? '';
 
   // Load existing config
   useEffect(() => {
@@ -89,7 +84,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
 
   const instruction = getInstruction();
 
-  // Get formatted active message
   const getActiveMessage = () => {
     if (!config || !config.type) return null;
     
@@ -105,13 +99,11 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
   const activeMessage = getActiveMessage();
 
   const handleSave = async () => {
-    // Trim values to avoid accidental whitespace issues
     const cleanShortcode = shortcode.trim();
     const cleanKey = consumerKey.trim();
     const cleanSecret = consumerSecret.trim();
     const cleanPasskey = passkey.trim();
 
-    // Validation
     if (!cleanShortcode) {
       alert('Shortcode is required');
       return;
@@ -142,7 +134,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
   const handleDelete = async () => {
     if (confirm('Are you sure you want to remove your STK Push configuration?')) {
       await onDelete();
-      // Reset form
       setShortcode('');
       setConsumerKey('');
       setConsumerSecret('');
@@ -153,14 +144,14 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
     }
   };
 
-  const typeButtons = [
-    { id: 'paybill' as const, label: 'Paybill', icon: Building2 },
-    { id: 'till' as const, label: 'Till Number', icon: QrCode },
+  // Dropdown options for business type
+  const businessTypeOptions = [
+    { id: 'paybill', name: 'Paybill' },
+    { id: 'till', name: 'Till Number' },
   ];
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 py-6 px-3">
-      {/* Active Status */}
       {isActive && activeMessage && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
           <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -170,7 +161,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-black">Safaricom STK Push Configuration</h3>
         {hasConfig && (
@@ -185,33 +175,20 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
         )}
       </div>
 
-      {/* Type Selector */}
+      {/* Business Type Dropdown */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Business Type
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {typeButtons.map((type) => {
-            const IconComponent = type.icon;
-            return (
-              <button
-                key={type.id}
-                onClick={() => setSelectedType(type.id)}
-                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                  selectedType === type.id
-                    ? "border-three bg-orange-50 text-three"
-                    : "border-gray-200 hover:border-gray-300 text-gray-700"
-                }`}
-              >
-                <IconComponent className="w-4 h-4" />
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
+        <FormField
+          name="business_type"
+          label="Select Business Type"
+          value={selectedType}
+          onChange={(e: any) => setSelectedType(parseValue(e) as 'paybill' | 'till')}
+          type="select"
+          options={businessTypeOptions}
+          placeholder="Select business type"
+          required
+        />
       </div>
 
-      {/* Instructions */}
       <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
         <div className="flex items-start gap-2">
           <Smartphone className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
@@ -226,7 +203,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
         </div>
       </div>
 
-      {/* Daraja Credentials Info */}
       <div className="mb-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
         <div className="flex items-start gap-2">
           <Shield className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
@@ -240,15 +216,14 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
         </div>
       </div>
 
-      {/* Dynamic Fields */}
       <div className="space-y-4 mb-6">
-        {/* Shortcode - Main business identifier */}
+        {/* Shortcode - Changed label to "Shortcode" */}
         <div>
           <FormField
             name="shortcode"
-            label={selectedType === 'paybill' ? "Business Number" : "Till Number"}
+            label="Shortcode"
             value={shortcode}
-            onChange={(e) => setShortcode(handleInputChange(e))}
+            onChange={(e: any) => setShortcode(parseValue(e))}
             type="text"
             placeholder={selectedType === 'paybill' ? "e.g., 174379" : "e.g., 123456"}
             required
@@ -261,30 +236,30 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
           </p>
         </div>
 
-        {/* Paybill fields */}
+        {/* Paybill optional fields */}
         {selectedType === 'paybill' && (
           <>
             <div>
               <FormField
                 name="business_number"
-                label="Business Sub Code (Optional - Sub-Code)"
+                label="Business Sub Code (Optional)"
                 value={businessNumber}
-                onChange={(e) => setBusinessNumber(handleInputChange(e))}
+                onChange={(e: any) => setBusinessNumber(parseValue(e))}
                 type="text"
                 placeholder="e.g., 123456"
               />
               <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                 <HelpCircle className="w-3 h-3" />
-                Optional: Used to separate different branches or departments (e.g., Nairobi branch = 100, Mombasa = 200)
+                Optional: Used to separate different branches or departments
               </p>
             </div>
 
             <div>
               <FormField
                 name="account_number"
-                label="Account Number (Optional - Customer Reference)"
+                label="Account Number (Optional)"
                 value={accountNumber}
-                onChange={(e) => setAccountNumber(handleInputChange(e))}
+                onChange={(e: any) => setAccountNumber(parseValue(e))}
                 type="text"
                 placeholder="e.g., SHOP001 or Order ID"
               />
@@ -296,12 +271,12 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
           </>
         )}
 
-        {/* Till - No optional fields (simpler) */}
+        {/* Till - No optional fields */}
         {selectedType === 'till' && (
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <p className="text-sm text-gray-600 flex items-center gap-2">
               <Info className="w-4 h-4 text-gray-400" />
-              Till numbers don't require additional fields. Your Till number above is all that's needed.
+              Till numbers don't require additional fields.
             </p>
           </div>
         )}
@@ -313,40 +288,39 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
             Safaricom Daraja API Credentials
           </h4>
           <div className="flex flex-col gap-3">
-          <FormField
-            name="consumer_key"
-            label="Consumer Key"
-            value={consumerKey}
-            onChange={(e) => setConsumerKey(handleInputChange(e))}
-            type="text"
-            placeholder="Enter Consumer Key from Daraja portal"
-            required
-          />
-          
-          <FormField
-            name="consumer_secret"
-            label="Consumer Secret"
-            value={consumerSecret}
-            onChange={(e) => setConsumerSecret(handleInputChange(e))}
-            type="password"
-            placeholder="Enter Consumer Secret from Daraja portal"
-            required
-          />
-          
-          <FormField
-            name="passkey"
-            label="Passkey"
-            value={passkey}
-            onChange={(e) => setPasskey(handleInputChange(e))}
-            type="password"
-            placeholder="Enter Passkey from Daraja portal"
-            required
-          />
+            <FormField
+              name="consumer_key"
+              label="Consumer Key"
+              value={consumerKey}
+              onChange={(e: any) => setConsumerKey(parseValue(e))}
+              type="text"
+              placeholder="Enter Consumer Key from Daraja portal"
+              required
+            />
+            
+            <FormField
+              name="consumer_secret"
+              label="Consumer Secret"
+              value={consumerSecret}
+              onChange={(e: any) => setConsumerSecret(parseValue(e))}
+              type="password"
+              placeholder="Enter Consumer Secret from Daraja portal"
+              required
+            />
+            
+            <FormField
+              name="passkey"
+              label="Passkey"
+              value={passkey}
+              onChange={(e: any) => setPasskey(parseValue(e))}
+              type="password"
+              placeholder="Enter Passkey from Daraja portal"
+              required
+            />
           </div>
         </div>
       </div>
 
-      {/* Save Button */}
       <button
         onClick={handleSave}
         disabled={loading}
