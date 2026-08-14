@@ -240,20 +240,25 @@ export async function POST(req: NextRequest) {
 
     // Verify access using helper
     const { authorized, response } = await verifyShopAccess(req, shopId);
-    
     if (!authorized) {
       return response;
     }
     
-    // Create payment settings if not exists
-    const [settingsResult] = await pool.query<ResultSetHeader>(
+    // 1. Ensure shop_payment_settings record exists
+    await pool.query(
       `INSERT INTO shop_payment_settings (shop_id, cod_enabled) 
        VALUES (?, 1)
-       ON DUPLICATE KEY UPDATE payment_setting_id = LAST_INSERT_ID(payment_setting_id)`,
+       ON DUPLICATE KEY UPDATE shop_id = VALUES(shop_id)`,
       [shopId]
     );
+
+    // 2. Fetch the correct payment_setting_id reliably
+    const settings = await getPaymentSettings(shopId);
+    if (!settings) {
+      return NextResponse.json({ error: 'Failed to retrieve payment settings' }, { status: 500 });
+    }
     
-    const paymentSettingId = settingsResult.insertId;
+    const paymentSettingId = settings.payment_setting_id;
     
     // Handle Direct M-Pesa
     if (payment_method === 'direct_mpesa') {
@@ -304,7 +309,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Consumer Key, Consumer Secret, and Passkey are required' }, { status: 400 });
       }
       
-      // Upsert STK Push configuration
+      // Upsert STK Push configuration using the guaranteed paymentSettingId
       await pool.query(
         `INSERT INTO shop_stk_push (payment_setting_id, type, shortcode, consumer_key, consumer_secret, passkey, business_number, till_number, account_number)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
