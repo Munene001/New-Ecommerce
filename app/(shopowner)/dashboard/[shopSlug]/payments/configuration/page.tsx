@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useShop } from "@/app/(shopowner)/shopownerContext";
 import { usePaymentConfig } from "./hooks/usePaymentConfig";
 import CodModule from "./components/codModule";
@@ -22,6 +22,22 @@ export default function PaymentConfigurationPage() {
     saveStkPush,
     deleteStkPush,
   } = usePaymentConfig();
+
+  // Log settings when they change
+  useEffect(() => {
+    console.log('📍 [PAGE] Settings updated:');
+    console.log('📍 [PAGE] settings.stk_push:', settings.stk_push);
+    console.log('📍 [PAGE] settings.stk_push?.passkey:', settings.stk_push?.passkey);
+    console.log('📍 [PAGE] settings.stk_push?.passkey type:', typeof settings.stk_push?.passkey);
+  }, [settings]);
+
+  // Wrap saveStkPush to log what's being passed
+  const wrappedSaveStkPush = async (config: any) => {
+    console.log('📍 [PAGE] wrappedSaveStkPush called with:', config);
+    console.log('📍 [PAGE] wrappedSaveStkPush passkey:', config.passkey);
+    console.log('📍 [PAGE] wrappedSaveStkPush passkey type:', typeof config.passkey);
+    return saveStkPush(config);
+  };
 
   const tabs = ["Manual M-Pesa", "STK Push"];
 
@@ -153,7 +169,7 @@ export default function PaymentConfigurationPage() {
           <StkPushTab
             config={settings.stk_push}
             isActive={settings.active_payment_type === 'stk_push'}
-            onSave={saveStkPush}
+            onSave={wrappedSaveStkPush}
             onDelete={deleteStkPush}
             loading={loading}
           />
