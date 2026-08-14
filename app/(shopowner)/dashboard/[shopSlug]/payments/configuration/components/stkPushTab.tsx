@@ -3,9 +3,6 @@
 import { 
   CheckCircle, 
   Trash2, 
-  Building2, 
-  QrCode, 
-  Info, 
   Save,
   Loader2,
   Key,
@@ -42,9 +39,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
   const [consumerKey, setConsumerKey] = useState('');
   const [consumerSecret, setConsumerSecret] = useState('');
   const [passkey, setPasskey] = useState('');
-  const [businessNumber, setBusinessNumber] = useState('');
-  const [tillNumber, setTillNumber] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
 
   // Helper to extract value regardless of whether FormField returns an Event or raw value
   const parseValue = (e: any) => (typeof e === 'string' ? e : e?.target?.value) ?? '';
@@ -57,9 +51,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
       setConsumerKey(config.consumer_key || '');
       setConsumerSecret(config.consumer_secret || '');
       setPasskey(config.passkey || '');
-      setBusinessNumber(config.business_number || '');
-      setTillNumber(config.till_number || '');
-      setAccountNumber(config.account_number || '');
     }
   }, [config]);
 
@@ -121,13 +112,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
       passkey: cleanPasskey,
     };
 
-    if (selectedType === 'paybill') {
-      payload.business_number = businessNumber.trim() || null;
-      payload.account_number = accountNumber.trim() || null;
-    } else {
-      payload.till_number = tillNumber.trim() || null;
-    }
-
     await onSave(payload);
   };
 
@@ -138,9 +122,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
       setConsumerKey('');
       setConsumerSecret('');
       setPasskey('');
-      setBusinessNumber('');
-      setTillNumber('');
-      setAccountNumber('');
     }
   };
 
@@ -222,59 +203,14 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
             value={shortcode}
             onChange={(e: any) => setShortcode(parseValue(e))}
             type="text"
-            placeholder={selectedType === 'paybill' ? "e.g., 174379" : "e.g., 123456"}
+            placeholder="e.g., 174379"
             required
           />
           <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
             <HelpCircle className="w-3 h-3" />
-            {selectedType === 'paybill' 
-              ? "This is your main Paybill number that customers see (e.g., Safaricom's 174379)"
-              : "This is your Till number that customers use to pay"}
+            Your business shortcode (Paybill or Till number)
           </p>
         </div>
-
-        {selectedType === 'paybill' && (
-          <>
-            <div>
-              <FormField
-                name="business_number"
-                label="Business Sub Code (Optional)"
-                value={businessNumber}
-                onChange={(e: any) => setBusinessNumber(parseValue(e))}
-                type="text"
-                placeholder="e.g., 123456"
-              />
-              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                <HelpCircle className="w-3 h-3" />
-                Optional: Used to separate different branches or departments
-              </p>
-            </div>
-
-            <div>
-              <FormField
-                name="account_number"
-                label="Account Number (Optional)"
-                value={accountNumber}
-                onChange={(e: any) => setAccountNumber(parseValue(e))}
-                type="text"
-                placeholder="e.g., SHOP001 or Order ID"
-              />
-              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                <HelpCircle className="w-3 h-3" />
-                Optional: Your customer's account/reference number to identify who paid
-              </p>
-            </div>
-          </>
-        )}
-
-        {selectedType === 'till' && (
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-sm text-gray-600 flex items-center gap-2">
-              <Info className="w-4 h-4 text-gray-400" />
-              Till numbers don't require additional fields.
-            </p>
-          </div>
-        )}
 
         <div className="border-t border-gray-200 py-4 mt-2">
           <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
