@@ -40,7 +40,7 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Logged in but not an affiliate – redirect to home
-    if (profile?.role !== 'affiliate') {
+    if (profile?.role !== 'affiliate'  && profile?.role !== 'super_admin') {
       router.push('/');
       return;
     }
