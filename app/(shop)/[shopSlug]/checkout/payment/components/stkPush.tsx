@@ -5,7 +5,6 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from "@/context/toastContext";
 import { useAuth } from "@/context/authcontext";
-import { storeRedirect } from "@/lib/redirect/helper";
 import { STKPushForm } from "./stk-ui/stkPushForm";
 import { STKPushStatus } from "./stk-ui/stkPushStatus";
 
@@ -54,16 +53,17 @@ export function STKPushPayment({
   const [loading, setLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   
-  // Initialize state based on order or persisted session state
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'completed' | 'failed'>(() => {
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'completed' | 'failed' | 'cancelled'>(() => {
     if (order?.payment_status === 'paid') return 'completed';
     if (order?.payment_status === 'failed') return 'failed';
+    if (order?.payment_status === 'cancelled') return 'cancelled';
     return initialSavedState?.status || 'idle';
   });
   
   const [statusMessage, setStatusMessage] = useState(() => {
     if (order?.payment_status === 'paid') return 'Payment successful! Your order is confirmed.';
     if (order?.payment_status === 'failed') return 'Payment failed. Please try again.';
+    if (order?.payment_status === 'cancelled') return 'Payment was cancelled. You can retry.';
     return initialSavedState?.statusMessage || '';
   });
 
@@ -74,7 +74,7 @@ export function STKPushPayment({
   const [hasTrackedPageView, setHasTrackedPageView] = useState(false);
   const [savedPhoneNumber, setSavedPhoneNumber] = useState("");
 
-  // Sync state cleanly if the backend order status changes
+  // Sync state if backend order status changes
   useEffect(() => {
     if (order?.payment_status === 'paid' && paymentStatus !== 'completed') {
       setPaymentStatus('completed');
@@ -84,10 +84,13 @@ export function STKPushPayment({
     } else if (order?.payment_status === 'failed' && paymentStatus !== 'failed') {
       setPaymentStatus('failed');
       setStatusMessage('Payment failed. Please try again.');
+    } else if (order?.payment_status === 'cancelled' && paymentStatus !== 'cancelled') {
+      setPaymentStatus('cancelled');
+      setStatusMessage('Payment was cancelled. You can retry.');
     }
   }, [order?.payment_status, orderId, paymentStatus]);
 
-  // Save state to parent whenever status changes
+  // Save state to parent
   useEffect(() => {
     if (onStateChange && paymentStatus !== 'idle') {
       onStateChange({
@@ -123,6 +126,7 @@ export function STKPushPayment({
     }
   }, [orderId]);
 
+  // Polling
   useEffect(() => {
     if (!isPolling || !orderId) return;
 
@@ -154,9 +158,18 @@ export function STKPushPayment({
           }
           
           const isRetryable = orderData.retryable === true || orderData.retryable === 1;
-          const isTransactionFailed = orderData.transaction_status === 'failed';
+          const transactionStatus = orderData.transaction_status;
           
-          if (orderData.payment_status === 'pending' && isRetryable && isTransactionFailed) {
+          if (transactionStatus === 'cancelled' && isRetryable) {
+            setPaymentStatus('cancelled');
+            setRetryable(isRetryable);
+            setStatusMessage(orderData.displayMessage || 'Payment was cancelled. You can retry.');
+            setIsPolling(false);
+            setPollCount(0);
+            return;
+          }
+          
+          if (transactionStatus === 'failed' && isRetryable) {
             setPaymentStatus('failed');
             setRetryable(isRetryable);
             setStatusMessage(orderData.displayMessage || 'Payment failed. Please try again.');
@@ -311,17 +324,14 @@ export function STKPushPayment({
     router.push(`/${shop?.shopSlug}`);
   };
 
-  // ✅ BULLETPROOF FIX: Handle authenticated and guest users distinctly
   const handleSignIn = () => {
     const profileUrl = `/${shop?.shopSlug}/profile`;
 
-    // 1. IF ALREADY LOGGED IN: Go straight to profile page!
     if (isAuthenticated) {
       router.push(profileUrl);
       return;
     }
 
-    // 2. IF GUEST: Send to login with redirect parameter set to profile
     const paymentPage = `${pathname}?order_id=${orderId}&status=success`;
     sessionStorage.setItem('payment_page_after_signin', paymentPage);
 
@@ -343,6 +353,7 @@ export function STKPushPayment({
         loading={loading}
         onSubmit={handleSTKPush}
         orderNumber={order?.order_number || null}
+        totalAmount={order?.total_amount || 0}
         disabled={loading}
       />
     );
