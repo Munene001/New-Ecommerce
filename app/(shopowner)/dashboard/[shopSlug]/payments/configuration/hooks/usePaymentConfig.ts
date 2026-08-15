@@ -58,8 +58,7 @@ export function usePaymentConfig() {
       const data = await res.json();
       
       if (data.success) {
-        console.log('📍 [usePaymentConfig] fetchSettings - data received:', data.data);
-        console.log('📍 [usePaymentConfig] stk_push passkey:', data.data?.stk_push?.passkey);
+      
         setSettings(data.data);
       }
     } catch (error) {
@@ -176,32 +175,16 @@ export function usePaymentConfig() {
     till_number?: string;
     account_number?: string;
   }) => {
-    console.log('═══════════════════════════════════════');
-    console.log('📍 [usePaymentConfig] saveStkPush START');
-    console.log('📍 Received config:', config);
-    console.log('📍 config.passkey:', config.passkey);
-    console.log('📍 config.passkey type:', typeof config.passkey);
-    console.log('📍 config.passkey === undefined?', config.passkey === undefined);
-    console.log('📍 config.passkey === "undefined"?', config.passkey === 'undefined');
-    console.log('📍 config.passkey length:', config.passkey?.length);
-    console.log('📍 Full config keys:', Object.keys(config));
-    console.log('═══════════════════════════════════════');
+   
 
     setLoading(true);
     try {
       const payload = { payment_method: 'stk_push', ...config };
       
-      console.log('📍 [usePaymentConfig] Payload before stringify:');
-      console.log('📍 payload.passkey:', payload.passkey);
-      console.log('📍 payload.passkey type:', typeof payload.passkey);
-      console.log('📍 Full payload:', payload);
+    
       
       const body = JSON.stringify(payload);
-      console.log('📍 [usePaymentConfig] JSON stringified body:');
-      console.log('📍 body:', body);
-      console.log('📍 body length:', body.length);
-      console.log('📍 body includes "undefined"?', body.includes('undefined'));
-      console.log('═══════════════════════════════════════');
+     
 
       const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
         method: 'POST',
