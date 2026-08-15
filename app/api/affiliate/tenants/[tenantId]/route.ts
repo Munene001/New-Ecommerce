@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ tenantId: string }> }
 ) {
   try {
-    const { authorized, affiliateId, response } = await verifyAffiliateAccess(request);
+    const { authorized, affiliateId, response, role } = await verifyAffiliateAccess(request);
     if (!authorized) return response;
 
     const { tenantId: tenantIdParam } = await params;
@@ -18,21 +18,38 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid tenant ID' }, { status: 400 });
     }
 
-    // Ensure tenant belongs to this affiliate
-    const [tenantRows] = await pool.query<RowDataPacket[]>(
-      `SELECT 
-        t.*,
-        u.email as owner_email,
-        u.full_name as owner_name,
-        u.phone as owner_phone
-       FROM tenant t
-       JOIN users u ON t.user_id = u.user_id
-       WHERE t.tenant_id = ? AND t.affiliate_id = ?`,
-      [tenantId, affiliateId]
-    );
+    // ✅ FIX: If super_admin, don't filter by affiliate_id
+    let tenantRows;
+    if (role === 'super_admin') {
+      // Super admin can access ANY tenant
+      [tenantRows] = await pool.query<RowDataPacket[]>(
+        `SELECT 
+          t.*,
+          u.email as owner_email,
+          u.full_name as owner_name,
+          u.phone as owner_phone
+         FROM tenant t
+         JOIN users u ON t.user_id = u.user_id
+         WHERE t.tenant_id = ?`,
+        [tenantId]
+      );
+    } else {
+      // Affiliate: check if tenant belongs to them
+      [tenantRows] = await pool.query<RowDataPacket[]>(
+        `SELECT 
+          t.*,
+          u.email as owner_email,
+          u.full_name as owner_name,
+          u.phone as owner_phone
+         FROM tenant t
+         JOIN users u ON t.user_id = u.user_id
+         WHERE t.tenant_id = ? AND t.affiliate_id = ?`,
+        [tenantId, affiliateId]
+      );
+    }
 
     if (tenantRows.length === 0) {
-      return NextResponse.json({ error: 'Tenant not found or not associated with you' }, { status: 404 });
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
     const [shops] = await pool.query<RowDataPacket[]>(
@@ -59,7 +76,7 @@ export async function PUT(
   { params }: { params: Promise<{ tenantId: string }> }
 ) {
   try {
-    const { authorized, affiliateId, response } = await verifyAffiliateAccess(request);
+    const { authorized, affiliateId, response, role } = await verifyAffiliateAccess(request);
     if (!authorized) return response;
 
     const { tenantId: tenantIdParam } = await params;
@@ -68,13 +85,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid tenant ID' }, { status: 400 });
     }
 
-    // First, check ownership
-    const [checkRows] = await pool.query<RowDataPacket[]>(
-      `SELECT 1 FROM tenant WHERE tenant_id = ? AND affiliate_id = ?`,
-      [tenantId, affiliateId]
-    );
-    if (checkRows.length === 0) {
-      return NextResponse.json({ error: 'Tenant not found or not associated with you' }, { status: 404 });
+    // ✅ FIX: Only check ownership if NOT super_admin
+    if (role !== 'super_admin') {
+      const [checkRows] = await pool.query<RowDataPacket[]>(
+        `SELECT 1 FROM tenant WHERE tenant_id = ? AND affiliate_id = ?`,
+        [tenantId, affiliateId]
+      );
+      if (checkRows.length === 0) {
+        return NextResponse.json({ error: 'Tenant not found or not associated with you' }, { status: 404 });
+      }
     }
 
     const body = await request.json();
