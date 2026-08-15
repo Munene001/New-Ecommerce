@@ -11,10 +11,8 @@ import GoogleSignIn from "@/app/components/auth/googleSigIn";
 import {
   storeRedirect,
   getAndClearRedirect,
-  getRedirect,
 } from "@/lib/redirect/helper";
 
-// Component that uses useSearchParams
 function LoginFormContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +28,6 @@ function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read query params on mount
   useEffect(() => {
     const redirect = searchParams.get("redirect");
     const verified = searchParams.get("verified");
@@ -44,57 +41,55 @@ function LoginFormContent() {
     }
   }, [searchParams]);
 
-  // ✅ Clean redirect handler
   const handleRedirect = (role: string, shopSlug?: string) => {
-    // Check for stored redirect
     const storedRedirect = getAndClearRedirect();
     const redirectParam = searchParams.get("redirect");
     const targetRedirect = storedRedirect || redirectParam;
+    const normalizedRole = role?.toLowerCase()?.trim();
 
-    // 1. SHOP OWNER
-    if (role === "shop_owner") {
-      // Block shop owners from /profile
+    // Shop Owner
+    if (normalizedRole === "shop_owner") {
       if (targetRedirect && targetRedirect.includes("/profile")) {
         return router.replace(shopSlug ? `/dashboard/${shopSlug}` : "/shopType");
       }
-      // Honor dashboard redirects
       if (targetRedirect && targetRedirect.startsWith("/dashboard")) {
         return router.replace(targetRedirect);
       }
-      // Default
       return router.replace(shopSlug ? `/dashboard/${shopSlug}` : "/shopType");
     }
 
-    // 2. CUSTOMER
-    if (role === "customer") {
-      // ✅ Check for payment page redirect (from "Sign in to Track Order")
+    // Customer
+    if (normalizedRole === "customer") {
       const paymentRedirect = sessionStorage.getItem('payment_page_after_signin');
       if (paymentRedirect) {
         sessionStorage.removeItem('payment_page_after_signin');
         return router.replace(paymentRedirect);
       }
-
-      // Honor any redirect (checkout, profile, etc.)
       if (targetRedirect) {
         return router.replace(targetRedirect);
       }
-
-      // Default: go to shop home or profile
       const currentShopSlug = sessionStorage.getItem("currentShopSlug");
       return router.replace(currentShopSlug ? `/${currentShopSlug}` : "/profile");
     }
 
-    // 3. SUPER ADMIN
-    if (role === "super_admin") {
+    // Super Admin
+    if (normalizedRole === "super_admin") {
       return router.replace(targetRedirect || "/view");
     }
 
-    // 4. AFFILIATE
-    if (role === "affiliate") {
+    // Affiliate - now respects targetRedirect
+    if (normalizedRole === "affiliate") {
+      if (targetRedirect) {
+        return router.replace(targetRedirect);
+      }
       return router.replace("/affiliate/tenants");
     }
 
-    // 5. FALLBACK
+    // Smart fallback
+    if (shopSlug) {
+      return router.replace(`/dashboard/${shopSlug}`);
+    }
+
     return router.replace("/");
   };
 
@@ -110,7 +105,6 @@ function LoginFormContent() {
     }
   }, [isAuthenticated, profile, router, loading, searchParams]);
 
-  // If already authenticated, don't render form
   if (!loading && isAuthenticated && profile) {
     return null;
   }
@@ -162,8 +156,6 @@ function LoginFormContent() {
       };
 
       setUserProfile(profileData);
-
-      // ✅ Use the redirect handler
       handleRedirect(profileData.role, profileData.shopSlug);
     } catch (err) {
       const errorMessage =
@@ -211,7 +203,7 @@ function LoginFormContent() {
           Enter your details
         </p>
 
-        <GoogleSignIn 
+        <GoogleSignIn
           fullWidth={true}
           onError={(error) => setError(error)}
           redirectUrl={redirectParam || undefined}
@@ -277,7 +269,6 @@ function LoginFormContent() {
   );
 }
 
-// Main page component with Suspense boundary
 export default function LoginPage() {
   return (
     <Suspense
