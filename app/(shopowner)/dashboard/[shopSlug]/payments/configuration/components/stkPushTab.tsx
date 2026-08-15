@@ -44,14 +44,14 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
 
   // Load existing config
   useEffect(() => {
-    console.log('📍 [STK PUSH TAB] useEffect - config received:', config);
+    
     if (config && config.type) {
       setSelectedType(config.type);
       setShortcode(config.shortcode || '');
       setConsumerKey(config.consumer_key || '');
       setConsumerSecret(config.consumer_secret || '');
       setPasskey(config.passkey || '');
-      console.log('📍 [STK PUSH TAB] Loaded passkey from config:', config.passkey);
+    
     }
   }, [config]);
 
@@ -91,34 +91,21 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
   const activeMessage = getActiveMessage();
 
   const handleSave = async () => {
-    console.log('═══════════════════════════════════════');
-    console.log('📍 [STK PUSH TAB] handleSave START');
-    console.log('📍 passkey value:', passkey);
-    console.log('📍 passkey type:', typeof passkey);
-    console.log('📍 passkey === undefined?', passkey === undefined);
-    console.log('📍 passkey === null?', passkey === null);
-    console.log('📍 passkey === "undefined"?', passkey === 'undefined');
-    console.log('📍 passkey length:', passkey?.length);
-    console.log('📍 shortcode:', shortcode);
-    console.log('📍 consumerKey:', consumerKey?.substring(0, 10) + '...');
-    console.log('═══════════════════════════════════════');
+   
 
     const cleanShortcode = shortcode.trim();
     const cleanKey = consumerKey.trim();
     const cleanSecret = consumerSecret.trim();
     const cleanPasskey = passkey.trim();
 
-    console.log('📍 [STK PUSH TAB] After trim:');
-    console.log('📍 cleanPasskey:', cleanPasskey);
-    console.log('📍 cleanPasskey type:', typeof cleanPasskey);
-    console.log('📍 cleanPasskey length:', cleanPasskey.length);
+   
 
     if (!cleanShortcode) {
       alert('Shortcode is required');
       return;
     }
     if (!cleanKey || !cleanSecret || !cleanPasskey) {
-      console.log('📍 [STK PUSH TAB] Validation failed - missing fields');
+      ('📍 [STK PUSH TAB] Validation failed - missing fields');
       alert('Consumer Key, Consumer Secret, and Passkey are required');
       return;
     }
@@ -130,12 +117,6 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
       consumer_secret: cleanSecret,
       passkey: cleanPasskey,
     };
-
-    console.log('📍 [STK PUSH TAB] Final payload being sent:');
-    console.log('📍 payload.passkey:', payload.passkey);
-    console.log('📍 payload.passkey type:', typeof payload.passkey);
-    console.log('📍 Full payload:', payload);
-    console.log('═══════════════════════════════════════');
 
     await onSave(payload);
   };
@@ -272,8 +253,7 @@ export default function StkPushTab({ config, isActive, onSave, onDelete, loading
                 name="passkey"
                 value={passkey}
                 onChange={(e) => {
-                  console.log('📍 [INPUT] Passkey changed to:', e.target.value);
-                  console.log('📍 [INPUT] Passkey type:', typeof e.target.value);
+                 
                   setPasskey(e.target.value);
                 }}
                 placeholder="Enter Passkey from Daraja portal"

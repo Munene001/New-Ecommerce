@@ -234,9 +234,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // 🔍 1. LOG RECEIVED PAYLOAD FROM FRONTEND
-    console.log('--- [DEBUG POST /api/shopowner/payments] ---');
-    console.log('Raw incoming body:', body);
+  
 
     const { payment_method, ...config } = body;
     
@@ -301,8 +299,8 @@ export async function POST(req: NextRequest) {
     if (payment_method === 'stk_push') {
       const { type, shortcode, consumer_key, consumer_secret, passkey, business_number, till_number, account_number } = config;
       
-      // 🔍 2. LOG EXTRACTED STK PUSH VARIABLES BEFORE QUERY
-      console.log('--- [DEBUG STK_PUSH VARIABLES] ---', {
+    
+      ( {
         type,
         shortcode,
         consumer_key,

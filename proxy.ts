@@ -25,59 +25,59 @@ async function getValidShopSlugs(): Promise<string[]> {
   }
 }
 
-getValidShopSlugs();
-
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  try {
+    const { pathname } = request.nextUrl;
 
-  // Exclude auth routes, static files, and API from shop subdomain rewrite
-  if (
-    pathname.startsWith('/auth') ||
-    pathname.startsWith('/_next/static') ||
-    pathname.startsWith('/_next/image') ||
-    pathname === '/favicon.ico'
-  ) {
-    return NextResponse.next();
-  }
-
-  const host = request.headers.get('host') || '';
-  const hostname = host.split(':')[0];
-  const isDev = process.env.NODE_ENV === 'development';
-
-  // Allow main domain to pass through
-  if (hostname === 'paziatech.co.ke' || hostname === 'www.paziatech.co.ke') {
-    return NextResponse.next();
-  }
-
-  let subdomain: string | null = null;
-
-  if (isDev) {
-    if (hostname.endsWith('.localhost')) {
-      subdomain = hostname.replace('.localhost', '');
+    if (
+      pathname.startsWith('/auth') ||
+      pathname.startsWith('/_next/static') ||
+      pathname.startsWith('/_next/image') ||
+      pathname === '/favicon.ico'
+    ) {
+      return NextResponse.next();
     }
-  } else {
-    const parts = hostname.split('.');
-    if (parts.length >= 3) {
-      subdomain = parts[0];
-    }
-  }
 
-  // Handle shop subdomains
-  if (subdomain && !excludedSubdomains.has(subdomain)) {
-    const validSlugs = await getValidShopSlugs();
-    if (validSlugs.includes(subdomain)) {
-      const url = request.nextUrl.clone();
-      if (pathname.startsWith(`/${subdomain}/`) || pathname === `/${subdomain}`) {
-        url.pathname = pathname;
-      } else {
-        url.pathname = `/${subdomain}${pathname}`;
+    const host = request.headers.get('host') || '';
+    const hostname = host.split(':')[0];
+    const isDev = process.env.NODE_ENV === 'development';
+
+    if (hostname === 'paziatech.co.ke' || hostname === 'www.paziatech.co.ke') {
+      return NextResponse.next();
+    }
+
+    let subdomain: string | null = null;
+
+    if (isDev) {
+      if (hostname.endsWith('.localhost')) {
+        subdomain = hostname.replace('.localhost', '');
       }
-      return NextResponse.rewrite(url);
+    } else {
+      const parts = hostname.split('.');
+      if (parts.length >= 3) {
+        subdomain = parts[0];
+      }
     }
-    return new NextResponse('Shop not found', { status: 404 });
-  }
 
-  return NextResponse.next();
+    if (subdomain && !excludedSubdomains.has(subdomain)) {
+      const validSlugs = await getValidShopSlugs();
+      if (validSlugs.includes(subdomain)) {
+        const url = request.nextUrl.clone();
+        if (pathname.startsWith(`/${subdomain}/`) || pathname === `/${subdomain}`) {
+          url.pathname = pathname;
+        } else {
+          url.pathname = `/${subdomain}${pathname}`;
+        }
+        return NextResponse.rewrite(url);
+      }
+      return new NextResponse('Shop not found', { status: 404 });
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    console.error('[Proxy] Unhandled error:', error);
+    return NextResponse.next();
+  }
 }
 
 export const config = {
