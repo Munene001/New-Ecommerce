@@ -39,6 +39,101 @@ export async function DELETE(
   }
 }
 
+// ============ UPDATE SHOP DOMAIN (ADMIN ONLY) ============
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ shopId: string }> }
+) {
+  try {
+    // ADMIN only access
+    const { authorized, response } = await verifyAdminAccess(request);
+    if (!authorized) return response;
+
+    const { shopId: shopIdParam } = await params;
+    const shopId = parseInt(shopIdParam);
+    
+    if (isNaN(shopId)) {
+      return NextResponse.json({ error: 'Invalid shop ID' }, { status: 400 });
+    }
+
+    // Parse request body
+    const body = await request.json();
+    const { custom_domain } = body;
+
+    // Check if shop exists
+    const [shopExists] = await pool.query<RowDataPacket[]>(
+      'SELECT shop_id, shop_slug FROM shops WHERE shop_id = ?',
+      [shopId]
+    );
+
+    if (shopExists.length === 0) {
+      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+    }
+
+    // If domain is null or empty string, clear it
+    if (custom_domain === null || custom_domain === '') {
+      await pool.query(
+        'UPDATE shops SET custom_domain = NULL, updated_at = CURRENT_TIMESTAMP WHERE shop_id = ?',
+        [shopId]
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: 'Domain removed successfully',
+        shop_id: shopId,
+        custom_domain: null
+      });
+    }
+
+    // Validate domain format (basic)
+    const domainRegex = /^(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,}$/;
+    if (!domainRegex.test(custom_domain)) {
+      return NextResponse.json(
+        { error: 'Invalid domain format. Example: example.com' },
+        { status: 400 }
+      );
+    }
+
+    // Convert to lowercase for consistency
+    const normalizedDomain = custom_domain.toLowerCase();
+
+    // Check if domain is already used by another shop
+    const [existingDomain] = await pool.query<RowDataPacket[]>(
+      'SELECT shop_id, shop_name FROM shops WHERE custom_domain = ? AND shop_id != ?',
+      [normalizedDomain, shopId]
+    );
+
+    if (existingDomain.length > 0) {
+      return NextResponse.json(
+        { 
+          error: `Domain "${normalizedDomain}" is already used by shop: ${existingDomain[0].shop_name}` 
+        },
+        { status: 409 }
+      );
+    }
+
+    // Update the domain
+    await pool.query(
+      'UPDATE shops SET custom_domain = ?, updated_at = CURRENT_TIMESTAMP WHERE shop_id = ?',
+      [normalizedDomain, shopId]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: 'Domain updated successfully',
+      shop_id: shopId,
+      custom_domain: normalizedDomain
+    });
+
+  } catch (error) {
+    console.error('PATCH shop domain error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update domain' },
+      { status: 500 }
+    );
+  }
+}
+
 // ============ GET SHOP ANALYTICS (ADMIN + SHOP OWNER) ============
 export async function GET(
   request: NextRequest,
@@ -62,7 +157,7 @@ export async function GET(
 
     // Get shop basic info first
     const [shopInfo] = await pool.query<RowDataPacket[]>(
-      'SELECT shop_id, shop_name, shop_slug FROM shops WHERE shop_id = ?',
+      'SELECT shop_id, shop_name, shop_slug, custom_domain FROM shops WHERE shop_id = ?',
       [shopId]
     );
 
