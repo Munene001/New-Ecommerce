@@ -60,7 +60,6 @@ export const useCart = () => {
   return context;
 };
 
-// Helper: Identity check for cart items
 const isSameItem = (item: CartItem, productId: number, variantId?: number) => {
   if (Number(item.product_id) !== Number(productId)) return false;
   if (variantId !== undefined || item.variant_id !== undefined) {
@@ -136,7 +135,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       const variantMap = new Map(data.variants.map(v => [v.variant_id, v]));
 
       let hasStateChanges = false;
-      let userNoticeableChanges = false;
+      let externalPriceOrStockChange = false;
       const removedNames: string[] = [];
       const updatedItems: CartItem[] = [];
 
@@ -147,7 +146,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         if (!dbItem || !dbItem.is_published || !dbItem.in_stock || Number(dbItem.stock_quantity) <= 0) {
           removedNames.push(displayName);
           hasStateChanges = true;
-          userNoticeableChanges = true;
           continue;
         }
 
@@ -155,17 +153,17 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         const currentEffectivePrice = Number(item.discount_price ?? item.price);
         const targetQuantity = Math.min(item.quantity, Number(dbItem.stock_quantity));
 
-        // Check for actual user-impacting changes (price or forced quantity drops)
+        // Only flag a toast-worthy update if prices changed or quantity was cut by actual DB stock limits
         if (
-          targetQuantity !== item.quantity ||
+          targetQuantity < item.quantity ||
           Math.abs(effectiveDbPrice - currentEffectivePrice) > 0.01
         ) {
-          userNoticeableChanges = true;
+          externalPriceOrStockChange = true;
         }
 
-        // Check for state updates (including background stock_quantity synchronization)
         if (
-          userNoticeableChanges ||
+          targetQuantity !== item.quantity ||
+          Math.abs(effectiveDbPrice - currentEffectivePrice) > 0.01 ||
           item.stock_quantity === undefined ||
           Number(item.stock_quantity) !== Number(dbItem.stock_quantity) ||
           !item.verified
@@ -189,10 +187,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         setItems(updatedItems);
       }
 
-      // Toast notifications based on actual impact
+      // Show toast ONLY for genuine external updates/removals
       if (removedNames.length > 0) {
         safeShowToast(`${removedNames.length} item(s) removed due to stock availability`, 'error');
-      } else if (userNoticeableChanges) {
+      } else if (externalPriceOrStockChange) {
         safeShowToast('Cart updated with current prices and stock', 'error');
       }
     } catch (error) {
@@ -262,14 +260,14 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         updated[existingIdx] = {
           ...updated[existingIdx],
           quantity: updated[existingIdx].quantity + Number(quantity),
-          verified: false,
+          verified: true, // Mark verified to avoid post-add verification toast triggers
         };
         safeShowToast(`${displayName} quantity updated`, 'success');
         return updated;
       }
 
       safeShowToast(`${displayName} added to cart`, 'success');
-      return [...prev, { ...normalized, quantity: Number(quantity), verified: false, in_stock: true, is_published: true }];
+      return [...prev, { ...normalized, quantity: Number(quantity), verified: true, in_stock: true, is_published: true }];
     });
 
     scheduleVerification();
@@ -300,7 +298,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const updated = [...prev];
-      updated[index] = { ...item, quantity, verified: false };
+      updated[index] = { ...item, quantity, verified: true };
       return updated;
     });
 
