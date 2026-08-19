@@ -50,7 +50,7 @@ const tiers = [
     name: "Pro",
     price: "2,499",
     period: "/month",
-    yearlyPrice: "23,999",
+    yearlyPrice: "24,999",
     yearlySave: "5,000",
     description: "Full‑service scale with hands‑on support from our team.",
     features: [
