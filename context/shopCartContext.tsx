@@ -135,7 +135,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       const productMap = new Map(data.products.map(p => [p.product_id, p]));
       const variantMap = new Map(data.variants.map(v => [v.variant_id, v]));
 
-      let hasChanges = false;
+      let hasStateChanges = false;
+      let userNoticeableChanges = false;
       const removedNames: string[] = [];
       const updatedItems: CartItem[] = [];
 
@@ -143,47 +144,56 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         const dbItem: any = item.variant_id ? variantMap.get(item.variant_id) : productMap.get(item.product_id);
         const displayName = `${item.product_name}${item.variant_name ? ` (${item.variant_name})` : ''}`;
 
-        if (!dbItem || !dbItem.is_published || !dbItem.in_stock || dbItem.stock_quantity <= 0) {
+        if (!dbItem || !dbItem.is_published || !dbItem.in_stock || Number(dbItem.stock_quantity) <= 0) {
           removedNames.push(displayName);
-          hasChanges = true;
+          hasStateChanges = true;
+          userNoticeableChanges = true;
           continue;
         }
 
-        const effectiveDbPrice = dbItem.discount_price ?? dbItem.price;
-        const currentEffectivePrice = item.discount_price ?? item.price;
-        const targetQuantity = Math.min(item.quantity, dbItem.stock_quantity);
+        const effectiveDbPrice = Number(dbItem.discount_price ?? dbItem.price);
+        const currentEffectivePrice = Number(item.discount_price ?? item.price);
+        const targetQuantity = Math.min(item.quantity, Number(dbItem.stock_quantity));
 
+        // Check for actual user-impacting changes (price or forced quantity drops)
         if (
           targetQuantity !== item.quantity ||
-          Math.abs(effectiveDbPrice - currentEffectivePrice) > 0.01 ||
-          item.stock_quantity !== dbItem.stock_quantity
+          Math.abs(effectiveDbPrice - currentEffectivePrice) > 0.01
         ) {
-          hasChanges = true;
+          userNoticeableChanges = true;
+        }
+
+        // Check for state updates (including background stock_quantity synchronization)
+        if (
+          userNoticeableChanges ||
+          item.stock_quantity === undefined ||
+          Number(item.stock_quantity) !== Number(dbItem.stock_quantity) ||
+          !item.verified
+        ) {
+          hasStateChanges = true;
         }
 
         updatedItems.push({
           ...item,
           quantity: targetQuantity,
-          price: dbItem.price,
-          discount_price: dbItem.discount_price,
-          stock_quantity: dbItem.stock_quantity,
+          price: Number(dbItem.price),
+          discount_price: dbItem.discount_price !== null && dbItem.discount_price !== undefined ? Number(dbItem.discount_price) : null,
+          stock_quantity: Number(dbItem.stock_quantity),
           in_stock: true,
           is_published: true,
           verified: true,
         });
       }
 
-      if (hasChanges) {
+      if (hasStateChanges) {
         setItems(updatedItems);
       }
 
-      // Batch notifications to reduce UI churn
+      // Toast notifications based on actual impact
       if (removedNames.length > 0) {
         safeShowToast(`${removedNames.length} item(s) removed due to stock availability`, 'error');
-      } else if (hasChanges) {
+      } else if (userNoticeableChanges) {
         safeShowToast('Cart updated with current prices and stock', 'error');
-      } else if (force) {
-        safeShowToast('Cart verified ✓ All items available', 'success');
       }
     } catch (error) {
       if (force) safeShowToast('Failed to verify cart.', 'error');
@@ -238,6 +248,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       variant_id: item.variant_id ? Number(item.variant_id) : undefined,
       price: Number(item.price),
       discount_price: item.discount_price != null ? Number(item.discount_price) : null,
+      stock_quantity: item.stock_quantity !== undefined ? Number(item.stock_quantity) : undefined,
     };
 
     trackEvent('add_to_cart', { product_id: normalized.product_id, variant_id: normalized.variant_id });

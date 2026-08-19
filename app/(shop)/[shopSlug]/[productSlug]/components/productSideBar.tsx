@@ -64,12 +64,6 @@ export default function ProductSidebar({
   const cartItem = items.find((i) => i.product_id === product.product_id);
   const displayQuantity = cartItem ? cartItem.quantity : 1;
 
-  const discountPercentage = product.discount_price
-    ? Math.round(
-        ((product.price - product.discount_price) / product.price) * 100,
-      )
-    : 0;
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-KE", {
       minimumFractionDigits: 0,
@@ -147,6 +141,7 @@ export default function ProductSidebar({
           price: product.price,
           discount_price: product.discount_price,
           in_stock: product.in_stock,
+          stock_quantity: product.stock_quantity,
         },
         1,
       );
@@ -267,7 +262,11 @@ export default function ProductSidebar({
       value: value as AttributeValue,
     }));
 
-  const shareUrl = `${window.location.origin}/${shopSlug}/${product.product_slug}`;
+  // Clean Share URL generation
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/${product.product_slug}`
+      : "";
 
   const HeartIcon = isInWishlist ? (
     <Heart className="w-5 h-5 fill-current" />
@@ -385,9 +384,7 @@ export default function ProductSidebar({
             title={product.product_name}
             text={`Check out ${product.product_name} on ${shop?.shopName || "our store"}`}
             url={shareUrl}
-            
             showLabel
-          
           />
         </div>
 
@@ -482,9 +479,7 @@ export default function ProductSidebar({
             title={product.product_name}
             text={`Check out ${product.product_name} on ${shop?.shopName || "our store"}`}
             url={shareUrl}
-           
             showLabel
-        
             className="!text-sm"
           />
         </div>
