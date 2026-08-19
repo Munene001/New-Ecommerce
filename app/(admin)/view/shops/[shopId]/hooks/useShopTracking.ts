@@ -42,9 +42,16 @@ interface StatsData {
   ordersPlaced: number;
 }
 
+interface ShopInfo {
+  shop_id: number;
+  shop_name: string;
+  shop_slug: string;
+  custom_domain: string | null;  // ← ADDED
+}
+
 interface ApiResponse {
   success: boolean;
-  shop: { shop_id: number; shop_name: string; shop_slug: string };
+  shop: ShopInfo;  // ← UPDATED to use ShopInfo
   date_range: { days: number; from: string };
   summary: { total_sessions: number; completed_sessions: number; conversion_rate: string };
   funnel: FunnelData;
@@ -237,7 +244,7 @@ export function useShopTracking(shopId: number) {
   }, [rawData]);
   
   // ============ SHOP INFO ============
-  const shopInfo = useMemo(() => {
+  const shopInfo = useMemo((): ShopInfo | null => {
     if (!rawData?.shop) return null;
     return rawData.shop;
   }, [rawData]);

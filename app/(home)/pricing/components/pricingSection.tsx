@@ -57,7 +57,7 @@ const tiers = [
       "Unlimited products",
       "Mpesa Integration",
       "Cards Payments Integration",
-      "Free custom domain (we provide it)",
+      "Free custom .co.ke domain (we provide it)",
       "Aggressive SEO (rich snippets, advanced sitemaps, search console)",
       "Priority 24/7 chat & phone support",
       "Blog writing (we write for you)",

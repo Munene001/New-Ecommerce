@@ -1,9 +1,8 @@
-// app/admin/shops/[shopId]/analytics/components/analyticsClient.tsx
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trash2, X } from "lucide-react";
+import { ArrowLeft, Trash2, X, Check, Globe } from "lucide-react";
 import { useShopTracking } from '../hooks/useShopTracking';
 import ShopAnalyticsCard from './shopAnalyticsCard';
 import FunnelChart from './funnelChart';
@@ -11,6 +10,7 @@ import SessionTable from './sessionsTable';
 import AnalFilterBar from './analFilterBar';
 import SimpleToast from "@/app/components/ui/simpleToast";
 import Button from "@/app/components/ui/button";
+import FormField from "@/app/components/ui/formField";
 
 interface AnalyticsClientProps {
   shopId: number;
@@ -21,6 +21,11 @@ export default function AnalyticsClient({ shopId }: AnalyticsClientProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // Domain management state
+  const [customDomain, setCustomDomain] = useState('');
+  const [isUpdatingDomain, setIsUpdatingDomain] = useState(false);
+  const [isEditingDomain, setIsEditingDomain] = useState(false);
   
   const {
     stats,
@@ -37,6 +42,13 @@ export default function AnalyticsClient({ shopId }: AnalyticsClientProps) {
     loading,
     error
   } = useShopTracking(shopId);
+
+  // Initialize domain from shopInfo
+  useEffect(() => {
+    if (shopInfo?.custom_domain) {
+      setCustomDomain(shopInfo.custom_domain);
+    }
+  }, [shopInfo]);
 
   const handleDeleteShop = async () => {
     setDeleting(true);
@@ -61,6 +73,51 @@ export default function AnalyticsClient({ shopId }: AnalyticsClientProps) {
       setShowDeleteModal(false);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleUpdateDomain = async () => {
+    setIsUpdatingDomain(true);
+    try {
+      const response = await fetch(`/api/admin/shops/${shopId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          custom_domain: customDomain.trim() || null 
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Domain updated successfully' });
+        setIsEditingDomain(false);
+        refresh(); // Refresh to get updated shop info
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to update domain' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error: Failed to update domain' });
+    } finally {
+      setIsUpdatingDomain(false);
+    }
+  };
+
+  const handleCancelDomainEdit = () => {
+    setCustomDomain(shopInfo?.custom_domain || '');
+    setIsEditingDomain(false);
+  };
+
+  // Handle domain input change - handles all possible types from FormField
+  const handleDomainChange = (value: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
+    if (typeof value === 'string') {
+      setCustomDomain(value);
+    } else if (typeof value === 'number') {
+      setCustomDomain(String(value));
+    } else {
+      setCustomDomain(value.target.value);
     }
   };
 
@@ -125,6 +182,65 @@ export default function AnalyticsClient({ shopId }: AnalyticsClientProps) {
 
       {/* Stats Cards */}
       <ShopAnalyticsCard stats={stats} />
+
+      {/* Domain Management Section */}
+      <div className="mt-6 mb-8 bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Custom Domain</h2>
+          </div>
+          {!isEditingDomain && (
+            <button
+              onClick={() => setIsEditingDomain(true)}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        {!isEditingDomain ? (
+          <div className="flex items-center gap-2">
+            <span className="text-gray-700">
+              {shopInfo?.custom_domain || 'No custom domain set'}
+            </span>
+            {shopInfo?.custom_domain && (
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                Active
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <FormField
+              name="custom_domain"
+              label="Domain"
+              type="text"
+              placeholder="e.g., shopname.com"
+              value={customDomain}
+              onChange={handleDomainChange}
+            />
+            <div className="flex gap-3">
+              <Button
+                onClick={handleUpdateDomain}
+                disabled={isUpdatingDomain}
+                className="flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                {isUpdatingDomain ? 'Saving...' : 'Save Domain'}
+              </Button>
+              <Button
+                onClick={handleCancelDomainEdit}
+                variant="secondary"
+                disabled={isUpdatingDomain}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Filter Bar with Date Range and View Mode Toggle */}
       <AnalFilterBar

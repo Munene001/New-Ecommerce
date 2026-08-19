@@ -32,7 +32,7 @@ const adminNavItems = [
   },
   {
     href: "/view/affiliates",
-    title: "Analytics",
+    title: "Affiliates",
     icon: ChartNoAxesCombined
   },
   {
