@@ -5,7 +5,6 @@ import { RowDataPacket } from 'mysql2';
 
 const excludedSubdomains = new Set(['www', 'staging', 'mail', 'admin', 'support']);
 
-// Cache structures
 interface ShopCache {
   slugs: Set<string>;
   domainToSlugMap: Map<string, string>;
@@ -16,7 +15,6 @@ let shopCache: ShopCache | null = null;
 let lastFetchTime = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// Single unified DB query helper
 async function getCachedShopData(): Promise<ShopCache> {
   const now = Date.now();
   if (shopCache && now - lastFetchTime < CACHE_TTL_MS) {
@@ -41,13 +39,11 @@ async function getCachedShopData(): Promise<ShopCache> {
       }
 
       if (domain && slug) {
-        // Clean domain string
         const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
         
         domainToSlugMap.set(cleanDomain, slug);
         slugToDomainMap.set(slug, cleanDomain);
 
-        // Map www variation
         if (!cleanDomain.startsWith('www.')) {
           domainToSlugMap.set(`www.${cleanDomain}`, slug);
         }
@@ -63,10 +59,9 @@ async function getCachedShopData(): Promise<ShopCache> {
   }
 }
 
-// MAIN PROXY
 export async function proxy(request: NextRequest) {
   try {
-    const { pathname } = request.nextUrl;
+    const { pathname, search } = request.nextUrl;
 
     // 1. SKIP STATIC ASSETS AND API
     if (
@@ -92,10 +87,18 @@ export async function proxy(request: NextRequest) {
     // 3. CHECK IF INCOMING HOST IS A CUSTOM DOMAIN
     const customDomainShopSlug = domainToSlugMap.get(hostname);
     if (customDomainShopSlug) {
-      const url = request.nextUrl.clone();
-      if (!pathname.startsWith(`/${customDomainShopSlug}`)) {
-        url.pathname = `/${customDomainShopSlug}${pathname}`;
+      const slugPrefix = `/${customDomainShopSlug}`;
+
+      // FIX: If the visible URL explicitly includes the tenant slug, 301 redirect to strip it!
+      if (pathname.startsWith(slugPrefix)) {
+        const cleanPath = pathname.slice(slugPrefix.length) || '/';
+        const redirectUrl = new URL(`${cleanPath}${search}`, request.url);
+        return NextResponse.redirect(redirectUrl, { status: 301 });
       }
+
+      // Rewrite clean URL internally to app/[shop_slug]/...
+      const url = request.nextUrl.clone();
+      url.pathname = `${slugPrefix}${pathname}`;
       return NextResponse.rewrite(url);
     }
 
@@ -110,22 +113,31 @@ export async function proxy(request: NextRequest) {
     }
 
     if (subdomain && !excludedSubdomains.has(subdomain)) {
-      // Check if this subdomain configured a custom domain
       const customDomain = slugToDomainMap.get(subdomain);
 
       if (customDomain) {
-        // Redirect subdomain to custom domain (301)
-        const redirectUrl = new URL(pathname, `https://${customDomain}`);
-        redirectUrl.search = request.nextUrl.search;
+        const slugPrefix = `/${subdomain}`;
+        let cleanPath = pathname;
+        if (pathname.startsWith(slugPrefix)) {
+          cleanPath = pathname.slice(slugPrefix.length) || '/';
+        }
+
+        const redirectUrl = new URL(`${cleanPath}${search}`, `https://${customDomain}`);
         return NextResponse.redirect(redirectUrl, { status: 301 });
       }
 
-      // Rewrite path for native subdomain
       if (slugs.has(subdomain)) {
-        const url = request.nextUrl.clone();
-        if (!pathname.startsWith(`/${subdomain}`)) {
-          url.pathname = `/${subdomain}${pathname}`;
+        const slugPrefix = `/${subdomain}`;
+
+        // Strip slug from subdomain URLs if present
+        if (pathname.startsWith(slugPrefix)) {
+          const cleanPath = pathname.slice(slugPrefix.length) || '/';
+          const redirectUrl = new URL(`${cleanPath}${search}`, request.url);
+          return NextResponse.redirect(redirectUrl, { status: 301 });
         }
+
+        const url = request.nextUrl.clone();
+        url.pathname = `${slugPrefix}${pathname}`;
         return NextResponse.rewrite(url);
       }
 
