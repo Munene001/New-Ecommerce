@@ -118,7 +118,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   useEffect(() => {
     const fetchPrimaryImage = async () => {
       try {
-        const url = `/api/shopowner/products/${product.product_id}/images/primary?w=300`;
+        const url = `/api/shopowner/products/${product.product_id}/images/primary?w=300&v=1`;
         setImageUrl(url);
         setImageError(false);
       } catch (error) {
