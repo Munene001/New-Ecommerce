@@ -6,7 +6,7 @@ import { RowDataPacket } from 'mysql2';
 interface PaymentSettingsRow extends RowDataPacket {
   payment_setting_id: number;
   cod_enabled: number;
-  active_payment_type: 'direct_mpesa' | 'stk_push' | null;
+  active_payment_type: 'direct_mpesa' | 'stk_push' | 'kopokopo' | null;
 }
 
 interface DirectMpesaRow extends RowDataPacket {
@@ -15,6 +15,10 @@ interface DirectMpesaRow extends RowDataPacket {
   account_number: string | null;
   till_number: string | null;
   phone_number: string | null;
+}
+
+interface KopokopoRow extends RowDataPacket {
+  till_number: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -26,7 +30,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'shop_id required' }, { status: 400 });
     }
 
-    // Get payment settings
     const [settings] = await pool.query<PaymentSettingsRow[]>(
       `SELECT payment_setting_id, cod_enabled, active_payment_type 
        FROM shop_payment_settings 
@@ -47,10 +50,11 @@ export async function GET(req: NextRequest) {
     }
     
     const setting = settings[0];
-    
-    // Get direct M-Pesa config if exists
     let directMpesa = null;
+    let hasStkPush = false;
+    let hasKopokopo = false;
     
+    // Check direct M-Pesa if active
     if (setting.active_payment_type === 'direct_mpesa') {
       const [mpesaRows] = await pool.query<DirectMpesaRow[]>(
         `SELECT type, business_number, account_number, till_number, phone_number
@@ -64,13 +68,36 @@ export async function GET(req: NextRequest) {
       }
     }
     
+    // Check STK Push if active (exact match with STK pattern)
+    if (setting.active_payment_type === 'stk_push') {
+      const [stkRows] = await pool.query<RowDataPacket[]>(
+        `SELECT 1 FROM shop_stk_push WHERE payment_setting_id = ?`,
+        [setting.payment_setting_id]
+      );
+      hasStkPush = stkRows.length > 0;
+    }
+    
+    // Check Kopokopo if active (exact match with STK pattern - no details)
+    if (setting.active_payment_type === 'kopokopo') {
+      const [k2Rows] = await pool.query<KopokopoRow[]>(
+        `SELECT till_number FROM shop_kopokopo WHERE payment_setting_id = ?`,
+        [setting.payment_setting_id]
+      );
+      hasKopokopo = k2Rows.length > 0;
+    }
+    
+    // has_mpesa = any M-Pesa method exists
+    const hasMpesa = directMpesa !== null || hasStkPush || hasKopokopo;
+    
     return NextResponse.json({
       success: true,
       data: {
         cod_enabled: setting.cod_enabled === 1,
-        has_mpesa: directMpesa !== null,
+        has_mpesa: hasMpesa,
         active_payment_type: setting.active_payment_type,
         direct_mpesa: directMpesa
+        // Note: stk_push and kopokopo details are intentionally NOT returned
+        // System-initiated payments don't need to display details to customers
       }
     });
     
