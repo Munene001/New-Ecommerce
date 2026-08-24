@@ -1,34 +1,54 @@
 'use client';
 
-import Link from "next/link";
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Button from "@/app/components/ui/button";
 import { CreditCard, Truck } from "lucide-react";
 import PaymentsStatsCards from "./components/pstatsCard";
+import TransactionsTable from './components/transactionTable';
+import TransactionsFilters from './components/transactionFilters';
 import { useShop } from "@/app/(shopowner)/shopownerContext";
+import { useDashboardPayments } from "./hooks/useDashboardPayments";
 
 export default function PaymentsPage() {
-  // Get shop data from context
   const { shopSlug, shopId } = useShop();
   
-  // Dummy data for structure - will be replaced with real API calls
-  const dummyStats = {
-    totalRevenue: 0,
-    pendingPayouts: 0,
-    completedPayouts: 0,
-    monthlyRevenue: 0,
+  const {
+    transactions,
+    stats,
+    loading,
+    hasMore,
+    loadMoreTransactions,
+    applyFilters, // 👈 Import applyFilters
+    resetFilters,
+  } = useDashboardPayments(shopId ? String(shopId) : '');
+
+  // Handle filter changes cleanly with a single API request
+  const handleFilterChange = (filters: {
+    paymentType: string;
+    dateFrom: string;
+    dateTo: string;
+    search: string;
+  }) => {
+    applyFilters({
+      paymentType: filters.paymentType,
+      dateFrom: filters.dateFrom,
+      dateTo: filters.dateTo,
+      search: filters.search,
+    });
   };
 
   return (
     <div className="md:p-4 px-2 py-6 font-[Poppins] relative">
       {/* Stats Cards */}
       <PaymentsStatsCards
-        totalRevenue={dummyStats.totalRevenue}
-        pendingPayouts={dummyStats.pendingPayouts}
-        completedPayouts={dummyStats.completedPayouts}
-        monthlyRevenue={dummyStats.monthlyRevenue}
+        totalRevenue={stats.totalRevenue}
+        monthlyRevenue={stats.monthlyRevenue}
+        stkPayments={stats.stkPayments}
+        stkPaymentRate={stats.stkPaymentRate}
       />
 
-      {/* Action Buttons - Same Row */}
+      {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6">
         <Link href={`/dashboard/${shopSlug}/payments/configuration`}>
           <Button
@@ -51,13 +71,24 @@ export default function PaymentsPage() {
         </Link>
       </div>
 
-      {/* Future: Payout History Table */}
-      <div className="mt-8">
-        <h3 className="text-lg text-black font-semibold mb-4">Payout History</h3>
-        <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-700 border border-gray-200">
-          <p>No payouts yet</p>
-          <p className="text-sm mt-1">Payout history will appear here once you start selling</p>
-        </div>
+      {/* Filters */}
+      <div className="mt-6">
+        <TransactionsFilters
+          onFilterChange={handleFilterChange}
+          onReset={resetFilters}
+          loading={loading}
+        />
+      </div>
+
+      {/* Transactions Table */}
+      <div className="mt-6">
+        <TransactionsTable
+          transactions={transactions}
+          loading={loading}
+          hasMore={hasMore}
+          loadMore={loadMoreTransactions}
+          shopSlug={shopSlug || ''}
+        />
       </div>
     </div>
   );

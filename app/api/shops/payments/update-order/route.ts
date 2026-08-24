@@ -9,6 +9,7 @@ import { sendBuyerOrderEmail, sendSellerOrderEmail } from '@/lib/email/ordermail
 interface TransactionRow extends RowDataPacket {
   transaction_id: number;
   order_id: number;
+  checkout_request_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   retryable: number;
 }
@@ -95,10 +96,6 @@ async function getKopokopoTillByShopId(shopId: number): Promise<string | null> {
   return rows.length > 0 ? rows[0].till_number : null;
 }
 
-/**
- * Deducts stock within a dedicated DB connection transaction to guarantee ALL-or-NOTHING.
- * FIXED: Uses stock_quantity >= ? to prevent overselling and throws error on failure.
- */
 async function deductStockForOrderTx(conn: PoolConnection, orderId: number): Promise<boolean> {
   console.log(`📦 [UPDATE] Starting atomic stock deduction transaction for order ${orderId}`);
 
@@ -170,7 +167,7 @@ async function findTransactionWithRetry(
   for (let i = 0; i < maxRetries; i++) {
     // Primary Lookup by checkout_request_id
     const [rows] = await pool.query<TransactionRow[]>(
-      `SELECT transaction_id, order_id, status, retryable 
+      `SELECT transaction_id, order_id, checkout_request_id, status, retryable 
        FROM stk_push_transactions 
        WHERE checkout_request_id = ?`,
       [checkoutRequestId]
@@ -184,7 +181,7 @@ async function findTransactionWithRetry(
     // Fallback Lookup by order_id if passed
     if (orderId) {
       const [fallbackRows] = await pool.query<TransactionRow[]>(
-        `SELECT transaction_id, order_id, status, retryable 
+        `SELECT transaction_id, order_id, checkout_request_id, status, retryable 
          FROM stk_push_transactions 
          WHERE order_id = ? AND status = 'pending' 
          ORDER BY transaction_id DESC LIMIT 1`,
@@ -197,7 +194,6 @@ async function findTransactionWithRetry(
       }
     }
 
-    // Wait before retrying
     if (i < maxRetries - 1) {
       console.log(`⏳ [UPDATE] Transaction not found, retry ${i + 1}/${maxRetries}...`);
       await new Promise((resolve) => setTimeout(resolve, backoffMs * (i + 1)));
@@ -213,7 +209,7 @@ export async function POST(req: NextRequest) {
   console.log('🔵 [UPDATE] Payment callback received from Spring Boot');
 
   try {
-    // 1. Verify internal secret header - THIS IS THE TRUST BOUNDARY!
+    // 1. Verify internal secret header
     const internalSecret = req.headers.get('x-internal-secret');
     const EXPECTED_SECRET = process.env.SPRING_BOOT_INTERNAL_SECRET;
 
@@ -234,6 +230,7 @@ export async function POST(req: NextRequest) {
       resultCode,
       resultDesc,
       displayMessage,
+      mpesaReceiptNumber,
       isKopokopo,
       tillNumber: providedTillNumber,
       orderId: providedOrderId
@@ -260,7 +257,7 @@ export async function POST(req: NextRequest) {
 
     const orderId = transaction.order_id;
 
-    // 4. If transaction was found via fallback, patch the checkout_request_id
+    // 4. Patch checkout_request_id if matched via fallback
     if (transaction.checkout_request_id !== checkoutRequestId) {
       console.log(`🔄 [UPDATE] Updating transaction with checkoutRequestId: ${checkoutRequestId}`);
       await pool.query(
@@ -271,11 +268,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Handle Kopokopo callbacks - trust Spring Boot's signature validation
+    // 5. Handle Kopokopo callbacks
     if (isKopokopo) {
-      console.log('🔐 [UPDATE] Processing Kopo Kopo callback (signature already verified by Spring Boot)');
+      console.log('🔐 [UPDATE] Processing Kopo Kopo callback');
 
-      // Get tillNumber - either from payload or lookup from DB
       let tillNumber = providedTillNumber || extractTillNumber(body);
       
       if (!tillNumber) {
@@ -325,14 +321,15 @@ export async function POST(req: NextRequest) {
     const orderPaymentStatus = isSuccess ? 'paid' : 'pending';
     const orderOrderStatus = isSuccess ? 'processing' : 'pending';
 
-    // 8. Atomic Transaction State Update
-    console.log(`💾 [UPDATE] Updating transaction ${transaction.transaction_id} to status=${dbTransactionStatus}`);
+    // 8. Atomic Transaction State Update (including mpesa_receipt_number)
+    console.log(`💾 [UPDATE] Updating transaction ${transaction.transaction_id} to status=${dbTransactionStatus}, receipt=${mpesaReceiptNumber || 'NULL'}`);
     const [updateResult] = await pool.query<ResultSetHeader>(
       `UPDATE stk_push_transactions 
        SET status = ?,
            result_code = ?,
            result_description = ?,
            retryable = ?,
+           mpesa_receipt_number = ?,
            updated_at = NOW()
        WHERE transaction_id = ? AND status = 'pending'`,
       [
@@ -340,6 +337,7 @@ export async function POST(req: NextRequest) {
         resultCode,
         resultDesc,
         isRetryable ? 1 : 0,
+        mpesaReceiptNumber || null,
         transaction.transaction_id
       ]
     );
@@ -364,7 +362,7 @@ export async function POST(req: NextRequest) {
       [orderPaymentStatus, orderOrderStatus, orderId]
     );
 
-    // 10. Post-Payment Processing (Stock Deduction inside a DB Transaction + Emails)
+    // 10. Post-Payment Processing
     if (isSuccess) {
       console.log(`💰 [UPDATE] Processing post-payment steps for order ${orderId}`);
       
@@ -381,7 +379,6 @@ export async function POST(req: NextRequest) {
         const order = orderRows[0];
         const isStockAlreadyDeducted = Boolean(order.stock_deducted) && Number(order.stock_deducted) !== 0;
 
-        // Transactional Stock Deduction
         if (!isStockAlreadyDeducted) {
           const conn = await pool.getConnection();
           try {
@@ -492,6 +489,7 @@ export async function POST(req: NextRequest) {
       orderId,
       status: dbTransactionStatus,
       retryable: isRetryable,
+      mpesaReceiptNumber: mpesaReceiptNumber || null,
       displayMessage
     });
 
