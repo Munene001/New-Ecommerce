@@ -8,6 +8,7 @@ import { usePaymentConfig } from "./hooks/usePaymentConfig";
 import CodModule from "./components/codModule";
 import DirectMpesaTab from "./components/directMpesaTab";
 import StkPushTab from "./components/stkPushTab";
+import KopokopoTab from "./components/kopoKopotab";
 import InstructionsList from "@/app/components/ui/instructionList";
 
 export default function PaymentConfigurationPage() {
@@ -21,29 +22,31 @@ export default function PaymentConfigurationPage() {
     deleteDirectMpesa,
     saveStkPush,
     deleteStkPush,
+    saveKopokopo,
+    deleteKopokopo,
   } = usePaymentConfig();
 
-  // Log settings when they change
   useEffect(() => {
    
   }, [settings]);
 
-  // Wrap saveStkPush to log what's being passed
   const wrappedSaveStkPush = async (config: any) => {
- 
     return saveStkPush(config);
   };
 
-  const tabs = ["Manual M-Pesa", "STK Push"];
+  const wrappedSaveKopokopo = async (config: any) => {
+    return saveKopokopo(config);
+  };
 
-  // Dynamic instructions based on current state
+  const tabs = ["Manual M-Pesa", "STK Push", "Kopo Kopo"];
+
   const getInstructionItems = () => {
-    if (!settings.has_direct_mpesa && !settings.has_stk_push) {
+    if (!settings.has_direct_mpesa && !settings.has_stk_push && !settings.has_kopokopo) {
       return [
         { text: "Cash on Delivery is currently active" },
         { text: "Configure M-Pesa below to offer mobile payments" },
-        { text: "Choose Manual M-Pesa or STK Push as your preferred method" },
-        { text: "STK Push is the recommended faster and modern option but it is complex to set up" },
+        { text: "Choose Manual M-Pesa, STK Push, or Kopo Kopo as your preferred method" },
+        { text: "STK Push and Kopo Kopo are the recommended faster and modern options" },
         { text: "You cannot disable COD until M-Pesa is configured" }
       ];
     }
@@ -53,7 +56,7 @@ export default function PaymentConfigurationPage() {
         { text: "✓ Manual M-Pesa is currently ACTIVE" },
         { text: "Customers will see your M-Pesa details at checkout" },
         { text: "You can now disable COD if you want only mobile payments" },
-        { text: "Switch to STK Push tab to configure it" }
+        { text: "Switch to STK Push or Kopo Kopo tab to configure them" }
       ];
     }
     
@@ -62,19 +65,27 @@ export default function PaymentConfigurationPage() {
         { text: "✓ STK Push is currently ACTIVE" },
         { text: "Customers will receive a prompt on their phone" },
         { text: "No manual entry required by customers" },
-        { text: "Switch to Manual M-Pesa tab to configure it" }
+        { text: "Switch to Manual M-Pesa or Kopo Kopo tab to configure them" }
+      ];
+    }
+
+    if (settings.active_payment_type === 'kopokopo') {
+      return [
+        { text: "✓ Kopo Kopo STK Push is currently ACTIVE" },
+        { text: "Customers will receive a prompt on their phone" },
+        { text: "No manual entry required by customers" },
+        { text: "Switch to Manual M-Pesa or STK Push tab to configure them" }
       ];
     }
     
     return [
-      { text: "Configure Manual M-Pesa to start accepting mobile payments" },
+      { text: "Configure M-Pesa to start accepting mobile payments" },
       { text: "Your configuration will become active once saved" }
     ];
   };
 
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-3 font-[Poppins]">
-      {/* Back Button */}
       <div className="mb-6">
         <Link
           href={`/dashboard/${shopSlug}/payments`}
@@ -85,7 +96,6 @@ export default function PaymentConfigurationPage() {
         </Link>
       </div>
 
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-semibold text-black">Payment Configuration</h1>
         <p className="text-gray-800 mt-2">
@@ -93,7 +103,6 @@ export default function PaymentConfigurationPage() {
         </p>
       </div>
 
-      {/* Instructions Box */}
       <div className="mb-6">
         <InstructionsList
           items={getInstructionItems()}
@@ -101,7 +110,6 @@ export default function PaymentConfigurationPage() {
         />
       </div>
 
-      {/* COD Module */}
       <CodModule
         codEnabled={settings.cod_enabled}
         canDisableCod={settings.can_disable_cod}
@@ -109,7 +117,6 @@ export default function PaymentConfigurationPage() {
         loading={loading}
       />
 
-      {/* Tab Bar */}
       <div className="w-full mb-8">
         <div className="flex">
           <div className="md:w-[75%] w-full">
@@ -132,11 +139,13 @@ export default function PaymentConfigurationPage() {
                   {settings.active_payment_type === 'stk_push' && index === 1 && (
                     <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Active</span>
                   )}
+                  {settings.active_payment_type === 'kopokopo' && index === 2 && (
+                    <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Active</span>
+                  )}
                 </button>
               ))}
             </div>
             
-            {/* Progress Bar */}
             <div className="relative w-full h-[10px] bg-gray-200">
               <div
                 className="absolute h-[10px] bg-three transition-all duration-300"
@@ -150,7 +159,6 @@ export default function PaymentConfigurationPage() {
         </div>
       </div>
 
-      {/* Tab Content */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         {activeTab === 0 ? (
           <DirectMpesaTab
@@ -160,12 +168,20 @@ export default function PaymentConfigurationPage() {
             onDelete={deleteDirectMpesa}
             loading={loading}
           />
-        ) : (
+        ) : activeTab === 1 ? (
           <StkPushTab
             config={settings.stk_push}
             isActive={settings.active_payment_type === 'stk_push'}
             onSave={wrappedSaveStkPush}
             onDelete={deleteStkPush}
+            loading={loading}
+          />
+        ) : (
+          <KopokopoTab
+            config={settings.kopokopo}
+            isActive={settings.active_payment_type === 'kopokopo'}
+            onSave={wrappedSaveKopokopo}
+            onDelete={deleteKopokopo}
             loading={loading}
           />
         )}

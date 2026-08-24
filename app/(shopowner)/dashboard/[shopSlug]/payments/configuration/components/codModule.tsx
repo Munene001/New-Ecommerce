@@ -48,7 +48,7 @@ export default function CodModule({ codEnabled, canDisableCod, onToggle, loading
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-yellow-600" />
             <p className="text-sm text-yellow-700">
-              Cannot disable COD. Please configure Direct M-Pesa first
+              Cannot disable COD. Please configure M-Pesa first (Manual M-Pesa, STK Push, or Kopo Kopo)
             </p>
           </div>
         </div>

@@ -23,15 +23,24 @@ interface StkPushConfig {
   account_number: string | null;
 }
 
+interface KopokopoConfig {
+  client_id: string | null;
+  client_secret: string | null;
+  api_key: string | null;          // ← NEW!
+  till_number: string | null;
+}
+
 interface PaymentSettings {
   cod_enabled: boolean;
   has_direct_mpesa: boolean;
   has_stk_push: boolean;
+  has_kopokopo: boolean;
   has_any_mpesa_config: boolean;
   can_disable_cod: boolean;
-  active_payment_type: 'direct_mpesa' | 'stk_push' | null;
+  active_payment_type: 'direct_mpesa' | 'stk_push' | 'kopokopo' | null;
   direct_mpesa: DirectMpesaConfig | null;
   stk_push: StkPushConfig | null;
+  kopokopo: KopokopoConfig | null;
 }
 
 export function usePaymentConfig() {
@@ -42,11 +51,13 @@ export function usePaymentConfig() {
     cod_enabled: true,
     has_direct_mpesa: false,
     has_stk_push: false,
+    has_kopokopo: false,
     has_any_mpesa_config: false,
     can_disable_cod: false,
     active_payment_type: null,
     direct_mpesa: null,
     stk_push: null,
+    kopokopo: null,
   });
 
   const fetchSettings = useCallback(async () => {
@@ -58,7 +69,6 @@ export function usePaymentConfig() {
       const data = await res.json();
       
       if (data.success) {
-      
         setSettings(data.data);
       }
     } catch (error) {
@@ -175,16 +185,10 @@ export function usePaymentConfig() {
     till_number?: string;
     account_number?: string;
   }) => {
-   
-
     setLoading(true);
     try {
       const payload = { payment_method: 'stk_push', ...config };
-      
-    
-      
       const body = JSON.stringify(payload);
-     
 
       const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
         method: 'POST',
@@ -238,6 +242,69 @@ export function usePaymentConfig() {
     }
   };
 
+  const saveKopokopo = async (config: {
+    client_id: string;
+    client_secret: string;
+    api_key: string;              // ← NEW! Required
+    till_number: string;
+  }) => {
+    setLoading(true);
+    try {
+      const payload = { payment_method: 'kopokopo', ...config };
+      const body = JSON.stringify(payload);
+
+      const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        showToast("Kopo Kopo configuration saved successfully", "success");
+        await fetchSettings();
+        return true;
+      } else {
+        showToast(data.error || "Failed to save Kopo Kopo configuration", "error");
+        return false;
+      }
+    } catch (error) {
+      console.error('📍 [usePaymentConfig] Error:', error);
+      showToast("Network error", "error");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteKopokopo = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/shopowner/payments?shop_id=${shopId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'kopokopo' }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        showToast("Kopo Kopo configuration removed", "success");
+        await fetchSettings();
+        return true;
+      } else {
+        showToast(data.error || "Failed to remove Kopo Kopo configuration", "error");
+        return false;
+      }
+    } catch (error) {
+      showToast("Network error", "error");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     settings,
     loading,
@@ -246,6 +313,8 @@ export function usePaymentConfig() {
     deleteDirectMpesa,
     saveStkPush,
     deleteStkPush,
+    saveKopokopo,
+    deleteKopokopo,
     refresh: fetchSettings,
   };
 }
