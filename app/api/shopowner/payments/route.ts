@@ -39,6 +39,7 @@ interface KopokopoRow extends RowDataPacket {
   payment_setting_id: number;
   client_id: string;
   client_secret: string;
+  api_key: string;
   till_number: string;
   webhook_secret: string | null;
 }
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest) {
     );
     
     const [kopokopo] = await pool.query<KopokopoRow[]>(
-      `SELECT kopokopo_id, client_id, client_secret, till_number, webhook_secret
+      `SELECT kopokopo_id, client_id, client_secret, api_key, till_number, webhook_secret
        FROM shop_kopokopo
        WHERE payment_setting_id = ?`,
       [settings.payment_setting_id]
@@ -147,6 +148,7 @@ export async function GET(req: NextRequest) {
         kopokopo: hasKopokopo ? {
           client_id: kopokopo[0].client_id,
           client_secret: kopokopo[0].client_secret,
+          api_key: kopokopo[0].api_key,
           till_number: kopokopo[0].till_number,
           webhook_secret: kopokopo[0].webhook_secret
         } : null
@@ -338,21 +340,81 @@ export async function POST(req: NextRequest) {
     }
     
     if (payment_method === 'kopokopo') {
-      const { client_id, client_secret, till_number, webhook_secret } = config;
+      const { client_id, client_secret, api_key, till_number, webhook_secret } = config;
       
-      if (!client_id || !client_secret || !till_number) {
-        return NextResponse.json({ error: 'Client ID, Client Secret, and Till Number are required for Kopo Kopo' }, { status: 400 });
+      if (!client_id || !client_secret || !api_key || !till_number) {
+        return NextResponse.json({ error: 'Client ID, Client Secret, API Key, and Till Number are required for Kopo Kopo' }, { status: 400 });
       }
       
+      // ============================================================
+      // STEP 1: Register webhook with Spring Boot FIRST
+      // ============================================================
+      let registrationSuccess = false;
+      let registrationError = null;
+      
+      try {
+        const springBootUrl = process.env.SPRING_BOOT_URL || 'http://localhost:8081';
+        
+        const registrationResponse = await fetch(`${springBootUrl}/api/webhooks/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Internal-Api-Key': process.env.SPRING_BOOT_INTERNAL_SECRET || '',
+          },
+          body: JSON.stringify({
+            clientId: client_id,
+            clientSecret: client_secret,
+            apiKey: api_key,
+            tillNumber: till_number,
+            // webhookUrl is NOT sent - Spring Boot builds it!
+          }),
+        });
+
+        const registrationData = await registrationResponse.json();
+        
+        if (
+          (registrationResponse.ok && registrationData.success) || 
+          registrationData.error?.toLowerCase().includes('already exists') ||
+          registrationData.error?.toLowerCase().includes('duplicate') ||
+          registrationResponse.status === 409 ||
+          registrationResponse.status === 422
+        ) {
+          registrationSuccess = true;
+          console.log('✅ Webhook active for till:', till_number);
+        } else {
+          registrationSuccess = false;
+          registrationError = registrationData.error || 'Webhook registration failed';
+          console.error('Webhook registration failed:', registrationData);
+        }
+      } catch (error) {
+        registrationSuccess = false;
+        registrationError = error instanceof Error ? error.message : 'Webhook registration error';
+        console.error('Webhook registration error:', error);
+      }
+      
+      // ============================================================
+      // STEP 2: If registration failed, return error (don't save!)
+      // ============================================================
+      if (!registrationSuccess) {
+        return NextResponse.json({
+          success: false,
+          error: `Failed to register webhook with Kopo Kopo: ${registrationError}. Please check your credentials and try again.`
+        }, { status: 400 });
+      }
+      
+      // ============================================================
+      // STEP 3: Registration succeeded → Save to database
+      // ============================================================
       await pool.query(
-        `INSERT INTO shop_kopokopo (payment_setting_id, client_id, client_secret, till_number, webhook_secret)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO shop_kopokopo (payment_setting_id, client_id, client_secret, api_key, till_number, webhook_secret)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
          client_id = VALUES(client_id),
          client_secret = VALUES(client_secret),
+         api_key = VALUES(api_key),
          till_number = VALUES(till_number),
          webhook_secret = VALUES(webhook_secret)`,
-        [paymentSettingId, client_id, client_secret, till_number, webhook_secret || null]
+        [paymentSettingId, client_id, client_secret, api_key, till_number, webhook_secret || null]
       );
       
       await pool.query(
@@ -362,7 +424,7 @@ export async function POST(req: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        message: 'Kopo Kopo configuration saved successfully'
+        message: 'Kopo Kopo configuration saved successfully and webhook registered!'
       });
     }
     
@@ -401,6 +463,20 @@ export async function DELETE(req: NextRequest) {
     
     if (!settings) {
       return NextResponse.json({ error: 'No payment settings found' }, { status: 404 });
+    }
+    
+    const activeType = settings.active_payment_type;
+    const providerToAction: Record<string, string> = {
+      'direct_mpesa': 'direct-mpesa',
+      'stk_push': 'stk-push',
+      'kopokopo': 'kopokopo'
+    };
+    
+    if (activeType && providerToAction[activeType] === action) {
+      await pool.query(
+        `UPDATE shop_payment_settings SET active_payment_type = NULL WHERE shop_id = ?`,
+        [shopId]
+      );
     }
     
     if (action === 'direct-mpesa') {

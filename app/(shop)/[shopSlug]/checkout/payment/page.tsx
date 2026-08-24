@@ -6,6 +6,7 @@ import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from "@/context/toastContext";
 import { CODPayment } from "./components/cod";
 import { STKPushPayment } from "./components/stkPush";
+import { KopokopoPayment } from "./components/kopoKopo";
 import { DirectMpesaPayment } from "./components/manualMpesa";
 
 interface Order {
@@ -25,7 +26,7 @@ interface Order {
 }
 
 interface PaymentConfig {
-  active_payment_type: 'direct_mpesa' | 'stk_push' | null;
+  active_payment_type: 'direct_mpesa' | 'stk_push' | 'kopokopo' | null;
   direct_mpesa: {
     type: 'paybill' | 'till' | 'pochi' | 'send_money';
     business_number: string | null;
@@ -184,6 +185,18 @@ export default function PaymentPage() {
     if (paymentConfig.active_payment_type === 'stk_push') {
       return (
         <STKPushPayment 
+          orderId={orderId} 
+          order={order}
+          initialSavedState={paymentState}
+          onPaymentSuccess={handlePaymentSuccess}
+          onStateChange={setPaymentState}
+        />
+      );
+    }
+    
+    if (paymentConfig.active_payment_type === 'kopokopo') {
+      return (
+        <KopokopoPayment 
           orderId={orderId} 
           order={order}
           initialSavedState={paymentState}

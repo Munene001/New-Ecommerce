@@ -1,3 +1,4 @@
+// app/api/shops/payments/retry/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
@@ -13,6 +14,11 @@ interface OrderRow extends RowDataPacket {
   customer_id: number | null;
 }
 
+interface PaymentSettingsRow extends RowDataPacket {
+  payment_setting_id: number;
+  active_payment_type: 'direct_mpesa' | 'stk_push' | 'kopokopo' | null;
+}
+
 interface StkConfigRow extends RowDataPacket {
   type: 'paybill' | 'till';
   shortcode: string;
@@ -22,6 +28,13 @@ interface StkConfigRow extends RowDataPacket {
   business_number: string | null;
   till_number: string | null;
   account_number: string | null;
+}
+
+interface KopokopoConfigRow extends RowDataPacket {
+  client_id: string;
+  client_secret: string;
+  till_number: string;
+  webhook_secret: string | null;
 }
 
 interface TransactionRow extends RowDataPacket {
@@ -45,7 +58,7 @@ function normalizeKenyanPhone(phone: string): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  ('🔁 [RETRY] Retry STK Push request received');
+  console.log('🔁 [RETRY] Retry STK Push request received');
   
   try {
     const body = await req.json();
@@ -66,7 +79,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Consolidated single order query pass
+    // Get order
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT order_id, order_number, total, shop_id, payment_status, customer_phone, customer_id
        FROM orders 
@@ -130,44 +143,59 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch STK configuration
-    const [configs] = await pool.query<StkConfigRow[]>(
-      `SELECT s.type, s.shortcode, s.consumer_key, s.consumer_secret, 
-              s.passkey, s.business_number, s.till_number, s.account_number
-       FROM shop_stk_push s
-       JOIN shop_payment_settings p ON s.payment_setting_id = p.payment_setting_id
-       WHERE p.shop_id = ?`,
+    // Get active payment setting
+    const [paymentSettings] = await pool.query<PaymentSettingsRow[]>(
+      `SELECT payment_setting_id, active_payment_type 
+       FROM shop_payment_settings 
+       WHERE shop_id = ?`,
       [order.shop_id]
     );
 
-    if (configs.length === 0) {
+    if (paymentSettings.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'STK Push not configured for this shop' },
+        { success: false, error: 'No payment settings found for this shop' },
         { status: 400 }
       );
     }
 
-    const stkConfig = configs[0];
+    const activePaymentType = paymentSettings[0].active_payment_type;
+    const paymentSettingId = paymentSettings[0].payment_setting_id;
 
-    // Reset payment_status to pending if it was set to failed or cancelled
-    await pool.query(
-      `UPDATE orders 
-       SET payment_status = 'pending',
-           updated_at = NOW()
-       WHERE order_id = ?`,
-      [orderId]
-    );
+    if (!activePaymentType || activePaymentType === 'direct_mpesa') {
+      return NextResponse.json(
+        { success: false, error: 'No active STK Push payment method configured' },
+        { status: 400 }
+      );
+    }
 
     const springBootUrl = process.env.SPRING_BOOT_URL || 'http://localhost:8081';
     const totalAmount = Math.round(Number(order.total) || 0);
     
-    const springBootResponse = await fetch(`${springBootUrl}/api/payments/stk-push`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(process.env.INTERNAL_API_KEY && { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY }),
-      },
-      body: JSON.stringify({
+    let springEndpoint = '';
+    let springBootPayload: any = {};
+
+    // Configure payload based on provider
+    if (activePaymentType === 'stk_push') {
+      console.log('🔁 [RETRY] Building Safaricom STK Push payload');
+
+      const [configs] = await pool.query<StkConfigRow[]>(
+        `SELECT type, shortcode, consumer_key, consumer_secret, passkey, 
+                business_number, till_number, account_number
+         FROM shop_stk_push
+         WHERE payment_setting_id = ?`,
+        [paymentSettingId]
+      );
+
+      if (configs.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'STK Push not configured for this shop' },
+          { status: 400 }
+        );
+      }
+
+      const stkConfig = configs[0];
+      springEndpoint = '/api/payments/stk-push';
+      springBootPayload = {
         type: stkConfig.type,
         shortcode: stkConfig.shortcode,
         consumerKey: stkConfig.consumer_key,
@@ -179,28 +207,90 @@ export async function POST(req: NextRequest) {
         businessNumber: stkConfig.business_number || undefined,
         tillNumber: stkConfig.till_number || undefined,
         accountNumber: stkConfig.account_number || undefined,
-      }),
+      };
+
+    } else if (activePaymentType === 'kopokopo') {
+      console.log('🔁 [RETRY] Building Kopo Kopo STK Push payload');
+
+      const [configs] = await pool.query<KopokopoConfigRow[]>(
+        `SELECT client_id, client_secret, till_number, webhook_secret
+         FROM shop_kopokopo
+         WHERE payment_setting_id = ?`,
+        [paymentSettingId]
+      );
+
+      if (configs.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Kopo Kopo not configured for this shop' },
+          { status: 400 }
+        );
+      }
+
+      const kopokopoConfig = configs[0];
+      springEndpoint = '/api/payments/kopokopo-stk-push';
+      springBootPayload = {
+        clientId: kopokopoConfig.client_id,
+        clientSecret: kopokopoConfig.client_secret,
+        tillNumber: kopokopoConfig.till_number,
+        amount: totalAmount,
+        phoneNumber: formattedPhone,
+        orderReference: order.order_number,
+        webhookSecret: kopokopoConfig.webhook_secret || undefined,
+      };
+    }
+
+    // Invalidate retry flag on previous transaction to prevent double invocation
+    await pool.query(
+      `UPDATE stk_push_transactions SET retryable = 0 WHERE transaction_id = ?`,
+      [lastTransaction.transaction_id]
+    );
+
+    // Reset payment_status on order to pending
+    await pool.query(
+      `UPDATE orders SET payment_status = 'pending', updated_at = NOW() WHERE order_id = ?`,
+      [orderId]
+    );
+
+    // Dispatch request to Spring Boot gateway
+    const response = await fetch(`${springBootUrl}${springEndpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INTERNAL_API_KEY && { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY }),
+      },
+      body: JSON.stringify(springBootPayload),
     });
 
-    const data = await springBootResponse.json();
+    const data = await response.json();
 
-    if (!springBootResponse.ok) {
-      console.error('❌ [RETRY] Spring Boot error:', data);
+    if (!response.ok) {
+      console.error('❌ [RETRY] Spring Boot gateway error:', data);
       return NextResponse.json(
         { success: false, error: data.error || 'Payment gateway retry failed' },
-        { status: springBootResponse.status }
+        { status: response.status }
       );
     }
 
-    // Save new retry transaction record
+    const checkoutRequestId = data.CheckoutRequestID || data.resourceId || data.id;
+    const merchantRequestId = data.MerchantRequestID || '';
+
+    if (!checkoutRequestId) {
+      console.error('❌ [RETRY] Gateway response missing request ID:', data);
+      return NextResponse.json(
+        { success: false, error: 'Invalid response structure from payment gateway' },
+        { status: 502 }
+      );
+    }
+
+    // Persist new transaction record
     await pool.query(
       `INSERT INTO stk_push_transactions 
        (order_id, checkout_request_id, merchant_request_id, phone_number, amount, status, retryable)
        VALUES (?, ?, ?, ?, ?, 'pending', 1)`,
       [
         order.order_id,
-        data.CheckoutRequestID,
-        data.MerchantRequestID || '',
+        checkoutRequestId,
+        merchantRequestId,
         formattedPhone,
         totalAmount
       ]
@@ -210,15 +300,15 @@ export async function POST(req: NextRequest) {
       success: true,
       message: 'Retry initiated successfully. Check your phone for the M-Pesa prompt.',
       data: {
-        checkoutRequestId: data.CheckoutRequestID,
-        merchantRequestId: data.MerchantRequestID,
-        responseCode: data.ResponseCode,
-        responseDescription: data.ResponseDescription,
+        checkoutRequestId,
+        merchantRequestId,
+        responseCode: data.ResponseCode || '0',
+        responseDescription: data.ResponseDescription || 'Success',
       },
     });
 
   } catch (error) {
-    console.error('❌ [RETRY] Retry STK Push error:', error);
+    console.error('❌ [RETRY] Critical STK Push retry failure:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to process retry payment' },
       { status: 500 }

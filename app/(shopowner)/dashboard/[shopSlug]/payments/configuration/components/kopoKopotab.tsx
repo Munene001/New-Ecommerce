@@ -17,8 +17,8 @@ import FormField from "@/app/components/ui/formField";
 interface KopokopoConfig {
   client_id: string | null;
   client_secret: string | null;
+  api_key: string | null;          // ← NEW!
   till_number: string | null;
-  webhook_secret: string | null;
 }
 
 interface KopokopoTabProps {
@@ -32,15 +32,15 @@ interface KopokopoTabProps {
 export default function KopokopoTab({ config, isActive, onSave, onDelete, loading }: KopokopoTabProps) {
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
+  const [apiKey, setApiKey] = useState('');           // ← NEW!
   const [tillNumber, setTillNumber] = useState('');
-  const [webhookSecret, setWebhookSecret] = useState('');
 
   useEffect(() => {
     if (config) {
       setClientId(config.client_id || '');
       setClientSecret(config.client_secret || '');
+      setApiKey(config.api_key || '');                // ← NEW!
       setTillNumber(config.till_number || '');
-      setWebhookSecret(config.webhook_secret || '');
     }
   }, [config]);
 
@@ -56,6 +56,7 @@ export default function KopokopoTab({ config, isActive, onSave, onDelete, loadin
   const handleSave = async () => {
     const cleanClientId = clientId.trim();
     const cleanClientSecret = clientSecret.trim();
+    const cleanApiKey = apiKey.trim();                // ← NEW!
     const cleanTillNumber = tillNumber.trim();
 
     if (!cleanClientId) {
@@ -66,20 +67,21 @@ export default function KopokopoTab({ config, isActive, onSave, onDelete, loadin
       alert('Client Secret is required');
       return;
     }
+    if (!cleanApiKey) {                                // ← NEW!
+      alert('API Key is required');
+      return;
+    }
     if (!cleanTillNumber) {
       alert('Till Number is required');
       return;
     }
 
-    const payload: any = {
+    const payload = {
       client_id: cleanClientId,
       client_secret: cleanClientSecret,
+      api_key: cleanApiKey,                           // ← NEW!
       till_number: cleanTillNumber,
     };
-
-    if (webhookSecret.trim()) {
-      payload.webhook_secret = webhookSecret.trim();
-    }
 
     await onSave(payload);
   };
@@ -89,8 +91,8 @@ export default function KopokopoTab({ config, isActive, onSave, onDelete, loadin
       await onDelete();
       setClientId('');
       setClientSecret('');
+      setApiKey('');                                  // ← NEW!
       setTillNumber('');
-      setWebhookSecret('');
     }
   };
 
@@ -184,39 +186,34 @@ export default function KopokopoTab({ config, isActive, onSave, onDelete, loadin
 
         <div>
           <FormField
+            name="api_key"
+            label="API Key"
+            value={apiKey}
+            onChange={(e: any) => setApiKey(e.target.value)}
+            type="password"
+            placeholder="Enter API Key from Kopo Kopo portal"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            <HelpCircle className="w-3 h-3" />
+            Your Kopo Kopo API Key - used to validate webhook signatures
+          </p>
+        </div>
+
+        <div>
+          <FormField
             name="till_number"
             label="Till Number"
             value={tillNumber}
             onChange={(e: any) => setTillNumber(e.target.value)}
             type="text"
-            placeholder="e.g., 123456"
+            placeholder="e.g., 123456 or K000000"
             required
           />
           <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
             <HelpCircle className="w-3 h-3" />
             Your Kopo Kopo Till number for receiving payments
           </p>
-        </div>
-
-        <div className="border-t border-gray-200 py-4 mt-2">
-          <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-            <Key className="w-4 h-4" />
-            Webhook Configuration (Optional)
-          </h4>
-          <div>
-            <FormField
-              name="webhook_secret"
-              label="Webhook Secret"
-              value={webhookSecret}
-              onChange={(e: any) => setWebhookSecret(e.target.value)}
-              type="text"
-              placeholder="Enter webhook secret or leave blank to auto-generate"
-            />
-            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-              <HelpCircle className="w-3 h-3" />
-              Optional - if left blank, a secret will be auto-generated for secure callbacks
-            </p>
-          </div>
         </div>
       </div>
 

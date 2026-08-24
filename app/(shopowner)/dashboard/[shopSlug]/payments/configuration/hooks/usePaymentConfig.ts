@@ -26,8 +26,8 @@ interface StkPushConfig {
 interface KopokopoConfig {
   client_id: string | null;
   client_secret: string | null;
+  api_key: string | null;          // ← NEW!
   till_number: string | null;
-  webhook_secret: string | null;
 }
 
 interface PaymentSettings {
@@ -245,8 +245,8 @@ export function usePaymentConfig() {
   const saveKopokopo = async (config: {
     client_id: string;
     client_secret: string;
+    api_key: string;              // ← NEW! Required
     till_number: string;
-    webhook_secret?: string;
   }) => {
     setLoading(true);
     try {
