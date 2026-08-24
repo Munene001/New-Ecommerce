@@ -1,20 +1,20 @@
 'use client';
 
 import DashCard from "@/app/components/ui/dashCard";
-import { DollarSign, Clock, CheckCircle, TrendingUp } from "lucide-react";
+import { DollarSign, TrendingUp, Smartphone, Percent } from "lucide-react";
 
 interface PaymentsStatsCardsProps {
   totalRevenue: number;
-  pendingPayouts: number;
-  completedPayouts: number;
-  monthlyRevenue?: number; // Optional for future use
+  monthlyRevenue: number;
+  stkPayments: number;
+  stkPaymentRate: number;
 }
 
 export default function PaymentsStatsCards({ 
   totalRevenue, 
-  pendingPayouts, 
-  completedPayouts,
-  monthlyRevenue = 0,
+  monthlyRevenue,
+  stkPayments,
+  stkPaymentRate,
 }: PaymentsStatsCardsProps) {
   
   const statsData = [
@@ -25,22 +25,22 @@ export default function PaymentsStatsCards({
       subtitle: "All time sales",
     },
     { 
-      title: "Pending Payouts", 
-      value: `KES ${pendingPayouts.toLocaleString()}`, 
-      icon: Clock, 
-      subtitle: "Awaiting settlement",
-    },
-    { 
-      title: "Completed Payouts", 
-      value: `KES ${completedPayouts.toLocaleString()}`, 
-      icon: CheckCircle, 
-      subtitle: "Successfully paid",
-    },
-    { 
       title: "Monthly Revenue", 
       value: `KES ${monthlyRevenue.toLocaleString()}`, 
       icon: TrendingUp, 
       subtitle: "This month",
+    },
+    { 
+      title: "STK Payments", 
+      value: stkPayments.toLocaleString(), 
+      icon: Smartphone, 
+      subtitle: "Successful STK transactions",
+    },
+    { 
+      title: "STK Payment Rate", 
+      value: `${stkPaymentRate}%`, 
+      icon: Percent, 
+      subtitle: "Of M-Pesa orders via STK",
     },
   ];
 

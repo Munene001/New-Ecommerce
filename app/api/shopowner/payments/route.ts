@@ -8,7 +8,7 @@ interface PaymentSettingsRow extends RowDataPacket {
   payment_setting_id: number;
   shop_id: number;
   cod_enabled: number;
-  active_payment_type: 'direct_mpesa' | 'stk_push' | null;
+  active_payment_type: 'direct_mpesa' | 'stk_push' | 'kopokopo' | null;
 }
 
 interface DirectMpesaRow extends RowDataPacket {
@@ -34,7 +34,16 @@ interface StkPushRow extends RowDataPacket {
   shortcode: string;
 }
 
-// Helper to get payment settings for a shop
+interface KopokopoRow extends RowDataPacket {
+  kopokopo_id: number;
+  payment_setting_id: number;
+  client_id: string;
+  client_secret: string;
+  api_key: string;
+  till_number: string;
+  webhook_secret: string | null;
+}
+
 async function getPaymentSettings(shopId: number): Promise<PaymentSettingsRow | null> {
   const [rows] = await pool.query<PaymentSettingsRow[]>(
     `SELECT payment_setting_id, shop_id, cod_enabled, active_payment_type 
@@ -45,7 +54,6 @@ async function getPaymentSettings(shopId: number): Promise<PaymentSettingsRow | 
   return rows.length ? rows[0] : null;
 }
 
-// SHOPOWNER ONLY - GET payment settings for management
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -60,14 +68,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid shop_id' }, { status: 400 });
     }
 
-    // Verify access using helper
     const { authorized, response } = await verifyShopAccess(req, shopId);
-    
-    if (!authorized) {
-      return response;
-    }
+    if (!authorized) return response;
 
-    // Get payment settings
     const settings = await getPaymentSettings(shopId);
     
     if (!settings) {
@@ -77,19 +80,17 @@ export async function GET(req: NextRequest) {
           cod_enabled: true,
           has_direct_mpesa: false,
           has_stk_push: false,
+          has_kopokopo: false,
           has_any_mpesa_config: false,
           can_disable_cod: false,
           active_payment_type: null,
           direct_mpesa: null,
-          stk_push: null
+          stk_push: null,
+          kopokopo: null
         }
       });
     }
     
-    const codEnabled = settings.cod_enabled === 1;
-    const activePaymentType = settings.active_payment_type;
-    
-    // Fetch direct mpesa if exists
     const [directMpesa] = await pool.query<DirectMpesaRow[]>(
       `SELECT direct_mpesa_id, type, business_number, account_number, till_number, phone_number
        FROM shop_direct_mpesa
@@ -97,7 +98,6 @@ export async function GET(req: NextRequest) {
       [settings.payment_setting_id]
     );
     
-    // Fetch STK Push if exists
     const [stkPush] = await pool.query<StkPushRow[]>(
       `SELECT stk_push_id, type, business_number, till_number, account_number, 
               consumer_key, consumer_secret, passkey, shortcode
@@ -106,19 +106,28 @@ export async function GET(req: NextRequest) {
       [settings.payment_setting_id]
     );
     
+    const [kopokopo] = await pool.query<KopokopoRow[]>(
+      `SELECT kopokopo_id, client_id, client_secret, api_key, till_number, webhook_secret
+       FROM shop_kopokopo
+       WHERE payment_setting_id = ?`,
+      [settings.payment_setting_id]
+    );
+    
     const hasDirectMpesa = directMpesa.length > 0;
     const hasStkPush = stkPush.length > 0;
-    const hasAnyMpesaConfig = hasDirectMpesa || hasStkPush;
+    const hasKopokopo = kopokopo.length > 0;
+    const hasAnyMpesaConfig = hasDirectMpesa || hasStkPush || hasKopokopo;
     
     return NextResponse.json({
       success: true,
       data: {
-        cod_enabled: codEnabled,
+        cod_enabled: settings.cod_enabled === 1,
         has_direct_mpesa: hasDirectMpesa,
         has_stk_push: hasStkPush,
+        has_kopokopo: hasKopokopo,
         has_any_mpesa_config: hasAnyMpesaConfig,
         can_disable_cod: hasAnyMpesaConfig,
-        active_payment_type: activePaymentType,
+        active_payment_type: settings.active_payment_type,
         direct_mpesa: hasDirectMpesa ? {
           type: directMpesa[0].type,
           business_number: directMpesa[0].business_number,
@@ -135,6 +144,13 @@ export async function GET(req: NextRequest) {
           consumer_secret: stkPush[0].consumer_secret,
           passkey: stkPush[0].passkey,
           shortcode: stkPush[0].shortcode
+        } : null,
+        kopokopo: hasKopokopo ? {
+          client_id: kopokopo[0].client_id,
+          client_secret: kopokopo[0].client_secret,
+          api_key: kopokopo[0].api_key,
+          till_number: kopokopo[0].till_number,
+          webhook_secret: kopokopo[0].webhook_secret
         } : null
       }
     });
@@ -144,7 +160,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Update COD status
 export async function PUT(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -166,29 +181,29 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'cod_enabled required' }, { status: 400 });
     }
 
-    // Verify access using helper
     const { authorized, response } = await verifyShopAccess(req, shopId);
-    
-    if (!authorized) {
-      return response;
-    }
+    if (!authorized) return response;
 
-    // If disabling COD, check that another payment method exists
     if (cod_enabled === false) {
       const settings = await getPaymentSettings(shopId);
       
       if (settings) {
-        const [directMpesa] = await pool.query<DirectMpesaRow[]>(
+        const [directMpesa] = await pool.query<RowDataPacket[]>(
           `SELECT 1 FROM shop_direct_mpesa WHERE payment_setting_id = ?`,
           [settings.payment_setting_id]
         );
         
-        const [stkPush] = await pool.query<StkPushRow[]>(
+        const [stkPush] = await pool.query<RowDataPacket[]>(
           `SELECT 1 FROM shop_stk_push WHERE payment_setting_id = ?`,
           [settings.payment_setting_id]
         );
         
-        const hasOtherPayment = directMpesa.length > 0 || stkPush.length > 0;
+        const [kopokopo] = await pool.query<RowDataPacket[]>(
+          `SELECT 1 FROM shop_kopokopo WHERE payment_setting_id = ?`,
+          [settings.payment_setting_id]
+        );
+        
+        const hasOtherPayment = directMpesa.length > 0 || stkPush.length > 0 || kopokopo.length > 0;
         
         if (!hasOtherPayment) {
           return NextResponse.json({ 
@@ -198,7 +213,6 @@ export async function PUT(req: NextRequest) {
       }
     }
     
-    // Create settings if not exists
     await pool.query(
       `INSERT INTO shop_payment_settings (shop_id, cod_enabled) 
        VALUES (?, ?)
@@ -216,8 +230,6 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// Save payment configuration (Direct M-Pesa OR STK Push)
-// Save payment configuration (Direct M-Pesa OR STK Push)
 export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -233,22 +245,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-
-  
-
     const { payment_method, ...config } = body;
     
-    if (!payment_method || !['direct_mpesa', 'stk_push'].includes(payment_method)) {
-      return NextResponse.json({ error: 'Valid payment_method required (direct_mpesa or stk_push)' }, { status: 400 });
+    if (!payment_method || !['direct_mpesa', 'stk_push', 'kopokopo'].includes(payment_method)) {
+      return NextResponse.json({ error: 'Valid payment_method required (direct_mpesa, stk_push, or kopokopo)' }, { status: 400 });
     }
 
-    // Verify access using helper
     const { authorized, response } = await verifyShopAccess(req, shopId);
-    if (!authorized) {
-      return response;
-    }
+    if (!authorized) return response;
     
-    // 1. Ensure shop_payment_settings record exists
     await pool.query(
       `INSERT INTO shop_payment_settings (shop_id, cod_enabled) 
        VALUES (?, 1)
@@ -256,7 +261,6 @@ export async function POST(req: NextRequest) {
       [shopId]
     );
 
-    // 2. Fetch the correct payment_setting_id reliably
     const settings = await getPaymentSettings(shopId);
     if (!settings) {
       return NextResponse.json({ error: 'Failed to retrieve payment settings' }, { status: 500 });
@@ -264,7 +268,6 @@ export async function POST(req: NextRequest) {
     
     const paymentSettingId = settings.payment_setting_id;
     
-    // Handle Direct M-Pesa
     if (payment_method === 'direct_mpesa') {
       const { type, business_number, account_number, till_number, phone_number } = config;
       
@@ -295,23 +298,9 @@ export async function POST(req: NextRequest) {
       });
     }
     
-    // Handle STK Push
     if (payment_method === 'stk_push') {
       const { type, shortcode, consumer_key, consumer_secret, passkey, business_number, till_number, account_number } = config;
       
-    
-      ( {
-        type,
-        shortcode,
-        consumer_key,
-        consumer_secret,
-        passkey,
-        passkeyType: typeof passkey,
-        business_number,
-        till_number,
-        account_number
-      });
-
       if (!type || !['paybill', 'till'].includes(type)) {
         return NextResponse.json({ error: 'Valid type required for stk_push (paybill or till)' }, { status: 400 });
       }
@@ -324,7 +313,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Consumer Key, Consumer Secret, and Passkey are required' }, { status: 400 });
       }
       
-      // Upsert STK Push configuration
       await pool.query(
         `INSERT INTO shop_stk_push (payment_setting_id, type, shortcode, consumer_key, consumer_secret, passkey, business_number, till_number, account_number)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -351,14 +339,102 @@ export async function POST(req: NextRequest) {
       });
     }
     
-    return NextResponse.json({ error: 'Invalid payment_method' }, { status: 400 });
+    if (payment_method === 'kopokopo') {
+      const { client_id, client_secret, api_key, till_number, webhook_secret } = config;
+      
+      if (!client_id || !client_secret || !api_key || !till_number) {
+        return NextResponse.json({ error: 'Client ID, Client Secret, API Key, and Till Number are required for Kopo Kopo' }, { status: 400 });
+      }
+      
+      // ============================================================
+      // STEP 1: Register webhook with Spring Boot FIRST
+      // ============================================================
+      let registrationSuccess = false;
+      let registrationError = null;
+      
+      try {
+        const springBootUrl = process.env.SPRING_BOOT_URL || 'http://localhost:8081';
+        
+        const registrationResponse = await fetch(`${springBootUrl}/api/webhooks/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Internal-Api-Key': process.env.SPRING_BOOT_INTERNAL_SECRET || '',
+          },
+          body: JSON.stringify({
+            clientId: client_id,
+            clientSecret: client_secret,
+            apiKey: api_key,
+            tillNumber: till_number,
+            // webhookUrl is NOT sent - Spring Boot builds it!
+          }),
+        });
+
+        const registrationData = await registrationResponse.json();
+        
+        if (
+          (registrationResponse.ok && registrationData.success) || 
+          registrationData.error?.toLowerCase().includes('already exists') ||
+          registrationData.error?.toLowerCase().includes('duplicate') ||
+          registrationResponse.status === 409 ||
+          registrationResponse.status === 422
+        ) {
+          registrationSuccess = true;
+          console.log('✅ Webhook active for till:', till_number);
+        } else {
+          registrationSuccess = false;
+          registrationError = registrationData.error || 'Webhook registration failed';
+          console.error('Webhook registration failed:', registrationData);
+        }
+      } catch (error) {
+        registrationSuccess = false;
+        registrationError = error instanceof Error ? error.message : 'Webhook registration error';
+        console.error('Webhook registration error:', error);
+      }
+      
+      // ============================================================
+      // STEP 2: If registration failed, return error (don't save!)
+      // ============================================================
+      if (!registrationSuccess) {
+        return NextResponse.json({
+          success: false,
+          error: `Failed to register webhook with Kopo Kopo: ${registrationError}. Please check your credentials and try again.`
+        }, { status: 400 });
+      }
+      
+      // ============================================================
+      // STEP 3: Registration succeeded → Save to database
+      // ============================================================
+      await pool.query(
+        `INSERT INTO shop_kopokopo (payment_setting_id, client_id, client_secret, api_key, till_number, webhook_secret)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+         client_id = VALUES(client_id),
+         client_secret = VALUES(client_secret),
+         api_key = VALUES(api_key),
+         till_number = VALUES(till_number),
+         webhook_secret = VALUES(webhook_secret)`,
+        [paymentSettingId, client_id, client_secret, api_key, till_number, webhook_secret || null]
+      );
+      
+      await pool.query(
+        `UPDATE shop_payment_settings SET active_payment_type = 'kopokopo' WHERE shop_id = ?`,
+        [shopId]
+      );
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Kopo Kopo configuration saved successfully and webhook registered!'
+      });
+    }
     
+    return NextResponse.json({ error: 'Invalid payment_method' }, { status: 400 });
   } catch (error) {
     console.error('POST payment config error:', error);
     return NextResponse.json({ error: 'Failed to save payment configuration' }, { status: 500 });
   }
 }
-// Remove payment configuration (Direct M-Pesa OR STK Push)
+
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -376,16 +452,12 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json();
     const { action } = body;
     
-    if (!action || !['direct-mpesa', 'stk-push'].includes(action)) {
-      return NextResponse.json({ error: 'Valid action required (direct-mpesa or stk-push)' }, { status: 400 });
+    if (!action || !['direct-mpesa', 'stk-push', 'kopokopo'].includes(action)) {
+      return NextResponse.json({ error: 'Valid action required (direct-mpesa, stk-push, or kopokopo)' }, { status: 400 });
     }
 
-    // Verify access using helper
     const { authorized, response } = await verifyShopAccess(req, shopId);
-    
-    if (!authorized) {
-      return response;
-    }
+    if (!authorized) return response;
     
     const settings = await getPaymentSettings(shopId);
     
@@ -393,36 +465,54 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No payment settings found' }, { status: 404 });
     }
     
-    // Handle Direct M-Pesa deletion
+    const activeType = settings.active_payment_type;
+    const providerToAction: Record<string, string> = {
+      'direct_mpesa': 'direct-mpesa',
+      'stk_push': 'stk-push',
+      'kopokopo': 'kopokopo'
+    };
+    
+    if (activeType && providerToAction[activeType] === action) {
+      await pool.query(
+        `UPDATE shop_payment_settings SET active_payment_type = NULL WHERE shop_id = ?`,
+        [shopId]
+      );
+    }
+    
     if (action === 'direct-mpesa') {
       await pool.query(
         `DELETE FROM shop_direct_mpesa WHERE payment_setting_id = ?`,
         [settings.payment_setting_id]
       );
-    }
-    
-    // Handle STK Push deletion
-    if (action === 'stk-push') {
+    } else if (action === 'stk-push') {
       await pool.query(
         `DELETE FROM shop_stk_push WHERE payment_setting_id = ?`,
         [settings.payment_setting_id]
       );
+    } else if (action === 'kopokopo') {
+      await pool.query(
+        `DELETE FROM shop_kopokopo WHERE payment_setting_id = ?`,
+        [settings.payment_setting_id]
+      );
     }
     
-    // Check if any M-Pesa configs remain
-    const [directMpesa] = await pool.query<DirectMpesaRow[]>(
+    const [directMpesa] = await pool.query<RowDataPacket[]>(
       `SELECT 1 FROM shop_direct_mpesa WHERE payment_setting_id = ?`,
       [settings.payment_setting_id]
     );
     
-    const [stkPush] = await pool.query<StkPushRow[]>(
+    const [stkPush] = await pool.query<RowDataPacket[]>(
       `SELECT 1 FROM shop_stk_push WHERE payment_setting_id = ?`,
       [settings.payment_setting_id]
     );
     
-    const hasAnyConfig = directMpesa.length > 0 || stkPush.length > 0;
+    const [kopokopo] = await pool.query<RowDataPacket[]>(
+      `SELECT 1 FROM shop_kopokopo WHERE payment_setting_id = ?`,
+      [settings.payment_setting_id]
+    );
     
-    // If no configs remain, clear active_payment_type
+    const hasAnyConfig = directMpesa.length > 0 || stkPush.length > 0 || kopokopo.length > 0;
+    
     if (!hasAnyConfig) {
       await pool.query(
         `UPDATE shop_payment_settings SET active_payment_type = NULL WHERE shop_id = ?`,
@@ -432,9 +522,8 @@ export async function DELETE(req: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: `${action === 'direct-mpesa' ? 'Direct M-Pesa' : 'STK Push'} configuration removed successfully`
+      message: 'Configuration removed successfully'
     });
-    
   } catch (error) {
     console.error('DELETE payment config error:', error);
     return NextResponse.json({ error: 'Failed to remove payment configuration' }, { status: 500 });

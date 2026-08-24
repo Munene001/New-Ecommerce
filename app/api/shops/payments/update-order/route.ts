@@ -1,17 +1,15 @@
+// app/api/shops/payments/update-order/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
 import { sendBuyerOrderEmail, sendSellerOrderEmail } from '@/lib/email/ordermail';
 
-function normalizeId(id: any): number | null {
-  if (id === null || id === undefined) return null;
-  const num = Number(id);
-  return isNaN(num) ? null : num;
-}
+// --- TYPES ---
 
 interface TransactionRow extends RowDataPacket {
   transaction_id: number;
   order_id: number;
+  checkout_request_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   retryable: number;
 }
@@ -19,6 +17,7 @@ interface TransactionRow extends RowDataPacket {
 interface OrderRow extends RowDataPacket {
   order_id: number;
   order_number: string;
+  shop_id: number;
   customer_email: string;
   customer_name: string;
   customer_phone: string;
@@ -47,6 +46,14 @@ interface ShopRow extends RowDataPacket {
   contact_phone: string;
 }
 
+// --- HELPER FUNCTIONS ---
+
+function normalizeId(id: unknown): number | null {
+  if (id === null || id === undefined) return null;
+  const num = Number(id);
+  return isNaN(num) ? null : num;
+}
+
 function parseVariantName(variantNameStr: string | null): string | null {
   if (!variantNameStr) return null;
   try {
@@ -62,23 +69,45 @@ function parseVariantName(variantNameStr: string | null): string | null {
   }
 }
 
-/**
- * Deducts stock atomically based on variant or base product IDs
- */
-async function deductStockForOrder(orderId: number): Promise<{ success: boolean; deducted: boolean }> {
-  (`📦 [UPDATE] Starting atomic stock deduction for order ${orderId}`);
-  
-  const [items] = await pool.query<OrderItemRow[]>(
+function extractTillNumber(body: Record<string, any>): string | null {
+  if (body.tillNumber) return body.tillNumber;
+
+  const rawCallback = body.rawCallback;
+  if (rawCallback) {
+    if (rawCallback.data?.attributes?.till_number) {
+      return rawCallback.data.attributes.till_number;
+    }
+    if (rawCallback.event?.resource?.till_number) {
+      return rawCallback.event.resource.till_number;
+    }
+  }
+
+  return null;
+}
+
+async function getKopokopoTillByShopId(shopId: number): Promise<string | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT k.till_number 
+     FROM shop_kopokopo k
+     JOIN shop_payment_settings ps ON k.payment_setting_id = ps.payment_setting_id
+     WHERE ps.shop_id = ?`,
+    [shopId]
+  );
+  return rows.length > 0 ? rows[0].till_number : null;
+}
+
+async function deductStockForOrderTx(conn: PoolConnection, orderId: number): Promise<boolean> {
+  console.log(`📦 [UPDATE] Starting atomic stock deduction transaction for order ${orderId}`);
+
+  const [items] = await conn.query<OrderItemRow[]>(
     `SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?`,
     [orderId]
   );
 
   if (items.length === 0) {
     console.warn(`⚠️ [UPDATE] No items found for order ${orderId} to deduct stock`);
-    return { success: true, deducted: false };
+    return false;
   }
-
-  let anyDeducted = false;
 
   for (const item of items) {
     const variantId = normalizeId(item.variant_id);
@@ -88,28 +117,31 @@ async function deductStockForOrder(orderId: number): Promise<{ success: boolean;
     if (qty <= 0) continue;
 
     if (variantId !== null) {
-      (`🔍 [UPDATE] Deducting variant_id ${variantId} by ${qty}`);
-      const [res] = await pool.query<ResultSetHeader>(
+      console.log(`🔍 [UPDATE] Deducting variant_id ${variantId} by ${qty}`);
+      const [res] = await conn.query<ResultSetHeader>(
         `UPDATE product_variants 
-         SET stock_quantity = GREATEST(0, stock_quantity - ?)
-         WHERE variant_id = ? AND stock_quantity > 0`,
-        [qty, variantId]
+         SET stock_quantity = stock_quantity - ?
+         WHERE variant_id = ? AND stock_quantity >= ?`,
+        [qty, variantId, qty]
       );
-      if (res.affectedRows > 0) anyDeducted = true;
+      if (res.affectedRows === 0) {
+        throw new Error(`Insufficient stock for variant_id ${variantId}. Requested: ${qty}, Available: less than ${qty}`);
+      }
     } else if (productId !== null) {
-      (`🔍 [UPDATE] Deducting product_id ${productId} by ${qty}`);
-      const [res] = await pool.query<ResultSetHeader>(
+      console.log(`🔍 [UPDATE] Deducting product_id ${productId} by ${qty}`);
+      const [res] = await conn.query<ResultSetHeader>(
         `UPDATE products 
-         SET stock_quantity = GREATEST(0, stock_quantity - ?)
-         WHERE product_id = ? AND stock_quantity > 0`,
-        [qty, productId]
+         SET stock_quantity = stock_quantity - ?
+         WHERE product_id = ? AND stock_quantity >= ?`,
+        [qty, productId, qty]
       );
-      if (res.affectedRows > 0) anyDeducted = true;
+      if (res.affectedRows === 0) {
+        throw new Error(`Insufficient stock for product_id ${productId}. Requested: ${qty}, Available: less than ${qty}`);
+      }
     }
   }
-  
-  (`✅ [UPDATE] Stock deduction completed. Any deducted: ${anyDeducted}`);
-  return { success: true, deducted: anyDeducted };
+
+  return true;
 }
 
 async function getShopDetailsForOrder(orderId: number): Promise<ShopRow | null> {
@@ -123,11 +155,61 @@ async function getShopDetailsForOrder(orderId: number): Promise<ShopRow | null> 
   return rows.length > 0 ? rows[0] : null;
 }
 
+// --- TRANSACTION LOOKUP WITH RETRY ---
+
+async function findTransactionWithRetry(
+  checkoutRequestId: string,
+  orderId?: number
+): Promise<TransactionRow | null> {
+  const maxRetries = 3;
+  const backoffMs = 150;
+
+  for (let i = 0; i < maxRetries; i++) {
+    // Primary Lookup by checkout_request_id
+    const [rows] = await pool.query<TransactionRow[]>(
+      `SELECT transaction_id, order_id, checkout_request_id, status, retryable 
+       FROM stk_push_transactions 
+       WHERE checkout_request_id = ?`,
+      [checkoutRequestId]
+    );
+
+    if (rows.length > 0) {
+      console.log(`✅ [UPDATE] Transaction found by checkoutRequestId: ${checkoutRequestId}`);
+      return rows[0];
+    }
+
+    // Fallback Lookup by order_id if passed
+    if (orderId) {
+      const [fallbackRows] = await pool.query<TransactionRow[]>(
+        `SELECT transaction_id, order_id, checkout_request_id, status, retryable 
+         FROM stk_push_transactions 
+         WHERE order_id = ? AND status = 'pending' 
+         ORDER BY transaction_id DESC LIMIT 1`,
+        [orderId]
+      );
+
+      if (fallbackRows.length > 0) {
+        console.log(`✅ [UPDATE] Resolved race condition via order_id fallback: ${orderId}`);
+        return fallbackRows[0];
+      }
+    }
+
+    if (i < maxRetries - 1) {
+      console.log(`⏳ [UPDATE] Transaction not found, retry ${i + 1}/${maxRetries}...`);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs * (i + 1)));
+    }
+  }
+
+  return null;
+}
+
+// --- MAIN ROUTE HANDLER ---
+
 export async function POST(req: NextRequest) {
-  ('🔵 [UPDATE] Payment callback received from Spring Boot');
-  
+  console.log('🔵 [UPDATE] Payment callback received from Spring Boot');
+
   try {
-    // STEP 1: Verify internal secret header
+    // 1. Verify internal secret header
     const internalSecret = req.headers.get('x-internal-secret');
     const EXPECTED_SECRET = process.env.SPRING_BOOT_INTERNAL_SECRET;
 
@@ -138,19 +220,21 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    ('✅ [UPDATE] Internal secret verified');
+    console.log('✅ [UPDATE] Internal secret verified');
 
-    // STEP 2: Parse payload
+    // 2. Parse payload
     const body = await req.json();
-    const { 
-      checkoutRequestId, 
-      status: springStatus, 
-      resultCode, 
-      resultDesc, 
-      displayMessage 
+    const {
+      checkoutRequestId,
+      status: springStatus,
+      resultCode,
+      resultDesc,
+      displayMessage,
+      mpesaReceiptNumber,
+      isKopokopo,
+      tillNumber: providedTillNumber,
+      orderId: providedOrderId
     } = body;
-
-
 
     if (!checkoutRequestId) {
       console.error('❌ [UPDATE] Missing checkoutRequestId');
@@ -160,29 +244,63 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // STEP 3: Lookup transaction
-    const [transactions] = await pool.query<TransactionRow[]>(
-      `SELECT transaction_id, order_id, status, retryable
-       FROM stk_push_transactions 
-       WHERE checkout_request_id = ?`,
-      [checkoutRequestId]
-    );
+    // 3. Query transaction with retry + orderId fallback
+    const transaction = await findTransactionWithRetry(checkoutRequestId, providedOrderId);
 
-    if (transactions.length === 0) {
-      console.error(`❌ [UPDATE] Transaction not found for: ${checkoutRequestId}`);
+    if (!transaction) {
+      console.error(`❌ [UPDATE] Transaction not found after retries for: ${checkoutRequestId}`);
       return NextResponse.json(
         { success: false, error: 'Transaction not found' },
         { status: 404 }
       );
     }
 
-    const transaction = transactions[0];
     const orderId = transaction.order_id;
-    (`✅ [UPDATE] Transaction ID=${transaction.transaction_id}, OrderID=${orderId}, DB Status=${transaction.status}`);
 
-    // Idempotency check: Process only if status is 'pending'
+    // 4. Patch checkout_request_id if matched via fallback
+    if (transaction.checkout_request_id !== checkoutRequestId) {
+      console.log(`🔄 [UPDATE] Updating transaction with checkoutRequestId: ${checkoutRequestId}`);
+      await pool.query(
+        `UPDATE stk_push_transactions 
+         SET checkout_request_id = ? 
+         WHERE transaction_id = ?`,
+        [checkoutRequestId, transaction.transaction_id]
+      );
+    }
+
+    // 5. Handle Kopokopo callbacks
+    if (isKopokopo) {
+      console.log('🔐 [UPDATE] Processing Kopo Kopo callback');
+
+      let tillNumber = providedTillNumber || extractTillNumber(body);
+      
+      if (!tillNumber) {
+        console.log('🔍 [UPDATE] tillNumber missing from callback, looking up from DB...');
+        
+        const [orderRows] = await pool.query<OrderRow[]>(
+          `SELECT shop_id FROM orders WHERE order_id = ?`,
+          [orderId]
+        );
+        
+        if (orderRows.length > 0) {
+          const shopId = orderRows[0].shop_id;
+          tillNumber = await getKopokopoTillByShopId(shopId);
+          if (tillNumber) {
+            console.log(`✅ [UPDATE] tillNumber found in DB: ${tillNumber}`);
+          }
+        }
+      }
+      
+      if (!tillNumber) {
+        console.warn('⚠️ [UPDATE] Could not resolve tillNumber, but continuing with order update');
+      } else {
+        console.log(`✅ [UPDATE] Processing for till: ${tillNumber}`);
+      }
+    }
+
+    // 6. Idempotency Check
     if (transaction.status !== 'pending') {
-      (`ℹ️ [UPDATE] Transaction already in final state: ${transaction.status}`);
+      console.log(`ℹ️ [UPDATE] Transaction already in final state: ${transaction.status}`);
       return NextResponse.json({
         success: true,
         message: 'Already processed',
@@ -191,41 +309,41 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // STEP 4: Resolve database ENUM values strictly matching table schema
+    // 7. Map Status & Enums
     const isSuccess = springStatus === 'COMPLETED' || resultCode === 0;
     const retryableCodes = [1032, 1, 2001, 1037, 8006];
     const isRetryable = retryableCodes.includes(resultCode);
 
-    // Matches ENUM('pending','processing','completed','failed','cancelled')
-    const dbTransactionStatus: 'completed' | 'failed' | 'cancelled' = isSuccess 
-      ? 'completed' 
+    const dbTransactionStatus: 'completed' | 'failed' | 'cancelled' = isSuccess
+      ? 'completed'
       : (resultCode === 1032 ? 'cancelled' : 'failed');
 
     const orderPaymentStatus = isSuccess ? 'paid' : 'pending';
     const orderOrderStatus = isSuccess ? 'processing' : 'pending';
 
-    // STEP 5: Update transaction state
-    (`💾 [UPDATE] Updating transaction ${transaction.transaction_id} to status=${dbTransactionStatus}`);
+    // 8. Atomic Transaction State Update (including mpesa_receipt_number)
+    console.log(`💾 [UPDATE] Updating transaction ${transaction.transaction_id} to status=${dbTransactionStatus}, receipt=${mpesaReceiptNumber || 'NULL'}`);
     const [updateResult] = await pool.query<ResultSetHeader>(
       `UPDATE stk_push_transactions 
        SET status = ?,
            result_code = ?,
            result_description = ?,
            retryable = ?,
+           mpesa_receipt_number = ?,
            updated_at = NOW()
-       WHERE checkout_request_id = ? 
-         AND status = 'pending'`,
+       WHERE transaction_id = ? AND status = 'pending'`,
       [
         dbTransactionStatus,
         resultCode,
         resultDesc,
         isRetryable ? 1 : 0,
-        checkoutRequestId
+        mpesaReceiptNumber || null,
+        transaction.transaction_id
       ]
     );
 
     if (updateResult.affectedRows === 0) {
-      (`ℹ️ [UPDATE] Race condition avoided: Transaction already updated`);
+      console.log(`ℹ️ [UPDATE] Race condition avoided: Transaction already updated`);
       return NextResponse.json({
         success: true,
         message: 'Already processed',
@@ -233,8 +351,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // STEP 6: Update main order status
-    (`💾 [UPDATE] Updating order ${orderId}...`);
+    // 9. Update Order Status
+    console.log(`💾 [UPDATE] Updating order ${orderId}...`);
     await pool.query(
       `UPDATE orders 
        SET payment_status = ?,
@@ -244,9 +362,9 @@ export async function POST(req: NextRequest) {
       [orderPaymentStatus, orderOrderStatus, orderId]
     );
 
-    // STEP 7: Handle successful payment actions (Stock + Emails)
+    // 10. Post-Payment Processing
     if (isSuccess) {
-      (`💰 [UPDATE] Processing post-payment steps for order ${orderId}`);
+      console.log(`💰 [UPDATE] Processing post-payment steps for order ${orderId}`);
       
       const [orderRows] = await pool.query<OrderRow[]>(
         `SELECT order_id, order_number, customer_email, customer_name, 
@@ -261,23 +379,37 @@ export async function POST(req: NextRequest) {
         const order = orderRows[0];
         const isStockAlreadyDeducted = Boolean(order.stock_deducted) && Number(order.stock_deducted) !== 0;
 
-        // Atomic stock deduction logic
         if (!isStockAlreadyDeducted) {
+          const conn = await pool.getConnection();
           try {
-            const stockResult = await deductStockForOrder(orderId);
-            if (stockResult.deducted) {
-              await pool.query(
-                `UPDATE orders SET stock_deducted = TRUE WHERE order_id = ?`,
-                [orderId]
-              );
-              (`✅ [UPDATE] Stock deducted and flag set for order ${orderId}`);
+            await conn.beginTransaction();
+
+            const [markResult] = await conn.query<ResultSetHeader>(
+              `UPDATE orders SET stock_deducted = TRUE WHERE order_id = ? AND stock_deducted = FALSE`,
+              [orderId]
+            );
+
+            if (markResult.affectedRows === 1) {
+              const deducted = await deductStockForOrderTx(conn, orderId);
+              if (deducted) {
+                await conn.commit();
+                console.log(`✅ [UPDATE] Stock transaction committed for order ${orderId}`);
+              } else {
+                await conn.rollback();
+                console.log(`⚠️ [UPDATE] No stock items deducted; transaction rolled back.`);
+              }
+            } else {
+              await conn.rollback();
             }
           } catch (stockError) {
-            console.error(`❌ [UPDATE] Stock deduction error for order ${orderId}:`, stockError);
+            await conn.rollback();
+            console.error(`❌ [UPDATE] Transactional stock deduction error for order ${orderId}:`, stockError);
+          } finally {
+            conn.release();
           }
         }
 
-        // Send Email Notifications asynchronously
+        // Email Orchestration
         try {
           const shopDetails = await getShopDetailsForOrder(orderId);
           const [orderItems] = await pool.query<OrderItemRow[]>(
@@ -339,11 +471,10 @@ export async function POST(req: NextRequest) {
               );
             }
 
-            (`📧 [UPDATE] Dispatching buyer/seller emails...`);
             const results = await Promise.allSettled(emailPromises);
             results.forEach((res, i) => {
               if (res.status === 'rejected') console.error(`❌ [UPDATE] Email ${i} failed:`, res.reason);
-              else (`✅ [UPDATE] Email ${i} sent`);
+              else console.log(`✅ [UPDATE] Email ${i} sent`);
             });
           }
         } catch (emailErr) {
@@ -358,6 +489,7 @@ export async function POST(req: NextRequest) {
       orderId,
       status: dbTransactionStatus,
       retryable: isRetryable,
+      mpesaReceiptNumber: mpesaReceiptNumber || null,
       displayMessage
     });
 
