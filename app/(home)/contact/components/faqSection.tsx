@@ -59,7 +59,7 @@ const faqItems: FAQItem[] = [
  {
   question: "What is your pricing model? Do you have a free trial?",
   answer:
-    "We offer a 30-day free trial so you can experience Pazia Tech risk‑free. After your trial, our Basic plan is KES 999/month and Pro plan is KES 2,499/month. Zero commissions – you keep 100% of your sales. [View pricing →](/pricing)",
+    "We offer a 14-day free trial so you can experience Pazia Tech risk‑free. After your trial, our Basic plan is KES 999/month and Pro plan is KES 2,499/month. Zero commissions – you keep 100% of your sales. [View pricing →](/pricing)",
   icon: <Gift className="w-5 h-5 text-orange-500" />,
 },
   {
