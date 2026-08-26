@@ -7,7 +7,7 @@ const tiers = [
   {
     name: "Free Trial",
     price: "0",
-    period: "for 30 days",
+    period: "for 14 days",
     yearlyPrice: null,
     yearlySave: null,
     description: "Experience all Basic features risk‑free.",
