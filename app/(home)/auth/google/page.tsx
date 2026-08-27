@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Input from "@/app/components/ui/input";
@@ -12,6 +12,9 @@ type UserType = 'shop_owner' | 'customer' | 'admin';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
+  const hasRun = useRef(false);
+  const executionCount = useRef(0);
+
   const [businessName, setBusinessName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("+254");
   const [user, setUser] = useState<any>(null);
@@ -20,18 +23,41 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    executionCount.current += 1;
+    console.log(`\n========================================`);
+    console.log(`🔄 [OAUTH DIAGNOSTIC] useEffect triggered (Run #${executionCount.current})`);
+    console.log(`⏱️ Timestamp: ${new Date().toISOString()}`);
+
+    if (hasRun.current) {
+      console.warn(`🛑 [OAUTH DIAGNOSTIC] Guard activated! Blocked duplicate execution #${executionCount.current}.`);
+      console.log(`========================================\n`);
+      return;
+    }
+    hasRun.current = true;
+    console.log(`🔒 [OAUTH DIAGNOSTIC] Execution locked. Proceeding with callback logic...`);
+
     const handleCallback = async () => {
       try {
+        console.log(`📡 [1/5] Initializing Supabase browser client...`);
         const supabase = createSupabaseBrowserClient();
+
+        console.log(`🔑 [2/5] Fetching Supabase session...`);
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          console.error(`❌ [OAUTH DIAGNOSTIC] Session error:`, sessionError);
+          throw sessionError;
+        }
+
         if (!session?.user) {
+          console.warn(`⚠️ [OAUTH DIAGNOSTIC] No active session found. Redirecting to /auth/login`);
           router.push("/auth/login");
           return;
         }
 
-        // ✅ STRIP DOWN THE USER DATA - Remove heavy Google OAuth data
+        console.log(`✅ [OAUTH DIAGNOSTIC] Session found for user ID: ${session.user.id}`);
+        console.log(`📧 User Email: ${session.user.email}`);
+
         const userEmail = session.user.email || '';
         const cleanUser = {
           id: session.user.id,
@@ -44,63 +70,78 @@ export default function AuthCallbackPage() {
           },
         };
 
-        // ✅ Update session with clean data to reduce cookie size
-        try {
-          await supabase.auth.updateUser({
-            data: cleanUser.user_metadata
-          });
-        } catch (updateError) {
-          console.error('Failed to clean session:', updateError);
-        }
-
         let userType = sessionStorage.getItem("oauth_user_type") as UserType | null;
+        console.log(`🏷️ [3/5] Read oauth_user_type from sessionStorage: "${userType}"`);
+
         if (!userType || (userType !== 'shop_owner' && userType !== 'customer')) {
           userType = 'shop_owner';
+          console.log(`ℹ️ [OAUTH DIAGNOSTIC] Fallback userType set to: "shop_owner"`);
         }
         sessionStorage.removeItem("oauth_user_type");
 
+        console.log(`🌐 [4/5] Calling backend API: POST /api/auth/user-info...`);
+        const startTime = Date.now();
         const response = await fetch("/api/auth/user-info", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
+        const duration = Date.now() - startTime;
+
+        console.log(`📥 [OAUTH DIAGNOSTIC] /api/auth/user-info responded in ${duration}ms with status ${response.status}`);
+
+        if (!response.ok) {
+          throw new Error(`Server returned status ${response.status}`);
+        }
+
         const userInfo = await response.json();
+        console.log(`📊 [OAUTH DIAGNOSTIC] User Info payload:`, userInfo);
 
         if (userInfo.success) {
           const role = userInfo.role;
           const storedRedirect = sessionStorage.getItem("oauthRedirectUrl");
           sessionStorage.removeItem("oauthRedirectUrl");
 
-          if (storedRedirect) {
-            router.push(storedRedirect);
-            return;
-          }
+          console.log(`🚀 [5/5] Existing user found. Determining target route...`);
+          console.log(`   - DB Role: ${role}`);
+          console.log(`   - Stored Redirect: ${storedRedirect || 'None'}`);
 
-          if (role === 'shop_owner') {
-            router.push(userInfo.shopSlug ? `/dashboard/${userInfo.shopSlug}` : "/shopType");
+          let targetPath = "/";
+          if (storedRedirect) {
+            targetPath = storedRedirect;
+          } else if (role === 'shop_owner') {
+            targetPath = userInfo.shopSlug ? `/dashboard/${userInfo.shopSlug}` : "/shopType";
           } else if (role === 'customer') {
             const currentShopSlug = sessionStorage.getItem("currentShopSlug");
-            router.push(currentShopSlug ? `/${currentShopSlug}` : "/");
+            targetPath = currentShopSlug ? `/${currentShopSlug}` : "/";
           } else if (role === 'super_admin') {
-            router.push("/view");
-          } else {
-            router.push("/");
+            targetPath = "/view";
           }
+
+          console.log(`➡️ [OAUTH DIAGNOSTIC] Executing router.push("${targetPath}")`);
+          console.log(`========================================\n`);
+          router.push(targetPath);
           return;
         }
 
-        // User doesn't exist in DB yet - create them
+        console.log(`🆕 [5/5] New user setup required for type: "${userType}"`);
         if (userType === 'shop_owner') {
+          console.log(`📋 Prompting for Business Name...`);
           setUser(cleanUser);
           setNeedsBusinessName(true);
         } else if (userType === 'customer') {
+          console.log(`📞 Prompting for Phone Number...`);
           setUser(cleanUser);
           setNeedsPhoneNumber(true);
         } else {
+          console.log(`⚡ Creating account automatically...`);
           await createAccount(cleanUser, userType);
         }
+        console.log(`========================================\n`);
+
       } catch (err) {
-        console.error("Callback error:", err);
+        console.error(`💥 [OAUTH DIAGNOSTIC] Fatal error in handleCallback:`, err);
         setError("Authentication failed. Please try again.");
+        console.log(`========================================\n`);
       }
     };
 
@@ -109,6 +150,7 @@ export default function AuthCallbackPage() {
 
   const createAccount = async (user: any, type: UserType, extraData?: { business_name?: string; phone?: string }) => {
     try {
+      console.log(`📝 [OAUTH DIAGNOSTIC] Creating account via /api/auth/callback...`);
       const payload: any = {
         email: user.email,
         userType: type,
@@ -120,6 +162,7 @@ export default function AuthCallbackPage() {
         payload.phone = extraData.phone;
       }
 
+      console.log(`📤 Sending payload:`, payload);
       const response = await fetch("/api/auth/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,27 +170,30 @@ export default function AuthCallbackPage() {
       });
 
       const data = await response.json();
+      console.log(`📥 /api/auth/callback response:`, data);
 
       if (data.success) {
         const storedRedirect = sessionStorage.getItem("oauthRedirectUrl");
         sessionStorage.removeItem("oauthRedirectUrl");
 
+        let targetPath = "/";
         if (storedRedirect) {
-          router.push(storedRedirect);
-          return;
-        }
-
-        if (type === 'shop_owner') {
-          router.push("/shopType");
+          targetPath = storedRedirect;
+        } else if (type === 'shop_owner') {
+          targetPath = "/shopType";
         } else {
           const currentShopSlug = sessionStorage.getItem("currentShopSlug");
-          router.push(currentShopSlug ? `/${currentShopSlug}` : "/");
+          targetPath = currentShopSlug ? `/${currentShopSlug}` : "/";
         }
+
+        console.log(`➡️ [OAUTH DIAGNOSTIC] Account created. Redirecting to "${targetPath}"`);
+        router.push(targetPath);
       } else {
+        console.error(`❌ [OAUTH DIAGNOSTIC] Account creation failed:`, data.error);
         setError(data.error || "Failed to create account");
       }
     } catch (err) {
-      console.error("Account creation error:", err);
+      console.error("Account creation exception:", err);
       setError("Failed to create account. Please try again.");
     }
   };
@@ -203,7 +249,7 @@ export default function AuthCallbackPage() {
             required
             autoFocus
           />
-           <p className="text-xs text-gray-200 mt-1">You can change this later in settings</p>
+          <p className="text-xs text-gray-200 mt-1">You can change this later in settings</p>
 
           <Button
             onClick={handleBusinessSubmit}
