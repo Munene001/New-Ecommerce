@@ -1,10 +1,8 @@
-// app/api/shops/payments/update-order/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
 import { sendBuyerOrderEmail, sendSellerOrderEmail } from '@/lib/email/ordermail';
 
-// Prevent duplicate concurrent execution for the same transaction ID
 const activeProcessingKeys = new Set<string>();
 
 interface TransactionRow extends RowDataPacket {
@@ -68,44 +66,13 @@ function parseVariantName(variantNameStr: string | null): string | null {
   }
 }
 
-function extractTillNumber(body: Record<string, any>): string | null {
-  if (body.tillNumber) return body.tillNumber;
-  const rawCallback = body.rawCallback;
-  if (rawCallback) {
-    if (rawCallback.data?.attributes?.till_number) return rawCallback.data.attributes.till_number;
-    if (rawCallback.event?.resource?.till_number) return rawCallback.event.resource.till_number;
-  }
-  return null;
-}
-
-async function getKopokopoTillByShopId(shopId: number): Promise<string | null> {
-  try {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT k.till_number 
-       FROM shop_kopokopo k
-       JOIN shop_payment_settings ps ON k.payment_setting_id = ps.payment_setting_id
-       WHERE ps.shop_id = ?`,
-      [shopId]
-    );
-    return rows.length > 0 ? rows[0].till_number : null;
-  } catch (err) {
-    console.error('❌ [UPDATE] DB error in getKopokopoTillByShopId:', err);
-    return null;
-  }
-}
-
 async function deductStockForOrderTx(conn: PoolConnection, orderId: number): Promise<boolean> {
-  console.log(`📦 [UPDATE] Starting atomic stock deduction transaction for order ${orderId}`);
-
   const [items] = await conn.query<OrderItemRow[]>(
     `SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?`,
     [orderId]
   );
 
-  if (items.length === 0) {
-    console.warn(`⚠️ [UPDATE] No items found for order ${orderId} to deduct stock`);
-    return false;
-  }
+  if (items.length === 0) return false;
 
   for (const item of items) {
     const variantId = normalizeId(item.variant_id);
@@ -122,7 +89,7 @@ async function deductStockForOrderTx(conn: PoolConnection, orderId: number): Pro
         [qty, variantId, qty]
       );
       if (res.affectedRows === 0) {
-        throw new Error(`Insufficient stock for variant_id ${variantId}. Requested: ${qty}`);
+        throw new Error(`Insufficient stock for variant_id ${variantId}`);
       }
     } else if (productId !== null) {
       const [res] = await conn.query<ResultSetHeader>(
@@ -132,7 +99,7 @@ async function deductStockForOrderTx(conn: PoolConnection, orderId: number): Pro
         [qty, productId, qty]
       );
       if (res.affectedRows === 0) {
-        throw new Error(`Insufficient stock for product_id ${productId}. Requested: ${qty}`);
+        throw new Error(`Insufficient stock for product_id ${productId}`);
       }
     }
   }
@@ -140,29 +107,12 @@ async function deductStockForOrderTx(conn: PoolConnection, orderId: number): Pro
   return true;
 }
 
-async function getShopDetailsForOrder(orderId: number): Promise<ShopRow | null> {
-  try {
-    const [rows] = await pool.query<ShopRow[]>(
-      `SELECT s.shop_name, s.contact_email, s.contact_phone
-       FROM orders o
-       JOIN shops s ON o.shop_id = s.shop_id
-       WHERE o.order_id = ?`,
-      [orderId]
-    );
-    return rows.length > 0 ? rows[0] : null;
-  } catch (err) {
-    console.error('❌ [UPDATE] DB error in getShopDetailsForOrder:', err);
-    return null;
-  }
-}
-
-// Transaction Lookup safely avoiding unhandled crashes
 async function findTransactionWithRetry(
   checkoutRequestId: string,
   orderId?: number
 ): Promise<TransactionRow | null> {
   const maxRetries = 3;
-  const backoffMs = 200;
+  const backoffMs = 150;
 
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -173,9 +123,7 @@ async function findTransactionWithRetry(
         [checkoutRequestId]
       );
 
-      if (rows.length > 0) {
-        return rows[0];
-      }
+      if (rows.length > 0) return rows[0];
 
       if (orderId) {
         const [fallbackRows] = await pool.query<TransactionRow[]>(
@@ -186,16 +134,13 @@ async function findTransactionWithRetry(
           [orderId]
         );
 
-        if (fallbackRows.length > 0) {
-          return fallbackRows[0];
-        }
+        if (fallbackRows.length > 0) return fallbackRows[0];
       }
     } catch (dbErr) {
-      console.error(`❌ [UPDATE] Database query error on retry ${i + 1}:`, dbErr);
+      console.error(`❌ [UPDATE] DB query error on retry ${i + 1}:`, dbErr);
     }
 
     if (i < maxRetries - 1) {
-      console.log(`⏳ [UPDATE] Transaction not found, retry ${i + 1}/${maxRetries}...`);
       await new Promise((resolve) => setTimeout(resolve, backoffMs * (i + 1)));
     }
   }
@@ -203,15 +148,90 @@ async function findTransactionWithRetry(
   return null;
 }
 
-export async function POST(req: NextRequest) {
-  console.log('🔵 [UPDATE] Payment callback received from Spring Boot');
+// Background email dispatcher - Non-blocking
+async function triggerOrderEmails(orderId: number, order: OrderRow) {
+  try {
+    const [[shopRows], [orderItems]] = await Promise.all([
+      pool.query<ShopRow[]>(
+        `SELECT s.shop_name, s.contact_email, s.contact_phone
+         FROM orders o
+         JOIN shops s ON o.shop_id = s.shop_id
+         WHERE o.order_id = ?`,
+        [orderId]
+      ),
+      pool.query<OrderItemRow[]>(
+        `SELECT product_name, variant_name, quantity, price_at_time FROM order_items WHERE order_id = ?`,
+        [orderId]
+      )
+    ]);
 
+    const shopDetails = shopRows[0];
+    if (!shopDetails) return;
+
+    const subtotal = Number(order.subtotal) || 0;
+    const deliveryFee = Number(order.delivery_fee) || 0;
+    const total = Number(order.total) || subtotal + deliveryFee;
+
+    const formattedItems = orderItems.map(item => ({
+      product_name: item.product_name,
+      variant_name: parseVariantName(item.variant_name),
+      quantity: item.quantity,
+      price_at_time: Number(item.price_at_time) || 0
+    }));
+
+    const formattedAddress = order.customer_address && order.customer_city
+      ? `${order.customer_address}, ${order.customer_city}`
+      : order.customer_address || order.customer_city || '';
+
+    const emailPromises: Promise<any>[] = [
+      sendBuyerOrderEmail({
+        to: order.customer_email,
+        customer_name: order.customer_name,
+        order_number: order.order_number,
+        items: formattedItems,
+        subtotal,
+        delivery_fee: deliveryFee,
+        delivery_zone: order.delivery_zone,
+        total,
+        seller_name: shopDetails.shop_name,
+        seller_email: shopDetails.contact_email,
+        seller_phone: shopDetails.contact_phone,
+      })
+    ];
+
+    if (shopDetails.contact_email) {
+      emailPromises.push(
+        sendSellerOrderEmail({
+          to: shopDetails.contact_email,
+          customer_name: order.customer_name,
+          customer_email: order.customer_email,
+          customer_phone: order.customer_phone,
+          customer_address: formattedAddress,
+          order_number: order.order_number,
+          items: formattedItems,
+          subtotal,
+          delivery_fee: deliveryFee,
+          delivery_zone: order.delivery_zone,
+          total,
+          special_instructions: order.special_instructions || '',
+          payment_method: 'mpesa',
+        })
+      );
+    }
+
+    await Promise.allSettled(emailPromises);
+    console.log(`📧 [UPDATE] Email dispatch completed for order ${orderId}`);
+  } catch (err) {
+    console.error(`❌ [UPDATE] Async email execution failed for order ${orderId}:`, err);
+  }
+}
+
+export async function POST(req: NextRequest) {
   try {
     const internalSecret = req.headers.get('x-internal-secret');
     const EXPECTED_SECRET = process.env.SPRING_BOOT_INTERNAL_SECRET;
 
     if (!EXPECTED_SECRET || internalSecret !== EXPECTED_SECRET) {
-      console.warn('🚨 [UPDATE] Unauthorized callback attempt detected!');
       return NextResponse.json({ success: false, error: 'Unauthorized origin' }, { status: 401 });
     }
 
@@ -223,8 +243,6 @@ export async function POST(req: NextRequest) {
       resultDesc,
       displayMessage,
       mpesaReceiptNumber,
-      isKopokopo,
-      tillNumber: providedTillNumber,
       orderId: providedOrderId
     } = body;
 
@@ -232,9 +250,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'checkoutRequestId is required' }, { status: 400 });
     }
 
-    // Deduplicate incoming concurrent webhooks
     if (activeProcessingKeys.has(checkoutRequestId)) {
-      console.log(`⚠️ [UPDATE] Concurrent callback already processing for: ${checkoutRequestId}`);
       return NextResponse.json({ success: true, message: 'Processing in progress' }, { status: 200 });
     }
 
@@ -244,30 +260,7 @@ export async function POST(req: NextRequest) {
       const transaction = await findTransactionWithRetry(checkoutRequestId, providedOrderId);
 
       if (!transaction) {
-        console.error(`❌ [UPDATE] Transaction not found after retries for: ${checkoutRequestId}`);
         return NextResponse.json({ success: false, error: 'Transaction not found' }, { status: 404 });
-      }
-
-      const orderId = transaction.order_id;
-
-      if (transaction.checkout_request_id !== checkoutRequestId) {
-        await pool.query(
-          `UPDATE stk_push_transactions SET checkout_request_id = ? WHERE transaction_id = ?`,
-          [checkoutRequestId, transaction.transaction_id]
-        );
-      }
-
-      if (isKopokopo) {
-        let tillNumber = providedTillNumber || extractTillNumber(body);
-        if (!tillNumber) {
-          const [orderRows] = await pool.query<OrderRow[]>(
-            `SELECT shop_id FROM orders WHERE order_id = ?`,
-            [orderId]
-          );
-          if (orderRows.length > 0) {
-            tillNumber = await getKopokopoTillByShopId(orderRows[0].shop_id);
-          }
-        }
       }
 
       if (transaction.status !== 'pending') {
@@ -279,6 +272,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      const orderId = transaction.order_id;
       const isSuccess = springStatus === 'COMPLETED' || resultCode === 0;
       const retryableCodes = [1032, 1, 2001, 1037, 8006];
       const isRetryable = retryableCodes.includes(resultCode);
@@ -290,6 +284,7 @@ export async function POST(req: NextRequest) {
       const orderPaymentStatus = isSuccess ? 'paid' : 'pending';
       const orderOrderStatus = isSuccess ? 'processing' : 'pending';
 
+      // Atomic Update Transaction Status
       const [updateResult] = await pool.query<ResultSetHeader>(
         `UPDATE stk_push_transactions 
          SET status = ?, result_code = ?, result_description = ?, retryable = ?, mpesa_receipt_number = ?, updated_at = NOW()
@@ -301,6 +296,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: 'Already processed', alreadyProcessed: true });
       }
 
+      // Update Order Status
       await pool.query(
         `UPDATE orders SET payment_status = ?, order_status = ?, updated_at = NOW() WHERE order_id = ?`,
         [orderPaymentStatus, orderOrderStatus, orderId]
@@ -340,77 +336,14 @@ export async function POST(req: NextRequest) {
               }
             } catch (stockError) {
               if (conn) await conn.rollback();
-              console.error(`❌ [UPDATE] Transactional stock deduction error for order ${orderId}:`, stockError);
+              console.error(`❌ [UPDATE] Stock deduction error for order ${orderId}:`, stockError);
             } finally {
               if (conn) conn.release();
             }
           }
 
-          // Email Sending
-          try {
-            const shopDetails = await getShopDetailsForOrder(orderId);
-            const [orderItems] = await pool.query<OrderItemRow[]>(
-              `SELECT product_name, variant_name, quantity, price_at_time FROM order_items WHERE order_id = ?`,
-              [orderId]
-            );
-
-            if (shopDetails) {
-              const subtotal = Number(order.subtotal) || 0;
-              const deliveryFee = Number(order.delivery_fee) || 0;
-              const total = Number(order.total) || subtotal + deliveryFee;
-
-              const formattedItems = orderItems.map(item => ({
-                product_name: item.product_name,
-                variant_name: parseVariantName(item.variant_name),
-                quantity: item.quantity,
-                price_at_time: Number(item.price_at_time) || 0
-              }));
-
-              const formattedAddress = order.customer_address && order.customer_city
-                ? `${order.customer_address}, ${order.customer_city}`
-                : order.customer_address || order.customer_city || '';
-
-              const emailPromises: Promise<any>[] = [
-                sendBuyerOrderEmail({
-                  to: order.customer_email,
-                  customer_name: order.customer_name,
-                  order_number: order.order_number,
-                  items: formattedItems,
-                  subtotal,
-                  delivery_fee: deliveryFee,
-                  delivery_zone: order.delivery_zone,
-                  total,
-                  seller_name: shopDetails.shop_name,
-                  seller_email: shopDetails.contact_email,
-                  seller_phone: shopDetails.contact_phone,
-                })
-              ];
-
-              if (shopDetails.contact_email) {
-                emailPromises.push(
-                  sendSellerOrderEmail({
-                    to: shopDetails.contact_email,
-                    customer_name: order.customer_name,
-                    customer_email: order.customer_email,
-                    customer_phone: order.customer_phone,
-                    customer_address: formattedAddress,
-                    order_number: order.order_number,
-                    items: formattedItems,
-                    subtotal,
-                    delivery_fee: deliveryFee,
-                    delivery_zone: order.delivery_zone,
-                    total,
-                    special_instructions: order.special_instructions || '',
-                    payment_method: 'mpesa',
-                  })
-                );
-              }
-
-              await Promise.allSettled(emailPromises);
-            }
-          } catch (emailErr) {
-            console.error(`❌ [UPDATE] Email orchestration failed:`, emailErr);
-          }
+          // Trigger email background worker (non-blocking)
+          triggerOrderEmails(orderId, order);
         }
       }
 
@@ -425,7 +358,6 @@ export async function POST(req: NextRequest) {
       });
 
     } finally {
-      // Release lock regardless of outcome
       activeProcessingKeys.delete(checkoutRequestId);
     }
 
