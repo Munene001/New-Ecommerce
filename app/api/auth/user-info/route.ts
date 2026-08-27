@@ -7,7 +7,7 @@ interface UserDataRow extends RowDataPacket {
   user_id: number;
   role: string;
   full_name: string;
-  phone:string;
+  phone: string;
   tenant_id: number | null;
   business_info_complete: number | null;
   shop_slug: string | null;
@@ -16,22 +16,41 @@ interface UserDataRow extends RowDataPacket {
 }
 
 export async function POST() {
+  const requestId = Math.random().toString(36).substring(2, 9);
+  console.log(`\n========================================`);
+  console.log(`📥 [API: USER-INFO] Incoming Request ID: [${requestId}]`);
+  console.log(`⏱️ Timestamp: ${new Date().toISOString()}`);
+
   try {
-    // Get authenticated user from session cookie
+    // 1. Authenticate with Supabase
+    console.log(`🔑 [${requestId}] Initializing Supabase server client and checking user session...`);
     const supabase = await createSupabaseServerClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
+
+    if (authError) {
+      console.error(`❌ [${requestId}] Supabase Auth Error:`, authError);
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { success: false, error: 'Authentication failed', details: authError.message },
         { status: 401 }
       )
     }
 
-    // Use the authenticated user's ID instead of trusting client input
-    const supabase_uid = user.id
+    if (!user) {
+      console.warn(`⚠️ [${requestId}] Unauthorized access attempt: No active user found in session cookie.`);
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: No active session' },
+        { status: 401 }
+      )
+    }
 
-    // pool.execute() automatically acquires and releases a connection
+    const supabase_uid = user.id
+    console.log(`✅ [${requestId}] Authenticated user ID (supabase_uid): ${supabase_uid}`);
+    console.log(`📧 User Email: ${user.email}`);
+
+    // 2. Query MySQL Database
+    console.log(`🗄️ [${requestId}] Executing MySQL query for supabase_uid: ${supabase_uid}...`);
+    const startTime = Date.now();
+
     const [userResult] = await pool.execute<UserDataRow[]>(
       `SELECT 
         u.user_id,
@@ -42,46 +61,71 @@ export async function POST() {
         t.business_info_complete,
         s.shop_slug,
         s.shop_id,
-        COUNT(s2.shop_id) as shop_count
+        (SELECT COUNT(*) FROM shops WHERE tenant_id = t.tenant_id) as shop_count
        FROM users u 
        LEFT JOIN tenant t ON u.user_id = t.user_id 
        LEFT JOIN shops s ON t.tenant_id = s.tenant_id AND s.shop_id = (
          SELECT MIN(shop_id) FROM shops WHERE tenant_id = t.tenant_id
        )
-       LEFT JOIN shops s2 ON t.tenant_id = s2.tenant_id
-       WHERE u.supabase_uid = ?
-       GROUP BY u.user_id, t.tenant_id, s.shop_slug, s.shop_id`,
+       WHERE u.supabase_uid = ?`,
       [supabase_uid]
     );
 
+    const queryDuration = Date.now() - startTime;
+    console.log(`⏱️ [${requestId}] MySQL query executed in ${queryDuration}ms.`);
+    console.log(`📊 [${requestId}] Query returned ${userResult.length} row(s).`);
+
     if (userResult.length === 0) {
+      console.warn(`⚠️ [${requestId}] User with supabase_uid ${supabase_uid} not found in MySQL 'users' table.`);
+      console.log(`========================================\n`);
       return NextResponse.json(
-        { success: false, error: 'User not found' },
+        { success: false, error: 'User not found in database' },
         { status: 404 }
       );
     }
 
     const userData = userResult[0];
+    console.log(`👤 [${requestId}] Retrieved User Row:`, {
+      user_id: userData.user_id,
+      role: userData.role,
+      full_name: userData.full_name,
+      tenant_id: userData.tenant_id,
+      shop_slug: userData.shop_slug,
+      shop_count: userData.shop_count,
+    });
+
     const onboardingComplete = Boolean(
-      userData.business_info_complete && userData.shop_count > 0
+      userData.business_info_complete && Number(userData.shop_count) > 0
     );
 
-    return NextResponse.json({
+    const responsePayload = {
       success: true,
       role: userData.role,
       fullName: userData.full_name,
       phone: userData.phone,
       onboardingComplete: onboardingComplete,
-      hasShop: userData.shop_count > 0,
+      hasShop: Number(userData.shop_count) > 0,
       tenantId: userData.tenant_id,
       shopSlug: userData.shop_slug,
       shopId: userData.shop_id
-    });
+    };
 
-  } catch (error) {
-    console.error('User info error:', error);
+    console.log(`🚀 [${requestId}] Responding 200 OK with payload:`, responsePayload);
+    console.log(`========================================\n`);
+
+    return NextResponse.json(responsePayload);
+
+  } catch (error: any) {
+    console.error(`💥 [${requestId}] FATAL API ROUTE CRASH:`, error);
+    console.error(`Stack trace:`, error.stack);
+    console.log(`========================================\n`);
+
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { 
+        success: false, 
+        error: error.message || 'Internal server error',
+        code: error.code || 'UNKNOWN_ERROR'
+      },
       { status: 500 }
     );
   }
