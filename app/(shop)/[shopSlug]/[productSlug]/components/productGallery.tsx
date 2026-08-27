@@ -147,7 +147,7 @@ export default function ProductGallery({
                 loading="lazy"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
-                  target.src = "/placeholder.jpg";
+                  target.src = "";
                 }}
               />
             </button>
@@ -172,7 +172,7 @@ export default function ProductGallery({
             onLoad={() => handleImageLoad(currentImage.id)}
             onError={(e) => {
               const target = e.currentTarget as HTMLImageElement;
-              target.src = "/placeholder.jpg";
+              target.src = "";
               handleImageLoad(currentImage.id);
             }}
           />

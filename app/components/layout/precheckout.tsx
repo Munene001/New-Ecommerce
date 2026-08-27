@@ -70,7 +70,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
           setProductImages(prev => ({ ...prev, [item.product_id]: url }));
         } catch (error) {
           console.error(`Failed to fetch image for product ${item.product_id}:`, error);
-          setProductImages(prev => ({ ...prev, [item.product_id]: '/placeholder.jpg' }));
+          setProductImages(prev => ({ ...prev, [item.product_id]: '' }));
         } finally {
           setLoadingImages(prev => ({ ...prev, [item.product_id]: false }));
         }
@@ -174,7 +174,7 @@ export default function PreCheckoutModal({ isOpen, onClose }: PreCheckoutModalPr
                           className="object-cover"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = '/placeholder.jpg';
+                            target.src = '';
                           }}
                           sizes="80px"
                         />
