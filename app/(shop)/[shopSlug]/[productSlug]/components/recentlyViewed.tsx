@@ -40,7 +40,7 @@ export default function RecentlyViewed({ currentProductId, secondaryColor, varia
               src={`/api/shopowner/products/${item.product_id}/images/primary?w=200`}
               alt={item.product_name}
               className="w-10 h-10 object-cover rounded"
-              onError={(e) => (e.currentTarget.src = '/placeholder.jpg')}
+              onError={(e) => (e.currentTarget.src = '')}
               width={10}
               height={10}
               
@@ -71,7 +71,7 @@ export default function RecentlyViewed({ currentProductId, secondaryColor, varia
                   src={`/api/shopowner/products/${item.product_id}/images/primary?w=200`}
                   alt={item.product_name}
                   className="w-full h-32 object-cover rounded"
-                  onError={(e) => (e.currentTarget.src = '/placeholder.jpg')}
+                  onError={(e) => (e.currentTarget.src = '')}
                   width={100}
                   height={32}
                 />

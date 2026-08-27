@@ -20,7 +20,7 @@ export default function ProductCardMinimal({ product, shopSlug }: Props) {
     >
       <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden mb-2">
         <Image
-          src={primaryImage?.image_path || '/placeholder.jpg'} 
+          src={primaryImage?.image_path || ''} 
           alt={product.product_name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />

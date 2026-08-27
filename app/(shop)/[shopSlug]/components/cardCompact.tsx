@@ -20,7 +20,7 @@ export default function ProductCardCompact({ product, shopSlug }: Props) {
     >
       <div className="w-16 h-16 md:w-20 md:h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
         <Image
-          src={primaryImage?.image_path || '/placeholder.jpg'} 
+          src={primaryImage?.image_path || ''} 
           alt={product.product_name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />

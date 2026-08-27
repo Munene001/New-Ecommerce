@@ -132,7 +132,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
     }
   }, [product.product_id]);
 
-  const finalImageUrl = imageError || !imageUrl ? '/placeholder.jpg' : imageUrl;
+  const finalImageUrl = imageError || !imageUrl ? '' : imageUrl;
   const displayPrice = getDisplayPrice();
   const inStock = isInStock();
   const discountPercentage = getDiscountPercentage();
