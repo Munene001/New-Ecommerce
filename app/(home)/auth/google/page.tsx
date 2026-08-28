@@ -24,24 +24,24 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     executionCount.current += 1;
-    console.log(`\n========================================`);
-    console.log(`🔄 [OAUTH DIAGNOSTIC] useEffect triggered (Run #${executionCount.current})`);
-    console.log(`⏱️ Timestamp: ${new Date().toISOString()}`);
+    
+    
+    
 
     if (hasRun.current) {
       console.warn(`🛑 [OAUTH DIAGNOSTIC] Guard activated! Blocked duplicate execution #${executionCount.current}.`);
-      console.log(`========================================\n`);
+      
       return;
     }
     hasRun.current = true;
-    console.log(`🔒 [OAUTH DIAGNOSTIC] Execution locked. Proceeding with callback logic...`);
+    
 
     const handleCallback = async () => {
       try {
-        console.log(`📡 [1/5] Initializing Supabase browser client...`);
+        
         const supabase = createSupabaseBrowserClient();
 
-        console.log(`🔑 [2/5] Fetching Supabase session...`);
+        
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
@@ -55,8 +55,8 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        console.log(`✅ [OAUTH DIAGNOSTIC] Session found for user ID: ${session.user.id}`);
-        console.log(`📧 User Email: ${session.user.email}`);
+        
+        
 
         const userEmail = session.user.email || '';
         const cleanUser = {
@@ -71,15 +71,15 @@ export default function AuthCallbackPage() {
         };
 
         let userType = sessionStorage.getItem("oauth_user_type") as UserType | null;
-        console.log(`🏷️ [3/5] Read oauth_user_type from sessionStorage: "${userType}"`);
+        
 
         if (!userType || (userType !== 'shop_owner' && userType !== 'customer')) {
           userType = 'shop_owner';
-          console.log(`ℹ️ [OAUTH DIAGNOSTIC] Fallback userType set to: "shop_owner"`);
+          
         }
         sessionStorage.removeItem("oauth_user_type");
 
-        console.log(`🌐 [4/5] Calling backend API: POST /api/auth/user-info...`);
+        
         const startTime = Date.now();
         const response = await fetch("/api/auth/user-info", {
           method: "POST",
@@ -87,23 +87,23 @@ export default function AuthCallbackPage() {
         });
         const duration = Date.now() - startTime;
 
-        console.log(`📥 [OAUTH DIAGNOSTIC] /api/auth/user-info responded in ${duration}ms with status ${response.status}`);
+        
 
         if (!response.ok) {
           throw new Error(`Server returned status ${response.status}`);
         }
 
         const userInfo = await response.json();
-        console.log(`📊 [OAUTH DIAGNOSTIC] User Info payload:`, userInfo);
+        
 
         if (userInfo.success) {
           const role = userInfo.role;
           const storedRedirect = sessionStorage.getItem("oauthRedirectUrl");
           sessionStorage.removeItem("oauthRedirectUrl");
 
-          console.log(`🚀 [5/5] Existing user found. Determining target route...`);
-          console.log(`   - DB Role: ${role}`);
-          console.log(`   - Stored Redirect: ${storedRedirect || 'None'}`);
+          
+          
+          
 
           let targetPath = "/";
           if (storedRedirect) {
@@ -117,31 +117,31 @@ export default function AuthCallbackPage() {
             targetPath = "/view";
           }
 
-          console.log(`➡️ [OAUTH DIAGNOSTIC] Executing router.push("${targetPath}")`);
-          console.log(`========================================\n`);
+          
+          
           router.push(targetPath);
           return;
         }
 
-        console.log(`🆕 [5/5] New user setup required for type: "${userType}"`);
+        
         if (userType === 'shop_owner') {
-          console.log(`📋 Prompting for Business Name...`);
+          
           setUser(cleanUser);
           setNeedsBusinessName(true);
         } else if (userType === 'customer') {
-          console.log(`📞 Prompting for Phone Number...`);
+          
           setUser(cleanUser);
           setNeedsPhoneNumber(true);
         } else {
-          console.log(`⚡ Creating account automatically...`);
+          
           await createAccount(cleanUser, userType);
         }
-        console.log(`========================================\n`);
+        
 
       } catch (err) {
         console.error(`💥 [OAUTH DIAGNOSTIC] Fatal error in handleCallback:`, err);
         setError("Authentication failed. Please try again.");
-        console.log(`========================================\n`);
+        
       }
     };
 
@@ -150,7 +150,7 @@ export default function AuthCallbackPage() {
 
   const createAccount = async (user: any, type: UserType, extraData?: { business_name?: string; phone?: string }) => {
     try {
-      console.log(`📝 [OAUTH DIAGNOSTIC] Creating account via /api/auth/callback...`);
+      
       const payload: any = {
         email: user.email,
         userType: type,
@@ -162,7 +162,7 @@ export default function AuthCallbackPage() {
         payload.phone = extraData.phone;
       }
 
-      console.log(`📤 Sending payload:`, payload);
+      
       const response = await fetch("/api/auth/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,7 +170,7 @@ export default function AuthCallbackPage() {
       });
 
       const data = await response.json();
-      console.log(`📥 /api/auth/callback response:`, data);
+      
 
       if (data.success) {
         const storedRedirect = sessionStorage.getItem("oauthRedirectUrl");
@@ -186,7 +186,7 @@ export default function AuthCallbackPage() {
           targetPath = currentShopSlug ? `/${currentShopSlug}` : "/";
         }
 
-        console.log(`➡️ [OAUTH DIAGNOSTIC] Account created. Redirecting to "${targetPath}"`);
+        
         router.push(targetPath);
       } else {
         console.error(`❌ [OAUTH DIAGNOSTIC] Account creation failed:`, data.error);

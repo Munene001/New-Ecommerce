@@ -19,6 +19,8 @@ interface PricingFormProps {
   removeVariant: (index: number) => void;
   updateVariant: (index: number, field: string, value: any) => void;
   errors: Record<string, string>;
+  duplicatePricing?: boolean;
+  toggleDuplicatePricing?: (enabled: boolean) => void;
 }
 
 export default function PricingForm({
@@ -31,6 +33,8 @@ export default function PricingForm({
   removeVariant,
   updateVariant,
   errors,
+  duplicatePricing = false,
+  toggleDuplicatePricing,
 }: PricingFormProps) {
   const isVariable = formData.productType === "variable";
   const hasErrors = Object.keys(errors).length > 0;
@@ -102,14 +106,16 @@ export default function PricingForm({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number
   ) => {
     const value = typeof e === "object" && "target" in e ? e.target.value : e;
-    updateVariant(index, "price", String(value));
+    const newValue = String(value) === "0" ? "" : String(value);
+    updateVariant(index, "price", newValue);
   };
 
   const handleVariantDiscountChange = (index: number) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number
   ) => {
     const value = typeof e === "object" && "target" in e ? e.target.value : e;
-    updateVariant(index, "discountPrice", String(value));
+    const newValue = String(value) === "0" ? "" : String(value);
+    updateVariant(index, "discountPrice", newValue);
   };
 
   const handleVariantStockChange = (index: number) => (
@@ -117,13 +123,11 @@ export default function PricingForm({
   ) => {
     const rawValue = typeof e === "object" && "target" in e ? e.target.value : e;
     
-    // Update local input state - always store as string
     setVariantStockInputs((prev) => ({
       ...prev,
       [index]: String(rawValue)
     }));
     
-    // If empty, don't update formData yet (keep previous value)
     if (rawValue === "") {
       return;
     }
@@ -131,7 +135,6 @@ export default function PricingForm({
     const value = Number(rawValue);
     if (!isNaN(value) && value >= 0) {
       updateVariant(index, "stockQuantity", value);
-      // Auto-sync: if stock > 0, turn ON; if stock = 0, turn OFF
       updateVariant(index, "inStock", value > 0);
     }
   };
@@ -139,10 +142,8 @@ export default function PricingForm({
   const handleSimpleStockChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
     const rawValue = typeof e === "object" && "target" in e ? e.target.value : e;
     
-    // Update local input state
     setSimpleStockInput(String(rawValue));
     
-    // If empty, don't update formData yet (keep previous value)
     if (rawValue === "") {
       return;
     }
@@ -155,6 +156,18 @@ export default function PricingForm({
         inStock: value > 0
       }));
     }
+  };
+
+  const handleSimplePriceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
+    const rawValue = typeof e === "object" && "target" in e ? e.target.value : e;
+    const value = String(rawValue) === "0" ? "" : String(rawValue);
+    setFormData((prev) => ({ ...prev, price: value }));
+  };
+
+  const handleSimpleDiscountChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | string | number) => {
+    const rawValue = typeof e === "object" && "target" in e ? e.target.value : e;
+    const value = String(rawValue) === "0" ? "" : String(rawValue);
+    setFormData((prev) => ({ ...prev, discountPrice: value }));
   };
 
   const handleSingleAttributeChange = (attrName: string) => (
@@ -173,13 +186,11 @@ export default function PricingForm({
   const hasVariantAttrs = variantAttributes.length > 0;
   const isSimple = !isVariable;
 
-  // Helper to get variant attribute label
   const getVariantLabel = (attrName: string) => {
     const attr = variantAttributes.find(a => a.name === attrName);
     return attr?.label.replace(/\([^)]*\)/, "").trim() || attrName;
   };
 
-  // Helper to get example text
   const getExampleText = (attrName: string) => {
     const examples: Record<string, string> = {
       sizes: "e.g., S, M, L, XL",
@@ -353,7 +364,7 @@ export default function PricingForm({
               label="Price (KES) (Required)"
               type="number"
               value={formData.price}
-              onChange={handleChange}
+              onChange={handleSimplePriceChange}
               error={errors.price}
               placeholder="0.00"
               required
@@ -366,7 +377,7 @@ export default function PricingForm({
               label="Discount Price (KES)"
               type="number"
               value={formData.discountPrice || ""}
-              onChange={handleChange}
+              onChange={handleSimpleDiscountChange}
               error={errors.discountPrice}
               placeholder="0.00 (optional)"
               icon="mdi:sale"
@@ -405,15 +416,39 @@ export default function PricingForm({
                 {formData.variants.length} variants
               </span>
             </div>
-            <button
-              type="button"
-              onClick={addVariant}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2 w-full md:w-auto justify-center"
-            >
-              <Icon icon="mdi:plus" className="w-4 h-4" />
-              Add Row
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* 👈 Duplicate Pricing Toggle */}
+              {toggleDuplicatePricing && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="duplicatePricing"
+                    checked={duplicatePricing}
+                    onChange={(e) => toggleDuplicatePricing(e.target.checked)}
+                    className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                  />
+                  <label htmlFor="duplicatePricing" className="text-sm text-gray-700 cursor-pointer whitespace-nowrap">
+                    Apply same pricing to all
+                  </label>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={addVariant}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
+              >
+                <Icon icon="mdi:plus" className="w-4 h-4" />
+                Add Row
+              </button>
+            </div>
           </div>
+
+          {duplicatePricing && (
+            <div className="flex items-center gap-2 text-green-600 bg-green-50 p-2 rounded-lg text-sm">
+              <Icon icon="mdi:check-circle" className="w-4 h-4" />
+              <span>Same pricing will be applied to all variants</span>
+            </div>
+          )}
 
           {errors.variants && (
             <p className="text-sm text-red-500">{errors.variants}</p>
@@ -558,7 +593,6 @@ export default function PricingForm({
               <div className="md:hidden space-y-4">
                 {formData.variants.map((variant, index) => (
                   <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
-                    {/* Variant Attributes */}
                     {selectedVariantAttrs.map((attr) => {
                       const label = getVariantLabel(attr);
                       const errorKey = `variant_${index}_${attr}`;
@@ -584,7 +618,6 @@ export default function PricingForm({
                       );
                     })}
 
-                    {/* Price, Discount, Stock Grid */}
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <span className="text-xs font-medium text-gray-600 block mb-1">Price</span>
@@ -623,7 +656,6 @@ export default function PricingForm({
                       </div>
                     </div>
 
-                    {/* Switch and Delete */}
                     <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                       <div className="flex items-center gap-3">
                         <Switch

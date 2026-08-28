@@ -35,6 +35,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
   const router = useRouter();
   const [imageUrl, setImageUrl] = useState<string>('');
   const [imageError, setImageError] = useState(false);
+  const [version, setVersion] = useState<number>(Date.now()); // 👈 ADD THIS
   const containerRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart(); 
   const { shop } = useShop();
@@ -115,10 +116,15 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
     return !isInStock();
   };
 
+  // 👈 FIX: Get primary image with cache-busting
   useEffect(() => {
     const fetchPrimaryImage = async () => {
       try {
-        const url = `/api/shopowner/products/${product.product_id}/images/primary?w=300&v=1`;
+        // Try to get updated_at from product images if available
+        const primaryImage = product.images?.find(img => img.is_primary === true);
+        const versionParam = primaryImage?.updated_at || Date.now();
+        
+        const url = `/api/shopowner/products/${product.product_id}/images/primary?w=300&v=${versionParam}`;
         setImageUrl(url);
         setImageError(false);
       } catch (error) {
@@ -130,7 +136,17 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
     if (product.product_id) {
       fetchPrimaryImage();
     }
-  }, [product.product_id]);
+  }, [product.product_id, product.images]);
+
+  // 👈 ADD: Refresh image when version changes
+  const refreshImage = () => {
+    setVersion(Date.now());
+    const primaryImage = product.images?.find(img => img.is_primary === true);
+    const versionParam = primaryImage?.updated_at || Date.now();
+    const url = `/api/shopowner/products/${product.product_id}/images/primary?w=300&v=${versionParam}`;
+    setImageUrl(url);
+    setImageError(false);
+  };
 
   const finalImageUrl = imageError || !imageUrl ? '' : imageUrl;
   const displayPrice = getDisplayPrice();
@@ -156,6 +172,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
 
           <div className="relative w-full h-full">
             <Image
+              key={`product-image-${product.product_id}-${version}`} // 👈 ADD KEY
               src={finalImageUrl}
               alt={product.product_name}
               className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -163,6 +180,7 @@ export default function ProductCardStandard({ product, shopSlug }: Props) {
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               onError={() => setImageError(true)}
               priority={false}
+              unoptimized={true} // 👈 ADD THIS
             />
           </div>
         </div>

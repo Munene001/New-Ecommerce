@@ -380,7 +380,7 @@ export async function POST(req: NextRequest) {
           registrationResponse.status === 422
         ) {
           registrationSuccess = true;
-          console.log('✅ Webhook active for till:', till_number);
+          
         } else {
           registrationSuccess = false;
           registrationError = registrationData.error || 'Webhook registration failed';

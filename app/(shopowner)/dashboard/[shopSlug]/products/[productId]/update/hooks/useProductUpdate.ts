@@ -35,6 +35,7 @@ export function useProductUpdate() {
     variants: [],
     images: [],
     categoryIds: [],
+    duplicatePricing: false, // 👈 NEW
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -129,19 +130,20 @@ export function useProductUpdate() {
       }
 
       setFormData((prev) => ({
+        ...prev,
         productName: productData.product_name || "",
         productSlug: productData.product_slug || "",
         description: productData.description || "",
         productType: productType,
         status: productData.status || 'draft',
-        price: productType === 'variable' ? "0" : (productData.price?.toString() || ""),
+        price: productType === 'variable' ? "" : (productData.price?.toString() || ""),
         discountPrice: productType === 'variable' ? "" : (productData.discount_price?.toString() || ""),
         stockQuantity: productType === 'variable' ? 0 : (productData.stock_quantity || 1),
         inStock: productType === 'variable' ? true : (productData.stock_quantity > 0),
         attributes: attributes,
         variants: variants.map((v: any) => ({
           attributes: v.attributes || {},
-          price: v.price?.toString() || "0",
+          price: v.price?.toString() || "",
           discountPrice: v.discount_price?.toString() || "",
           stockQuantity: v.stock_quantity || 1,
           inStock: v.stock_quantity > 0,
@@ -375,6 +377,53 @@ export function useProductUpdate() {
     };
   };
 
+  // ===== FIXED: updateVariant with duplicate pricing toggle =====
+  const updateVariant = (index: number, field: string, value: any) => {
+    setFormData((prev) => {
+      const newVariants = [...prev.variants];
+      
+      if (field === "attributes") {
+        newVariants[index].attributes = value;
+      } else if (field === "price") {
+        // Block 0 as valid price
+        const newPrice = value === '0' ? '' : value;
+        
+        if (prev.duplicatePricing) {
+          // Apply to ALL variants
+          newVariants.forEach((v) => {
+            v.price = newPrice;
+          });
+        } else {
+          newVariants[index].price = newPrice;
+        }
+      } else if (field === "discountPrice") {
+        // Block 0 as valid discount price
+        const newDiscount = value === '0' ? '' : value;
+        
+        if (prev.duplicatePricing) {
+          // Apply to ALL variants
+          newVariants.forEach((v) => {
+            v.discountPrice = newDiscount;
+          });
+        } else {
+          newVariants[index].discountPrice = newDiscount;
+        }
+      } else if (field === "stockQuantity") {
+        newVariants[index].stockQuantity = value;
+      } else if (field === "inStock") {
+        newVariants[index].inStock = value;
+        if (value === false) {
+          newVariants[index].stockQuantity = 0;
+        } else {
+          if (newVariants[index].stockQuantity === 0) {
+            newVariants[index].stockQuantity = 1;
+          }
+        }
+      }
+      return { ...prev, variants: newVariants };
+    });
+  };
+
   const addVariant = () => {
     const newVariant: ProductVariant = {
       attributes: {},
@@ -394,31 +443,6 @@ export function useProductUpdate() {
       ...prev,
       variants: prev.variants.filter((_, i: number) => i !== index),
     }));
-  };
-
-  const updateVariant = (index: number, field: string, value: any) => {
-    setFormData((prev) => {
-      const newVariants = [...prev.variants];
-      if (field === "attributes") {
-        newVariants[index].attributes = value;
-      } else if (field === "price") {
-        newVariants[index].price = value;
-      } else if (field === "discountPrice") {
-        newVariants[index].discountPrice = value;
-      } else if (field === "stockQuantity") {
-        newVariants[index].stockQuantity = value;
-      } else if (field === "inStock") {
-        newVariants[index].inStock = value;
-        if (value === false) {
-          newVariants[index].stockQuantity = 0;
-        } else {
-          if (newVariants[index].stockQuantity === 0) {
-            newVariants[index].stockQuantity = 1;
-          }
-        }
-      }
-      return { ...prev, variants: newVariants };
-    });
   };
 
   const toggleVariantAttribute = (attrName: string) => {
@@ -476,7 +500,7 @@ export function useProductUpdate() {
     if (overrideStatus === 'published') {
       if (finalProductType === "simple") {
         if (!finalPrice || Number(finalPrice) <= 0) {
-          fieldErrors.price = "Valid price is required";
+          fieldErrors.price = "Valid price is required (must be greater than 0)";
           errorStep = 1;
         }
         if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
@@ -505,11 +529,11 @@ export function useProductUpdate() {
             }
           }
           if (!variant.price || Number(variant.price) <= 0) {
-            fieldErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
+            fieldErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be greater than 0`;
             errorStep = 1;
           }
           if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
-            fieldErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
+            fieldErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be less than price`;
             errorStep = 1;
           }
         }
@@ -736,6 +760,14 @@ export function useProductUpdate() {
     showWarning("Category removed", "success");
   };
 
+  // 👈 NEW: Toggle duplicate pricing
+  const toggleDuplicatePricing = (enabled: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      duplicatePricing: enabled,
+    }));
+  };
+
   return {
     activeIndex,
     setActiveIndex,
@@ -780,5 +812,6 @@ export function useProductUpdate() {
     updateVariant,
     calculateCompletion,
     markImagesLoaded,
+    toggleDuplicatePricing, 
   };
 }

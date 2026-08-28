@@ -105,14 +105,18 @@ export async function POST(
       [productIdNum, relativePath, isPrimary]
     );
 
+    // 👈 FIX: Return updated_at
+    const updatedAt = Date.now();
+
     return NextResponse.json({
       success: true,
       image_id: result.insertId,
       image_path: relativePath,
-      url: `/api/shopowner/products/${productIdNum}/images?imageId=${result.insertId}`,
+      url: `/api/shopowner/products/${productIdNum}/images?imageId=${result.insertId}&v=${updatedAt}`,
       is_primary: isPrimary,
       size_kb: finalSizeKb,
       quality_used: quality,
+      updated_at: updatedAt, // 👈 ADD THIS
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -120,7 +124,7 @@ export async function POST(
   }
 }
 
-// ✅ NEW: DELETE function for removing images
+// DELETE function for removing images
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
@@ -183,13 +187,15 @@ export async function DELETE(
     try {
       await unlink(fullPath);
     } catch (error) {
-     
+      // File already deleted or doesn't exist
     }
 
+    // 👈 FIX: Return updated_at
     return NextResponse.json({
       success: true,
       message: 'Image deleted successfully',
-      wasPrimary: isPrimary
+      wasPrimary: isPrimary,
+      updated_at: Date.now(), // 👈 ADD THIS
     });
   } catch (error) {
     console.error('Delete image error:', error);
