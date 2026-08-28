@@ -35,7 +35,7 @@ export default function ProductsClient({
   
   const messageRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const isFirstRender = useRef(true); // Prevents initial mount debouncer loop clash
+  const isFirstRender = useRef(true);
 
   const {
     products,
@@ -50,7 +50,7 @@ export default function ProductsClient({
     resetProducts,
   } = useDashboardProducts(shopId.toString(), "published");
 
-  // Debouncer Effect for Search Input (Skips the empty hit on initial load setup)
+  // Debouncer Effect for Search Input
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -94,14 +94,14 @@ export default function ProductsClient({
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setCategorySelect(value);
-    setSelectedProducts([]); // Flush selection states when view boundaries switch
+    setSelectedProducts([]);
     filterByCategory(value);
   };
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setStatusFilter(value);
-    setSelectedProducts([]); // Flush selection states when view boundaries switch
+    setSelectedProducts([]);
     filterByStatus(value);
   };
 
@@ -221,12 +221,14 @@ export default function ProductsClient({
         products={products}
         loading={loading}
         shopSlug={shopSlug}
+        shopId={shopId}
         selectedProducts={selectedProducts}
         onSelectAll={handleSelectAll}
         onSelectOne={handleSelectOne}
         loadMore={loadMoreProducts}
         hasMore={hasMore}
         onBulkDelete={handleBulkDelete}
+        refreshProducts={refreshProducts} // 👈 Pass the refresh function
       />
     </div>
   );
