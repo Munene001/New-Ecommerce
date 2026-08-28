@@ -24,6 +24,7 @@ interface ProductImage {
   image_path: string;
   is_primary: boolean;
   created_at: string;
+  updated_at?: number; // 👈 ADD THIS
 }
 
 interface ProductVariant {
@@ -269,7 +270,8 @@ export async function GET(req: NextRequest) {
               'image_id', pi.image_id,
               'image_path', pi.image_path,
               'is_primary', pi.is_primary,
-              'created_at', pi.created_at
+              'created_at', pi.created_at,
+              'updated_at', UNIX_TIMESTAMP(pi.updated_at)  -- 👈 ADD THIS
             )
           )
           FROM product_images pi

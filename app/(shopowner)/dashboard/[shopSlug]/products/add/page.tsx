@@ -66,6 +66,7 @@ export default function AddProductPage() {
     canPublish,
     calculateCompletion,
     validateAllSteps,
+    toggleDuplicatePricing,
   } = useProductForm();
 
   const imagesRef = useRef<ImagesFormRef>(null);
@@ -382,6 +383,8 @@ export default function AddProductPage() {
             removeVariant={removeVariant}
             updateVariant={updateVariant}
             errors={errors}
+            duplicatePricing={formData.duplicatePricing}
+            toggleDuplicatePricing={toggleDuplicatePricing}
           />
         </div>
         <div style={{ display: activeIndex === 2 ? "block" : "none" }}>

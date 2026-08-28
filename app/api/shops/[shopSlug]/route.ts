@@ -74,8 +74,21 @@ export async function GET(
       ss.product_card_style,
       ss.cart_icon,
       
-      -- Max price from products
-      (SELECT MAX(price) FROM products WHERE shop_id = s.shop_id) as max_price,
+      -- ===== FIX: Max price from products INCLUDING VARIANTS =====
+      (
+        SELECT MAX(
+          CASE 
+            WHEN p.product_type = 'simple' THEN COALESCE(p.discount_price, p.price)
+            WHEN p.product_type = 'variable' THEN (
+              SELECT MAX(COALESCE(pv.discount_price, pv.price))
+              FROM product_variants pv
+              WHERE pv.product_id = p.product_id
+            )
+          END
+        )
+        FROM products p
+        WHERE p.shop_id = s.shop_id AND p.status = 'published'
+      ) as max_price,
       
       -- Categories belonging to this shop
       (

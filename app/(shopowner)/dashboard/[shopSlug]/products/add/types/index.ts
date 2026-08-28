@@ -44,4 +44,5 @@ export interface ProductFormData {
   variants: ProductVariant[];
   images: ProductImage[];
   categoryIds: number[];
+  duplicatePricing?: boolean; // 👈 ADD THIS
 }

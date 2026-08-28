@@ -58,7 +58,7 @@ function normalizeKenyanPhone(phone: string): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  console.log('🔁 [RETRY] Retry STK Push request received');
+  
   
   try {
     const body = await req.json();
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
 
     // Configure payload based on provider
     if (activePaymentType === 'stk_push') {
-      console.log('🔁 [RETRY] Building Safaricom STK Push payload');
+      
 
       const [configs] = await pool.query<StkConfigRow[]>(
         `SELECT type, shortcode, consumer_key, consumer_secret, passkey, 
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
       };
 
     } else if (activePaymentType === 'kopokopo') {
-      console.log('🔁 [RETRY] Building Kopo Kopo STK Push payload');
+      
 
       const [configs] = await pool.query<KopokopoConfigRow[]>(
         `SELECT client_id, client_secret, till_number, webhook_secret

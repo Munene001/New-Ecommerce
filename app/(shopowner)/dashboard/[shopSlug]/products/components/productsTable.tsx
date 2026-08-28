@@ -115,13 +115,11 @@ export default function ProductsTable({
     return product.stock_quantity || 0;
   };
 
-  // ✅ Get the max viable price for variable products
   const getMaxViablePrice = (product: Product): number | null => {
     if (product.product_type !== "variable" || !product.variants || product.variants.length === 0) {
       return null;
     }
 
-    // Get all viable prices (discount price if available, otherwise regular price)
     const viablePrices = product.variants.map((variant: any) => {
       return variant.discount_price || variant.price;
     });
@@ -129,7 +127,6 @@ export default function ProductsTable({
     return Math.max(...viablePrices);
   };
 
-  // ✅ Get the display price for a product
   const getDisplayPrice = (product: Product): string => {
     if (product.product_type === "variable") {
       const maxPrice = getMaxViablePrice(product);
@@ -137,11 +134,19 @@ export default function ProductsTable({
       return `upto KES ${maxPrice}`;
     }
     
-    // Simple product
     if (product.discount_price) {
       return `KES ${product.discount_price}`;
     }
     return `KES ${product.price}`;
+  };
+
+  // 👈 ADD: Get image URL with cache-busting
+  const getImageUrl = (product: Product) => {
+    if (!product.images || product.images.length === 0) return null;
+    
+    const primaryImage = product.images.find(img => img.is_primary);
+    const version = primaryImage?.updated_at || Date.now();
+    return `/api/shopowner/products/${product.product_id}/images/primary?w=200&v=${version}`;
   };
 
   const handleBulkDeleteClick = () => {
@@ -230,131 +235,135 @@ export default function ProductsTable({
             </div>
           ) : products.length > 0 ? (
             <div className="mt-2">
-              {products.map((product, index) => (
-                <div
-                  key={product.product_id}
-                  ref={index === products.length - 1 ? lastProductRef : null}
-                  className="flex flex-row border-b border-[#294248] h-[72px] items-center hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-[5%] px-4">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-[#0FA965] focus:ring-[#0FA965]"
-                      checked={selectedProducts.includes(product.product_id)}
-                      onChange={() => onSelectOne(product.product_id)}
-                    />
-                  </div>
+              {products.map((product, index) => {
+                const imageUrl = getImageUrl(product);
+                const hasImage = imageUrl !== null;
 
-                  <div className="w-[13%]">
-                    {product.images && product.images.length > 0 ? (
-                      <div
-                        className="w-[98px] h-[67px] bg-gray-100 rounded-sm overflow-hidden"
-                        style={{
-                          backgroundImage: `url(/api/shopowner/products/${product.product_id}/images/primary?w=200)`,
-                          backgroundSize: "cover",
-                          backgroundPosition: "center",
-                        }}
+                return (
+                  <div
+                    key={product.product_id}
+                    ref={index === products.length - 1 ? lastProductRef : null}
+                    className="flex flex-row border-b border-[#294248] h-[72px] items-center hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-[5%] px-4">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-[#0FA965] focus:ring-[#0FA965]"
+                        checked={selectedProducts.includes(product.product_id)}
+                        onChange={() => onSelectOne(product.product_id)}
                       />
-                    ) : (
-                      <div className="w-[98px] h-[67px] bg-gray-100 rounded-sm flex items-center justify-center text-gray-400">
-                        <Icon icon="mdi:image-off" className="w-6 h-6" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="w-[20%] pr-4 min-w-0">
-                    <div className="font-medium truncate text-gray-900">
-                      {product.product_name}
                     </div>
-                    {product.product_type === "variable" && (
-                      <div className="text-xs text-gray-500 truncate">
-                        {getVariantCount(product)} variant
-                        {getVariantCount(product) > 1 ? "s" : ""}
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="w-[8%]">
-                    {product.product_type === "variable" ? (
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium text-blue-600">
-                          Variable
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {getVariantCount(product)} variants
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs font-medium text-gray-600">
-                        Simple
-                      </span>
-                    )}
-                  </div>
-
-                  {/* ✅ UPDATED: Price column with "upto" for variable products */}
-                  <div className="w-[12%] pr-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-gray-900 font-medium text-sm">
-                      {getDisplayPrice(product)}
+                    <div className="w-[13%]">
+                      {hasImage ? (
+                        <div
+                          className="w-[98px] h-[67px] bg-gray-100 rounded-sm overflow-hidden"
+                          style={{
+                            backgroundImage: `url(${imageUrl})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }}
+                        />
+                      ) : (
+                        <div className="w-[98px] h-[67px] bg-gray-100 rounded-sm flex items-center justify-center text-gray-400">
+                          <Icon icon="mdi:image-off" className="w-6 h-6" />
+                        </div>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="w-[10%] flex items-center justify-center text-center">
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStockColor(
-                        product.in_stock,
-                      )}`}
-                    >
+                    <div className="w-[20%] pr-4 min-w-0">
+                      <div className="font-medium truncate text-gray-900">
+                        {product.product_name}
+                      </div>
+                      {product.product_type === "variable" && (
+                        <div className="text-xs text-gray-500 truncate">
+                          {getVariantCount(product)} variant
+                          {getVariantCount(product) > 1 ? "s" : ""}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-[8%]">
                       {product.product_type === "variable" ? (
-                        <div className="flex flex-col items-center justify-center">
-                          <span>{getTotalStock(product)} total</span>
-                          <span className="text-xs font-normal opacity-90">
-                            {product.in_stock ? "In Stock" : "Out of Stock"}
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-blue-600">
+                            Variable
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {getVariantCount(product)} variants
                           </span>
                         </div>
-                      ) : product.in_stock ? (
-                        "In Stock"
                       ) : (
-                        "Out of Stock"
+                        <span className="text-xs font-medium text-gray-600">
+                          Simple
+                        </span>
                       )}
-                    </span>
-                  </div>
+                    </div>
 
-                  <div className="w-[12%] px-2 text-gray-500 text-sm">
-                    {formatDate(product.created_at)}
-                  </div>
+                    <div className="w-[12%] pr-4 flex flex-col items-center justify-center text-center">
+                      <div className="text-gray-900 font-medium text-sm">
+                        {getDisplayPrice(product)}
+                      </div>
+                    </div>
 
-                  <div className="w-[10%]">
-                    <span
-                      className={`inline-block px-2 py-1 text-xs rounded-full ${
-                        product.status === "published"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {product.status || "draft"}
-                    </span>
-                  </div>
+                    <div className="w-[10%] flex items-center justify-center text-center">
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStockColor(
+                          product.in_stock,
+                        )}`}
+                      >
+                        {product.product_type === "variable" ? (
+                          <div className="flex flex-col items-center justify-center">
+                            <span>{getTotalStock(product)} total</span>
+                            <span className="text-xs font-normal opacity-90">
+                              {product.in_stock ? "In Stock" : "Out of Stock"}
+                            </span>
+                          </div>
+                        ) : product.in_stock ? (
+                          "In Stock"
+                        ) : (
+                          "Out of Stock"
+                        )}
+                      </span>
+                    </div>
 
-                  <div className="w-[11%]">
-                    <select
-                      className="border border-black text-black rounded-sm p-1 text-sm"
-                      value={actionValues[product.product_id] || ""}
-                      onChange={(e) =>
-                        handleActionChange(e.target.value, product.product_id)
-                      }
-                    >
-                      <option className="text-black" value="">
-                        Actions
-                      </option>
-                      <option value="update">Update</option>
-                      {product.status === "draft" && (
-                        <option value="publish">Publish</option>
-                      )}
-                      <option value="delete">Delete</option>
-                    </select>
+                    <div className="w-[12%] px-2 text-gray-500 text-sm">
+                      {formatDate(product.created_at)}
+                    </div>
+
+                    <div className="w-[10%]">
+                      <span
+                        className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          product.status === "published"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {product.status || "draft"}
+                      </span>
+                    </div>
+
+                    <div className="w-[11%]">
+                      <select
+                        className="border border-black text-black rounded-sm p-1 text-sm"
+                        value={actionValues[product.product_id] || ""}
+                        onChange={(e) =>
+                          handleActionChange(e.target.value, product.product_id)
+                        }
+                      >
+                        <option className="text-black" value="">
+                          Actions
+                        </option>
+                        <option value="update">Update</option>
+                        {product.status === "draft" && (
+                          <option value="publish">Publish</option>
+                        )}
+                        <option value="delete">Delete</option>
+                      </select>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {loading && products.length > 0 && (
                 <div className="flex justify-center items-center py-4">

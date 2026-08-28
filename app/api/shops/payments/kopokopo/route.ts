@@ -36,7 +36,7 @@ function normalizeKenyanPhone(phone: string): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  console.log('🔵 [KOPOKOPO] Initiate Kopokopo STK Push request received');
+  
   
   try {
     const body = await req.json();

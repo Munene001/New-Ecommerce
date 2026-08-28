@@ -62,6 +62,7 @@ export default function UpdateProductPage() {
     productId,
     calculateCompletion,
     markImagesLoaded,
+    toggleDuplicatePricing,
   } = useProductUpdate();
 
   const imagesRef = useRef<UpdateImagesFormRef>(null);
@@ -318,6 +319,8 @@ export default function UpdateProductPage() {
             removeVariant={removeVariant}
             updateVariant={updateVariant}
             errors={errors}
+             duplicatePricing={formData.duplicatePricing}
+  toggleDuplicatePricing={toggleDuplicatePricing}
           />
         </div>
         <div style={{ display: activeIndex === 2 ? 'block' : 'none' }}>
