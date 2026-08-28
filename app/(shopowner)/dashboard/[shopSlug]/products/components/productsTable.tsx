@@ -1,21 +1,25 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import BulkActions from "@/app/components/ui/bulkAction";
 import { Product } from "@/lib/types/product";
+import Button from "@/app/components/ui/button";
+import { useToast } from "@/context/toastContext";
 
 interface ProductsTableProps {
   products: Product[];
   loading: boolean;
   shopSlug: string;
+  shopId: number;
   selectedProducts: number[];
   onSelectAll: () => void;
   onSelectOne: (productId: number) => void;
   loadMore: () => void;
   hasMore: boolean;
   onBulkDelete?: (productIds: number[]) => void;
+  refreshProducts?: () => void; // 👈 Proper refetch function
 }
 
 const SkeletonRow = () => (
@@ -55,18 +59,31 @@ export default function ProductsTable({
   products,
   loading,
   shopSlug,
+  shopId,
   selectedProducts,
   onSelectAll,
   onSelectOne,
   loadMore,
   hasMore,
   onBulkDelete,
+  refreshProducts, // 👈 Use this
 }: ProductsTableProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showUnpublishModal, setShowUnpublishModal] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [actionValues, setActionValues] = useState<
     Record<number, string | number>
   >({});
+
+  // 👈 Refresh function that calls the parent's refresh
+  const refreshData = useCallback(() => {
+    if (refreshProducts) {
+      refreshProducts();
+    }
+  }, [refreshProducts]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastProductRef = useCallback(
@@ -140,13 +157,129 @@ export default function ProductsTable({
     return `KES ${product.price}`;
   };
 
-  // 👈 ADD: Get image URL with cache-busting
   const getImageUrl = (product: Product) => {
     if (!product.images || product.images.length === 0) return null;
     
     const primaryImage = product.images.find(img => img.is_primary);
     const version = primaryImage?.updated_at || Date.now();
     return `/api/shopowner/products/${product.product_id}/images/primary?w=200&v=${version}`;
+  };
+
+  // ===== UNPUBLISH PRODUCT (Published → Draft) =====
+  const handleUnpublishClick = (productId: number) => {
+    setSelectedProductId(productId);
+    setShowUnpublishModal(true);
+  };
+
+  const handleConfirmUnpublish = async () => {
+    if (!selectedProductId) return;
+    
+    setIsUpdatingStatus(true);
+    setShowUnpublishModal(false);
+    
+    try {
+      const response = await fetch(`/api/shopowner/products/${selectedProductId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to unpublish product");
+      }
+
+      showToast("✅ Product moved to draft successfully!", "success");
+      
+      // 👈 Refresh data without page reload
+      refreshData();
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to unpublish product";
+      showToast(`❌ ${errorMessage}`, "error");
+    } finally {
+      setIsUpdatingStatus(false);
+      setSelectedProductId(null);
+    }
+  };
+
+  // ===== PUBLISH PRODUCT (Draft → Published) =====
+  const handlePublishProduct = async (productId: number) => {
+    setIsUpdatingStatus(true);
+    
+    try {
+      const response = await fetch(`/api/shopowner/products/${productId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "published" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to publish product");
+      }
+
+      showToast("✅ Product published successfully!", "success");
+      
+      // 👈 Refresh data without page reload
+      refreshData();
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to publish product";
+      showToast(`❌ ${errorMessage}`, "error");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  // ===== CREATE DRAFT PRODUCT (From Empty State Only) =====
+  const handleCreateFirstDraft = async () => {
+    setIsUpdatingStatus(true);
+    
+    try {
+      const timestamp = Date.now();
+      const productName = `Draft Product ${new Date(timestamp).toLocaleString()}`;
+      const productSlug = `draft-product-${timestamp}`;
+      
+      const payload = {
+        shopId: shopId,
+        productName: productName,
+        productSlug: productSlug,
+        description: "",
+        price: 0,
+        discountPrice: null,
+        stockQuantity: 0,
+        attributes: {},
+        productType: "simple",
+        status: "draft",
+        variants: [],
+      };
+
+      const response = await fetch("/api/shopowner/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create draft product");
+      }
+
+      showToast("✅ Draft product created successfully!", "success");
+      
+      // 👈 Refresh data without page reload
+      refreshData();
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create draft product";
+      showToast(`❌ ${errorMessage}`, "error");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   const handleBulkDeleteClick = () => {
@@ -158,6 +291,8 @@ export default function ProductsTable({
     if (onBulkDelete) {
       onBulkDelete(selectedProducts);
     }
+    // 👈 Refresh after bulk delete
+    refreshData();
   };
 
   const handleClearSelection = () => {
@@ -174,8 +309,13 @@ export default function ProductsTable({
 
   const handleActionChange = (value: string | number, productId: number) => {
     setActionValues((prev) => ({ ...prev, [productId]: value }));
+    
     if (value === "update") {
       router.push(`/dashboard/${shopSlug}/products/${productId}/update`);
+    } else if (value === "publish") {
+      handlePublishProduct(productId);
+    } else if (value === "unpublish") {
+      handleUnpublishClick(productId);
     } else if (value === "delete") {
       if (selectedProducts.length > 0) {
         if (selectedProducts.length === products.length) {
@@ -186,6 +326,7 @@ export default function ProductsTable({
       }
       onSelectOne(productId);
     }
+    
     setTimeout(() => {
       setActionValues((prev) => ({ ...prev, [productId]: "" }));
     }, 1000);
@@ -343,7 +484,7 @@ export default function ProductsTable({
                       </span>
                     </div>
 
-                    <div className="w-[11%]">
+                    <div className="w-[8%]">
                       <select
                         className="border border-black text-black rounded-sm p-1 text-sm"
                         value={actionValues[product.product_id] || ""}
@@ -355,8 +496,10 @@ export default function ProductsTable({
                           Actions
                         </option>
                         <option value="update">Update</option>
-                        {product.status === "draft" && (
+                        {product.status === "draft" ? (
                           <option value="publish">Publish</option>
+                        ) : (
+                          <option value="unpublish">Move to Draft</option>
                         )}
                         <option value="delete">Delete</option>
                       </select>
@@ -388,10 +531,60 @@ export default function ProductsTable({
               />
               <p className="text-lg font-medium">No products found</p>
               <p className="text-sm">Try adjusting your search or filter</p>
+              <Button
+                onClick={handleCreateFirstDraft}
+                disabled={isUpdatingStatus}
+                className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                {isUpdatingStatus ? (
+                  <>
+                    <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create your first draft"
+                )}
+              </Button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Unpublish Confirmation Modal */}
+      {showUnpublishModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Move to Draft
+            </h3>
+            <p className="text-gray-600 mb-6">
+              This product will be moved back to draft status and will no longer be visible to customers. Are you sure?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowUnpublishModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmUnpublish}
+                disabled={isUpdatingStatus}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isUpdatingStatus ? (
+                  <>
+                    <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
+                    Moving...
+                  </>
+                ) : (
+                  "Move to Draft"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

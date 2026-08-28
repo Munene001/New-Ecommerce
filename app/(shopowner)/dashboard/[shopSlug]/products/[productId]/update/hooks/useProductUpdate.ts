@@ -35,7 +35,7 @@ export function useProductUpdate() {
     variants: [],
     images: [],
     categoryIds: [],
-    duplicatePricing: false, // 👈 NEW
+    duplicatePricing: false,
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -231,6 +231,7 @@ export function useProductUpdate() {
     showWarning(errorMessage, 'error');
   };
 
+  // ===== FIXED: validateStep - SKIP IMAGE VALIDATION FOR DRAFTS =====
   const validateStep = (index: number): boolean => {
     let stepErrors: Record<string, string> = {};
     
@@ -239,7 +240,9 @@ export function useProductUpdate() {
     } else if (index === 1) {
       stepErrors = validatePricing(formData, selectedVariantAttrs);
     } else if (index === 2) {
-      stepErrors = validateImages(formData.images);
+      // SKIP image validation for drafts - images are only required when publishing
+      // This allows users to navigate away from the Images step without uploading
+      return true;
     }
     
     setErrors(stepErrors);
@@ -385,11 +388,9 @@ export function useProductUpdate() {
       if (field === "attributes") {
         newVariants[index].attributes = value;
       } else if (field === "price") {
-        // Block 0 as valid price
         const newPrice = value === '0' ? '' : value;
         
         if (prev.duplicatePricing) {
-          // Apply to ALL variants
           newVariants.forEach((v) => {
             v.price = newPrice;
           });
@@ -397,11 +398,9 @@ export function useProductUpdate() {
           newVariants[index].price = newPrice;
         }
       } else if (field === "discountPrice") {
-        // Block 0 as valid discount price
         const newDiscount = value === '0' ? '' : value;
         
         if (prev.duplicatePricing) {
-          // Apply to ALL variants
           newVariants.forEach((v) => {
             v.discountPrice = newDiscount;
           });
@@ -497,6 +496,7 @@ export function useProductUpdate() {
       fieldErrors.productSlug = "Product slug is required";
     }
 
+    // ===== IMAGES ONLY REQUIRED WHEN PUBLISHING =====
     if (overrideStatus === 'published') {
       if (finalProductType === "simple") {
         if (!finalPrice || Number(finalPrice) <= 0) {
@@ -707,6 +707,15 @@ export function useProductUpdate() {
   };
 
   const handleNext = () => {
+    // Skip validation for Images step (index 2) - drafts don't require images
+    if (activeIndex === 2) {
+      setTabWarning(null);
+      if (activeIndex < sections.length - 1) {
+        setActiveIndex(activeIndex + 1);
+      }
+      return;
+    }
+    
     if (!validateStep(activeIndex)) {
       const errorStep = getErrorStep(errors);
       if (errorStep !== null) {
@@ -760,7 +769,6 @@ export function useProductUpdate() {
     showWarning("Category removed", "success");
   };
 
-  // 👈 NEW: Toggle duplicate pricing
   const toggleDuplicatePricing = (enabled: boolean) => {
     setFormData((prev) => ({
       ...prev,

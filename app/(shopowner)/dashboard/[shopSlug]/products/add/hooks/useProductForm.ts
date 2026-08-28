@@ -26,7 +26,7 @@ export function useProductForm() {
     variants: [],
     images: [],
     categoryIds: [],
-    duplicatePricing: false, // 👈 NEW
+    duplicatePricing: false,
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -191,7 +191,7 @@ export function useProductForm() {
       variants: [],
       images: [],
       categoryIds: [],
-      duplicatePricing: false, // 👈 NEW
+      duplicatePricing: false,
     });
     setSelectedCategoryId("");
     setSelectedVariantAttrs([]);
@@ -268,6 +268,7 @@ export function useProductForm() {
     return Object.keys(pricingErrors).length === 0;
   };
 
+  // ===== validateImages - kept for publishing validation =====
   const validateImages = (): boolean => {
     const imageErrors: Record<string, string> = {};
     if (formData.images.length === 0) {
@@ -575,11 +576,9 @@ export function useProductForm() {
       if (field === "attributes") {
         newVariants[index].attributes = value;
       } else if (field === "price") {
-        // Block 0 as valid price
         const newPrice = value === '0' ? '' : value;
         
         if (prev.duplicatePricing) {
-          // Apply to ALL variants
           newVariants.forEach((v) => {
             v.price = newPrice;
           });
@@ -587,11 +586,9 @@ export function useProductForm() {
           newVariants[index].price = newPrice;
         }
       } else if (field === "discountPrice") {
-        // Block 0 as valid discount price
         const newDiscount = value === '0' ? '' : value;
         
         if (prev.duplicatePricing) {
-          // Apply to ALL variants
           newVariants.forEach((v) => {
             v.discountPrice = newDiscount;
           });
@@ -643,7 +640,6 @@ export function useProductForm() {
     );
   };
 
-  // 👈 NEW: Toggle duplicate pricing
   const toggleDuplicatePricing = (enabled: boolean) => {
     setFormData((prev) => ({
       ...prev,
@@ -695,6 +691,7 @@ export function useProductForm() {
       fieldErrors.productSlug = "Product slug is required";
     }
 
+    // ===== IMAGES ONLY REQUIRED WHEN PUBLISHING =====
     if (overrideStatus === 'published') {
       if (finalProductType === "simple") {
         if (!finalPrice || Number(finalPrice) <= 0) {
@@ -901,7 +898,17 @@ export function useProductForm() {
     };
   };
 
+  // ===== FIXED: handleNext - SKIP IMAGE VALIDATION FOR DRAFTS =====
   const handleNext = () => {
+    // Skip validation for Images step (index 2) - drafts don't require images
+    if (activeIndex === 2) {
+      setTabWarning(null);
+      if (activeIndex < sections.length - 1) {
+        setActiveIndex(activeIndex + 1);
+      }
+      return;
+    }
+    
     setTabWarning(null);
     if (activeIndex < sections.length - 1) {
       setActiveIndex(activeIndex + 1);
@@ -989,6 +996,6 @@ export function useProductForm() {
     validateAll,
     validateAllSteps,
     calculateCompletion,
-    toggleDuplicatePricing, // 👈 NEW: Export toggle
+    toggleDuplicatePricing,
   };
 }
