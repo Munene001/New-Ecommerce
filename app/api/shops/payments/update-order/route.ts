@@ -220,7 +220,7 @@ async function triggerOrderEmails(orderId: number, order: OrderRow) {
     }
 
     await Promise.allSettled(emailPromises);
-    console.log(`📧 [UPDATE] Email dispatch completed for order ${orderId}`);
+    
   } catch (err) {
     console.error(`❌ [UPDATE] Async email execution failed for order ${orderId}:`, err);
   }

@@ -8,6 +8,7 @@ import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface ImageRow extends RowDataPacket {
   image_path: string;
+  is_primary: number;
 }
 
 interface ImageMetadataRow extends RowDataPacket {
@@ -15,6 +16,7 @@ interface ImageMetadataRow extends RowDataPacket {
   image_path: string;
   is_primary: number;
   created_at: Date;
+  updated_at?: number; // 👈 ADD THIS
 }
 
 interface ProductRow extends RowDataPacket {
@@ -48,8 +50,10 @@ export async function GET(
 
     // Case 1: Return JSON metadata for all product images
     if (mode === 'all') {
+      // 👈 FIX: Return updated_at
       const [imageRows] = await pool.query<ImageMetadataRow[]>(
-        `SELECT image_id, image_path, is_primary, created_at
+        `SELECT image_id, image_path, is_primary, created_at,
+         COALESCE(UNIX_TIMESTAMP(updated_at), UNIX_TIMESTAMP(created_at)) as updated_at
          FROM product_images 
          WHERE product_id = ?
          ORDER BY is_primary DESC, created_at DESC`,
@@ -95,12 +99,12 @@ export async function GET(
 
     const imageBuffer = await fs.readFile(fullPath);
 
-    // Serve original file without Sharp processing for large widths
+    // 👈 FIX: Changed cache headers
     if (width >= 1200) {
       return new Response(new Uint8Array(imageBuffer), {
         headers: {
           'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=86400, immutable',
+          'Cache-Control': 'public, max-age=3600, must-revalidate',
         },
       });
     }
@@ -114,10 +118,11 @@ export async function GET(
       .webp({ quality })
       .toBuffer();
 
+    // 👈 FIX: Changed cache headers
     return new Response(new Uint8Array(resizedBuffer), {
       headers: {
         'Content-Type': 'image/webp',
-        'Cache-Control': 'public, max-age=86400, immutable',
+        'Cache-Control': 'public, max-age=3600, must-revalidate',
       },
     });
 
@@ -175,10 +180,12 @@ export async function PATCH(
       [imageIdNum, productIdNum]
     );
 
+    // 👈 FIX: Return updated_at
     return NextResponse.json({
       success: true,
       message: 'Primary image updated successfully',
-      imageId: imageIdNum
+      imageId: imageIdNum,
+      updated_at: Date.now(), // 👈 ADD THIS
     });
   } catch (error) {
     console.error('Set primary image error:', error);

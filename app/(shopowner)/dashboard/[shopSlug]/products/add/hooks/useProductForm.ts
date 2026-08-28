@@ -26,6 +26,7 @@ export function useProductForm() {
     variants: [],
     images: [],
     categoryIds: [],
+    duplicatePricing: false, // 👈 NEW
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -190,6 +191,7 @@ export function useProductForm() {
       variants: [],
       images: [],
       categoryIds: [],
+      duplicatePricing: false, // 👈 NEW
     });
     setSelectedCategoryId("");
     setSelectedVariantAttrs([]);
@@ -223,7 +225,7 @@ export function useProductForm() {
     
     if (formData.productType === "simple") {
       if (!formData.price || Number(formData.price) <= 0) {
-        pricingErrors.price = "Valid price is required";
+        pricingErrors.price = "Valid price is required (must be greater than 0)";
       }
       if (formData.discountPrice && Number(formData.discountPrice) < 0) {
         pricingErrors.discountPrice = "Discount price cannot be negative";
@@ -252,10 +254,10 @@ export function useProductForm() {
           }
         }
         if (!variant.price || Number(variant.price) <= 0) {
-          pricingErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
+          pricingErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be greater than 0`;
         }
         if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
-          pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
+          pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be less than price`;
         }
         if (variant.inStock !== false && variant.stockQuantity < 0) {
           pricingErrors[`variant_${i}_stock`] = `Variant ${i + 1}: Stock cannot be negative`;
@@ -319,7 +321,7 @@ export function useProductForm() {
     const pricingErrors: Record<string, string> = {};
     if (formData.productType === "simple") {
       if (!formData.price || Number(formData.price) <= 0) {
-        pricingErrors.price = "Valid price is required";
+        pricingErrors.price = "Valid price is required (must be greater than 0)";
         errorMessages.push("Valid price is required");
       }
       if (formData.discountPrice && Number(formData.discountPrice) < 0) {
@@ -355,11 +357,11 @@ export function useProductForm() {
           }
         }
         if (!variant.price || Number(variant.price) <= 0) {
-          pricingErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
+          pricingErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be greater than 0`;
           errorMessages.push(`Variant ${i + 1}: Price must be greater than 0`);
         }
         if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
-          pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
+          pricingErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be less than price`;
           errorMessages.push(`Variant ${i + 1}: Discount must be less than price`);
         }
         if (variant.inStock !== false && variant.stockQuantity < 0) {
@@ -565,6 +567,90 @@ export function useProductForm() {
     };
   };
 
+  // ===== FIXED: updateVariant with duplicate pricing toggle =====
+  const updateVariant = (index: number, field: string, value: any) => {
+    setFormData((prev) => {
+      const newVariants = [...prev.variants];
+      
+      if (field === "attributes") {
+        newVariants[index].attributes = value;
+      } else if (field === "price") {
+        // Block 0 as valid price
+        const newPrice = value === '0' ? '' : value;
+        
+        if (prev.duplicatePricing) {
+          // Apply to ALL variants
+          newVariants.forEach((v) => {
+            v.price = newPrice;
+          });
+        } else {
+          newVariants[index].price = newPrice;
+        }
+      } else if (field === "discountPrice") {
+        // Block 0 as valid discount price
+        const newDiscount = value === '0' ? '' : value;
+        
+        if (prev.duplicatePricing) {
+          // Apply to ALL variants
+          newVariants.forEach((v) => {
+            v.discountPrice = newDiscount;
+          });
+        } else {
+          newVariants[index].discountPrice = newDiscount;
+        }
+      } else if (field === "stockQuantity") {
+        newVariants[index].stockQuantity = value;
+      } else if (field === "inStock") {
+        newVariants[index].inStock = value;
+        if (value === false) {
+          newVariants[index].stockQuantity = 0;
+        } else {
+          if (newVariants[index].stockQuantity === 0) {
+            newVariants[index].stockQuantity = 1;
+          }
+        }
+      }
+      return { ...prev, variants: newVariants };
+    });
+  };
+
+  const addVariant = () => {
+    const newVariant: ProductVariant = {
+      attributes: {},
+      price: "",
+      discountPrice: "",
+      stockQuantity: 1,
+      inStock: true,
+    };
+    setFormData((prev) => ({
+      ...prev,
+      variants: [...prev.variants, newVariant],
+    }));
+  };
+
+  const removeVariant = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants.filter((_, i) => i !== index),
+    }));
+  };
+
+  const toggleVariantAttribute = (attrName: string) => {
+    setSelectedVariantAttrs((prev) =>
+      prev.includes(attrName)
+        ? prev.filter((a) => a !== attrName)
+        : [...prev, attrName]
+    );
+  };
+
+  // 👈 NEW: Toggle duplicate pricing
+  const toggleDuplicatePricing = (enabled: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      duplicatePricing: enabled,
+    }));
+  };
+
   const handleSubmit = async (overrideStatus?: 'draft' | 'published'): Promise<{ success: boolean; productId?: number; error?: string; fieldErrors?: Record<string, string>; errorStep?: number }> => {
     let finalProductType = formData.productType;
     let finalPrice = formData.price;
@@ -612,7 +698,7 @@ export function useProductForm() {
     if (overrideStatus === 'published') {
       if (finalProductType === "simple") {
         if (!finalPrice || Number(finalPrice) <= 0) {
-          fieldErrors.price = "Valid price is required";
+          fieldErrors.price = "Valid price is required (must be greater than 0)";
           errorStep = 1;
         }
         if (finalDiscountPrice && Number(finalDiscountPrice) >= Number(finalPrice)) {
@@ -641,11 +727,11 @@ export function useProductForm() {
             }
           }
           if (!variant.price || Number(variant.price) <= 0) {
-            fieldErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be > 0`;
+            fieldErrors[`variant_${i}_price`] = `Variant ${i + 1}: Price must be greater than 0`;
             errorStep = 1;
           }
           if (variant.discountPrice && Number(variant.discountPrice) >= Number(variant.price)) {
-            fieldErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be < price`;
+            fieldErrors[`variant_${i}_discount`] = `Variant ${i + 1}: Discount must be less than price`;
             errorStep = 1;
           }
         }
@@ -815,60 +901,6 @@ export function useProductForm() {
     };
   };
 
-  const addVariant = () => {
-    const newVariant: ProductVariant = {
-      attributes: {},
-      price: "",
-      discountPrice: "",
-      stockQuantity: 1,
-      inStock: true,
-    };
-    setFormData((prev) => ({
-      ...prev,
-      variants: [...prev.variants, newVariant],
-    }));
-  };
-
-  const removeVariant = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      variants: prev.variants.filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateVariant = (index: number, field: string, value: any) => {
-    setFormData((prev) => {
-      const newVariants = [...prev.variants];
-      if (field === "attributes") {
-        newVariants[index].attributes = value;
-      } else if (field === "price") {
-        newVariants[index].price = value;
-      } else if (field === "discountPrice") {
-        newVariants[index].discountPrice = value;
-      } else if (field === "stockQuantity") {
-        newVariants[index].stockQuantity = value;
-      } else if (field === "inStock") {
-        newVariants[index].inStock = value;
-        if (value === false) {
-          newVariants[index].stockQuantity = 0;
-        } else {
-          if (newVariants[index].stockQuantity === 0) {
-            newVariants[index].stockQuantity = 1;
-          }
-        }
-      }
-      return { ...prev, variants: newVariants };
-    });
-  };
-
-  const toggleVariantAttribute = (attrName: string) => {
-    setSelectedVariantAttrs((prev) =>
-      prev.includes(attrName)
-        ? prev.filter((a) => a !== attrName)
-        : [...prev, attrName]
-    );
-  };
-
   const handleNext = () => {
     setTabWarning(null);
     if (activeIndex < sections.length - 1) {
@@ -957,5 +989,6 @@ export function useProductForm() {
     validateAll,
     validateAllSteps,
     calculateCompletion,
+    toggleDuplicatePricing, // 👈 NEW: Export toggle
   };
 }

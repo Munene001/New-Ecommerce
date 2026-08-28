@@ -14,6 +14,8 @@ interface ProductImage {
   image_id: number;
   image_path: string;
   is_primary: boolean;
+  created_at: string;
+  updated_at?: number; // 👈 ADD THIS
 }
 
 interface ProductVariant {
@@ -41,6 +43,7 @@ interface ProductRow extends RowDataPacket {
   min_original_price: number | null;
   max_original_price: number | null;
   total_stock: number | null;
+  in_stock_status: number;
 }
 
 export async function GET(
@@ -61,7 +64,6 @@ export async function GET(
   const sortBy = searchParams.get('sortBy') || 'newest';
   const inStock = searchParams.get('inStock') === 'true';
   
-  // 👇 NEW: Parse the seed
   const seed = parseInt(searchParams.get('seed') || Date.now().toString(), 10);
 
   try {
@@ -93,6 +95,7 @@ export async function GET(
       queryParams.push(...categories);
     }
 
+    // ===== PRICE RANGE FIX: Uses variant pricing correctly =====
     if (minPrice && maxPrice) {
       whereClause += ` AND (
         (p.product_type = 'simple' AND COALESCE(p.discount_price, p.price) BETWEEN ? AND ?) OR
@@ -139,10 +142,28 @@ export async function GET(
       )`;
     }
 
+    // ===== ORDER BY FIX: Out of stock at bottom =====
     let orderByClause = 'ORDER BY ';
+    
+    // Helper for in_stock status (derived column)
+    const inStockCase = `
+      CASE 
+        WHEN p.product_type = 'simple' THEN 
+          CASE WHEN p.stock_quantity > 0 THEN 1 ELSE 0 END
+        WHEN p.product_type = 'variable' THEN 
+          CASE WHEN (
+            SELECT SUM(pv.stock_quantity) 
+            FROM product_variants pv 
+            WHERE pv.product_id = p.product_id
+          ) > 0 THEN 1 ELSE 0 END
+        ELSE 0
+      END
+    `;
+
     switch (sortBy) {
       case 'price_low':
         orderByClause += `
+          ${inStockCase} DESC,
           COALESCE(
             (SELECT MIN(COALESCE(pv.discount_price, pv.price))
              FROM product_variants pv 
@@ -154,6 +175,7 @@ export async function GET(
         break;
       case 'price_high':
         orderByClause += `
+          ${inStockCase} DESC,
           COALESCE(
             (SELECT MAX(COALESCE(pv.discount_price, pv.price))
              FROM product_variants pv 
@@ -164,17 +186,28 @@ export async function GET(
         `;
         break;
       case 'oldest':
-        orderByClause += 'p.created_at ASC';
+        orderByClause += `
+          ${inStockCase} DESC,
+          p.created_at ASC
+        `;
         break;
       case 'newest':
-        orderByClause += 'p.created_at DESC';
+        orderByClause += `
+          ${inStockCase} DESC,
+          p.created_at DESC
+        `;
         break;
-      // 👇 NEW: Random case
       case 'random':
-        orderByClause += `RAND(${seed})`;
+        orderByClause += `
+          ${inStockCase} DESC,
+          RAND(${seed})
+        `;
         break;
       default:
-        orderByClause += 'p.created_at DESC';
+        orderByClause += `
+          ${inStockCase} DESC,
+          p.created_at DESC
+        `;
         break;
     }
 
@@ -184,6 +217,7 @@ export async function GET(
     );
     const totalCount = countResult[0].total;
 
+    // ===== MAIN QUERY WITH in_stock_status AND updated_at =====
     const [products] = await pool.query<ProductRow[]>(
       `SELECT 
         p.product_id,
@@ -195,12 +229,15 @@ export async function GET(
         p.stock_quantity,
         p.product_type,
         p.created_at,
+        ${inStockCase} as in_stock_status,
         (
           SELECT JSON_ARRAYAGG(
             JSON_OBJECT(
               'image_id', pi.image_id,
               'image_path', pi.image_path,
-              'is_primary', pi.is_primary
+              'is_primary', pi.is_primary,
+              'created_at', pi.created_at,
+              'updated_at', UNIX_TIMESTAMP(pi.updated_at)  -- 👈 ADD THIS
             )
           )
           FROM product_images pi

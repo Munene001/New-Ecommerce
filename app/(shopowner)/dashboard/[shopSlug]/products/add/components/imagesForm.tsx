@@ -20,6 +20,7 @@ export interface ProductImage {
   id: string;
   status?: "pending" | "uploading" | "success" | "failed";
   serverId?: number;
+  updated_at?: number; // 👈 ADD THIS
 }
 
 export interface ImagesFormRef {
@@ -40,6 +41,7 @@ interface ImagesFormProps {
   onError?: (message: string) => void;
   onSuccess?: (message: string) => void;
   onUploadProgress?: (current: number, total: number) => void;
+  productId?: number; // 👈 ADD THIS
 }
 
 const COMPRESSION_TIMEOUT_MS = 12000;
@@ -51,11 +53,18 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
     onError, 
     onSuccess,
     onUploadProgress,
+    productId,
   }, ref) => {
     const [localImages, setLocalImages] = useState<ProductImage[]>(initialImages);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [version, setVersion] = useState(Date.now()); // 👈 ADD THIS
 
-    // ✅ Clean up blob URLs on unmount
+    // 👈 ADD: Function to refresh images
+    const refreshImages = () => {
+      setVersion(Date.now());
+    };
+
+    // Clean up blob URLs on unmount
     useEffect(() => {
       return () => {
         localImages.forEach((img) => {
@@ -67,7 +76,6 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
     }, []);
 
     useEffect(() => {
-      // ✅ Only update if images actually changed
       const currentIds = localImages.map(img => img.id).join(',');
       const newIds = initialImages.map(img => img.id).join(',');
       if (currentIds !== newIds) {
@@ -199,6 +207,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         URL.revokeObjectURL(img.preview);
       }
       setLocalImages((prev) => prev.filter((i) => i.id !== id));
+      // 👈 ADD: Refresh version after removal
+      refreshImages();
       onError?.("");
     };
 
@@ -221,6 +231,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
         })),
       );
 
+      // 👈 ADD: Refresh version after setting primary
+      refreshImages();
+
       onSuccess?.(
         "⭐ Primary image updated! It will be saved with the product.",
       );
@@ -242,6 +255,8 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             serverId: undefined,
           }));
       });
+      // 👈 ADD: Refresh version after clearing failed
+      refreshImages();
     };
 
     const getImages = () => localImages;
@@ -255,7 +270,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       setLocalImages([]);
     };
 
-    const uploadImages = async (productId: number) => {
+    const uploadImages = async (productIdNum: number) => {
       const pendingImages = localImages.filter(
         (img) => img.status !== "success",
       );
@@ -289,7 +304,7 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           formData.append("isPrimary", String(img.isPrimary));
 
           const res = await fetch(
-            `/api/shopowner/products/${productId}/images`,
+            `/api/shopowner/products/${productIdNum}/images`,
             {
               method: "POST",
               body: formData,
@@ -302,10 +317,16 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             throw new Error(data.error || `HTTP ${res.status}`);
           }
 
+          // 👈 FIX: Store updated_at from response
           setLocalImages((prev) =>
             prev.map((p) =>
               p.id === img.id
-                ? { ...p, status: "success", serverId: data.image_id }
+                ? { 
+                    ...p, 
+                    status: "success", 
+                    serverId: data.image_id,
+                    updated_at: data.updated_at || Date.now(), // 👈 STORE THIS
+                  }
                 : p,
             ),
           );
@@ -320,6 +341,9 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
           newFailedIds.push(img.id);
         }
       }
+
+      // 👈 ADD: Refresh version after upload
+      refreshImages();
 
       const primary = localImages.find((img) => img.isPrimary);
       if (primary && primary.status === "success") {
@@ -340,6 +364,20 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
       getImages,
       resetImages,
     }));
+
+    // 👈 FIX: Build image URL with cache-busting
+    const getImageUrl = (image: ProductImage) => {
+      if (image.preview && image.preview.startsWith('blob:')) {
+        return image.preview;
+      }
+      
+      if (image.serverId && productId) {
+        const v = image.updated_at || version;
+        return `/api/shopowner/products/${productId}/images?imageId=${image.serverId}&v=${v}`;
+      }
+      
+      return image.preview;
+    };
 
     const primaryImage = localImages.find((img) => img.isPrimary);
     const additionalImages = localImages.filter((img) => !img.isPrimary);
@@ -399,12 +437,13 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
             <div className="relative w-40 h-40 border rounded-lg overflow-hidden bg-gray-100">
               {primaryImage.preview && primaryImage.preview.startsWith('blob:') ? (
                 <Image
-                  src={primaryImage.preview}
+                  key={`primary-${primaryImage.id}-${primaryImage.updated_at || version}`} // 👈 ADD KEY
+                  src={getImageUrl(primaryImage)}
                   alt="Primary"
                   fill
                   className="object-cover"
+                  unoptimized={true} // 👈 ADD THIS
                   onError={() => {
-                    // If image fails to load, remove it
                     removeImage(primaryImage.id);
                   }}
                 />
@@ -522,10 +561,12 @@ const ImagesForm = forwardRef<ImagesFormRef, ImagesFormProps>(
               >
                 {image.preview && image.preview.startsWith('blob:') ? (
                   <Image
-                    src={image.preview}
+                    key={`additional-${image.id}-${image.updated_at || version}`} // 👈 ADD KEY
+                    src={getImageUrl(image)}
                     alt="Additional"
                     fill
                     className="object-cover"
+                    unoptimized={true} // 👈 ADD THIS
                     onError={() => {
                       removeImage(image.id);
                     }}

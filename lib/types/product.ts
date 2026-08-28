@@ -4,6 +4,7 @@ export interface ProductImage {
   image_path: string;
   is_primary: boolean;
   created_at: string;
+  updated_at?: number; // 👈 ADD THIS
 }
 
 export interface ProductVariant {

@@ -17,13 +17,13 @@ interface UserDataRow extends RowDataPacket {
 
 export async function POST() {
   const requestId = Math.random().toString(36).substring(2, 9);
-  console.log(`\n========================================`);
-  console.log(`📥 [API: USER-INFO] Incoming Request ID: [${requestId}]`);
-  console.log(`⏱️ Timestamp: ${new Date().toISOString()}`);
+  
+  
+  
 
   try {
     // 1. Authenticate with Supabase
-    console.log(`🔑 [${requestId}] Initializing Supabase server client and checking user session...`);
+    
     const supabase = await createSupabaseServerClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -44,11 +44,11 @@ export async function POST() {
     }
 
     const supabase_uid = user.id
-    console.log(`✅ [${requestId}] Authenticated user ID (supabase_uid): ${supabase_uid}`);
-    console.log(`📧 User Email: ${user.email}`);
+    
+    
 
     // 2. Query MySQL Database
-    console.log(`🗄️ [${requestId}] Executing MySQL query for supabase_uid: ${supabase_uid}...`);
+    
     const startTime = Date.now();
 
     const [userResult] = await pool.execute<UserDataRow[]>(
@@ -72,12 +72,12 @@ export async function POST() {
     );
 
     const queryDuration = Date.now() - startTime;
-    console.log(`⏱️ [${requestId}] MySQL query executed in ${queryDuration}ms.`);
-    console.log(`📊 [${requestId}] Query returned ${userResult.length} row(s).`);
+    
+    
 
     if (userResult.length === 0) {
       console.warn(`⚠️ [${requestId}] User with supabase_uid ${supabase_uid} not found in MySQL 'users' table.`);
-      console.log(`========================================\n`);
+      
       return NextResponse.json(
         { success: false, error: 'User not found in database' },
         { status: 404 }
@@ -110,15 +110,15 @@ export async function POST() {
       shopId: userData.shop_id
     };
 
-    console.log(`🚀 [${requestId}] Responding 200 OK with payload:`, responsePayload);
-    console.log(`========================================\n`);
+    
+    
 
     return NextResponse.json(responsePayload);
 
   } catch (error: any) {
     console.error(`💥 [${requestId}] FATAL API ROUTE CRASH:`, error);
     console.error(`Stack trace:`, error.stack);
-    console.log(`========================================\n`);
+    
 
     return NextResponse.json(
       { 
