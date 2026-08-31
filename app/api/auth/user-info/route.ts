@@ -85,14 +85,7 @@ export async function POST() {
     }
 
     const userData = userResult[0];
-    console.log(`👤 [${requestId}] Retrieved User Row:`, {
-      user_id: userData.user_id,
-      role: userData.role,
-      full_name: userData.full_name,
-      tenant_id: userData.tenant_id,
-      shop_slug: userData.shop_slug,
-      shop_count: userData.shop_count,
-    });
+    
 
     const onboardingComplete = Boolean(
       userData.business_info_complete && Number(userData.shop_count) > 0

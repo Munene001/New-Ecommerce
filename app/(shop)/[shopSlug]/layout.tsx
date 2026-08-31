@@ -1,4 +1,5 @@
 // app/(shop)/[shopSlug]/layout.tsx
+import type { Metadata } from "next";
 import { ShopProvider } from "../ShopContext";
 import ShopLayoutClient from "./components/shopLayoutClient";
 
@@ -7,7 +8,9 @@ async function getShopData(slug: string) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/shops/${slug}`, {
-      cache: 'no-store',
+      next: { 
+        revalidate: 3600,
+      },
     });
     
     if (!res.ok) return null;
@@ -24,7 +27,9 @@ async function getInitialProducts(shopId: string) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/shopowner/products?shopId=${shopId}&limit=20`, {
-      cache: 'no-store',
+      next: { 
+        revalidate: 3600,
+      },
     });
     
     if (!res.ok) {
@@ -42,6 +47,77 @@ async function getInitialProducts(shopId: string) {
   }
 }
 
+// Generate dynamic metadata for the browser tab and social previews
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shopSlug: string }>;
+}): Promise<Metadata> {
+  const { shopSlug } = await params;
+  const shopData = await getShopData(shopSlug);
+
+  if (!shopData) {
+    return {
+      title: "Shop Not Found",
+      robots: { index: false },
+    };
+  }
+
+  const title = shopData.shopName || "Online Shop";
+  const description = shopData.description || `Browse products on ${title}`;
+  
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const imageUrl = shopData.logoUrl 
+    ? shopData.logoUrl.startsWith('http') 
+      ? shopData.logoUrl 
+      : `${baseUrl}${shopData.logoUrl}`
+    : `${baseUrl}/default-shop-og-image.png`;
+
+  return {
+    title: {
+      absolute: title,
+    },
+    applicationName: title, 
+    description: description,
+    icons: {
+      icon: shopData.logoUrl || '/default-favicon.ico',
+      apple: shopData.logoUrl || '/default-apple-icon.png',
+    },
+    openGraph: {
+      title: title,
+      description: description,
+      siteName: title,
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: title,
+        }
+      ],
+      type: 'website',
+      locale: 'en_US',
+      url: `${baseUrl}/shop/${shopSlug}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: title,
+      description: description,
+      images: [imageUrl],
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+    alternates: {
+      canonical: `${baseUrl}/shop/${shopSlug}`,
+    },
+    keywords: shopData.keywords || `${title}, shop, online store`,
+    authors: [{ name: title }],
+    category: shopData.category || 'Online Store',
+  };
+}
+
 // Server Component Layout
 export default async function ShopLayout({
   children,
@@ -50,12 +126,9 @@ export default async function ShopLayout({
   children: React.ReactNode;
   params: Promise<{ shopSlug: string }>;
 }) {
-  // Await the params Promise
   const { shopSlug } = await params;
-  
   const shopData = await getShopData(shopSlug);
   
-  // Check if shop is expired, suspended, or doesn't exist
   const isExpired = shopData?.tenantStatus === 'expired';
   const isSuspended = shopData?.tenantStatus === 'suspended';
   
@@ -69,7 +142,6 @@ export default async function ShopLayout({
     );
   }
   
-  // Fetch initial products for SSR
   const { products, totalCount } = await getInitialProducts(shopData.shopId.toString());
 
   return (
