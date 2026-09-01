@@ -3,14 +3,16 @@ import type { NextRequest } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
+export const runtime = 'nodejs';
+
 const excludedSubdomains = new Set(['www', 'staging', 'mail', 'admin', 'support']);
 
 interface ShopCache {
   slugs: Set<string>;
   domainToSlugMap: Map<string, string>;
   slugToDomainMap: Map<string, string>;
-  expiredSlugs: Set<string>;      // ADDED
-  suspendedSlugs: Set<string>;    // ADDED
+  expiredSlugs: Set<string>;
+  suspendedSlugs: Set<string>;
 }
 
 let shopCache: ShopCache | null = null;
@@ -25,25 +27,25 @@ async function getCachedShopData(): Promise<ShopCache> {
 
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT shop_slug, custom_domain, tenant_status FROM shops WHERE shop_slug IS NOT NULL'  // CHANGED
+      'SELECT shop_slug, custom_domain, tenant_status FROM shops WHERE shop_slug IS NOT NULL'
     );
 
     const slugs = new Set<string>();
     const domainToSlugMap = new Map<string, string>();
     const slugToDomainMap = new Map<string, string>();
-    const expiredSlugs = new Set<string>();      // ADDED
-    const suspendedSlugs = new Set<string>();    // ADDED
+    const expiredSlugs = new Set<string>();
+    const suspendedSlugs = new Set<string>();
 
     rows.forEach((row) => {
       const slug = row.shop_slug;
       const domain = row.custom_domain;
-      const status = row.tenant_status;          // ADDED
+      const status = row.tenant_status;
 
-      if (status === 'expired') {                // ADDED
+      if (status === 'expired') {
         if (slug) expiredSlugs.add(slug);
         return;
       }
-      if (status === 'suspended') {              // ADDED
+      if (status === 'suspended') {
         if (slug) suspendedSlugs.add(slug);
         return;
       }
@@ -64,12 +66,12 @@ async function getCachedShopData(): Promise<ShopCache> {
       }
     });
 
-    shopCache = { slugs, domainToSlugMap, slugToDomainMap, expiredSlugs, suspendedSlugs };  // CHANGED
+    shopCache = { slugs, domainToSlugMap, slugToDomainMap, expiredSlugs, suspendedSlugs };
     lastFetchTime = now;
     return shopCache;
   } catch (err) {
     console.error('[Proxy] DB error:', err);
-    return shopCache || { slugs: new Set(), domainToSlugMap: new Map(), slugToDomainMap: new Map(), expiredSlugs: new Set(), suspendedSlugs: new Set() };  // CHANGED
+    return shopCache || { slugs: new Set(), domainToSlugMap: new Map(), slugToDomainMap: new Map(), expiredSlugs: new Set(), suspendedSlugs: new Set() };
   }
 }
 
@@ -96,28 +98,28 @@ export async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    const { slugs, domainToSlugMap, slugToDomainMap, expiredSlugs, suspendedSlugs } = await getCachedShopData();  // CHANGED
+    const { slugs, domainToSlugMap, slugToDomainMap, expiredSlugs, suspendedSlugs } = await getCachedShopData();
 
     // 3. CHECK IF INCOMING HOST IS A CUSTOM DOMAIN
     const customDomainShopSlug = domainToSlugMap.get(hostname);
     if (customDomainShopSlug) {
-      // ADDED - Check for expired/suspended
+      // Check for expired/suspended
       if (expiredSlugs.has(customDomainShopSlug) || suspendedSlugs.has(customDomainShopSlug)) {
         return new NextResponse('Shop not found', { status: 404 });
       }
 
       const slugPrefix = `/${customDomainShopSlug}`;
 
-      // FIX: If the visible URL explicitly includes the tenant slug, 301 redirect to strip it!
-      if (pathname.startsWith(slugPrefix)) {
-        const cleanPath = pathname.slice(slugPrefix.length) || '/';
-        const redirectUrl = new URL(`${cleanPath}${search}`, request.url);
-        return NextResponse.redirect(redirectUrl, { status: 301 });
-      }
+      // Normalize path to prevent double slug prefixing or double slashes
+      const cleanPath = pathname.startsWith(slugPrefix)
+        ? pathname.slice(slugPrefix.length) || '/'
+        : pathname;
+
+      const formattedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
 
       // Rewrite clean URL internally to app/[shop_slug]/...
       const url = request.nextUrl.clone();
-      url.pathname = `${slugPrefix}${pathname}`;
+      url.pathname = `${slugPrefix}${formattedPath === '/' ? '' : formattedPath}`;
       return NextResponse.rewrite(url);
     }
 
@@ -132,7 +134,7 @@ export async function proxy(request: NextRequest) {
     }
 
     if (subdomain && !excludedSubdomains.has(subdomain)) {
-      // ADDED - Check for expired/suspended
+      // Check for expired/suspended
       if (expiredSlugs.has(subdomain) || suspendedSlugs.has(subdomain)) {
         return new NextResponse('Shop not found', { status: 404 });
       }
@@ -153,7 +155,7 @@ export async function proxy(request: NextRequest) {
       if (slugs.has(subdomain)) {
         const slugPrefix = `/${subdomain}`;
 
-        // Strip slug from subdomain URLs if present
+        // Strip slug from subdomain URLs if present in visible address
         if (pathname.startsWith(slugPrefix)) {
           const cleanPath = pathname.slice(slugPrefix.length) || '/';
           const redirectUrl = new URL(`${cleanPath}${search}`, request.url);
