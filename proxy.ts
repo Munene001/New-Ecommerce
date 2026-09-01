@@ -1,11 +1,10 @@
-// middleware.ts
+// proxy.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
-// 1. Force Node.js runtime for 'mysql2' socket compatibility
-export const runtime = 'nodejs';
+
 
 const excludedSubdomains = new Set(['www', 'staging', 'mail', 'admin', 'support']);
 
@@ -263,8 +262,8 @@ function renderShopNotFound(message: string = 'This shop is currently unavailabl
   );
 }
 
-// 5. Main middleware
-export async function middleware(request: NextRequest) {
+// 5. Main proxy function (was middleware)
+export async function proxy(request: NextRequest) {
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(7);
 
@@ -378,12 +377,12 @@ export async function middleware(request: NextRequest) {
     // 8. Default: pass through
     return NextResponse.next();
   } catch (error) {
-    console.error(`[${requestId}] Unhandled middleware error:`, error);
+    console.error(`[${requestId}] Unhandled proxy error:`, error);
     return NextResponse.next();
   } finally {
     const duration = Date.now() - startTime;
     if (duration > 100) {
-      console.warn(`[${requestId}] Middleware slow: ${duration}ms for ${request.nextUrl.pathname}`);
+      console.warn(`[${requestId}] Proxy slow: ${duration}ms for ${request.nextUrl.pathname}`);
     }
   }
 }
