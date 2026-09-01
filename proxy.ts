@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
-export const runtime = 'nodejs';
+
 
 const excludedSubdomains = new Set(['www', 'staging', 'mail', 'admin', 'support']);
 
