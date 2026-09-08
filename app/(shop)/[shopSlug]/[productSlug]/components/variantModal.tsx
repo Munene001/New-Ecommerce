@@ -1,18 +1,22 @@
-"use client";
+// app/(shop)/[shopSlug]/[productSlug]/components/variantModal.tsx
+'use client';
 
 import { useState } from "react";
 import { X, Minus, Plus, ShoppingCart, ShoppingBag, ShoppingBasket } from "lucide-react";
 import Button from "@/app/components/ui/button";
 import { useCart } from "@/context/shopCartContext";
-import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from "@/context/toastContext";
 import { Product } from "@/lib/types/product";
+
+// ✅ Safe import - we'll handle the context carefully
+import { useShop } from "@/app/(shop)/ShopContext";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   product: Product;
   secondaryColor: string;
+  cartIcon?: string; // ✅ NEW: Optional prop for dashboard
 }
 
 interface CartIconProps {
@@ -30,10 +34,28 @@ const CartIcon = ({ cartIcon }: CartIconProps) => {
   }
 };
 
-export default function VariantModal({ isOpen, onClose, product, secondaryColor }: Props) {
-  const { shop } = useShop();
+export default function VariantModal({ 
+  isOpen, 
+  onClose, 
+  product, 
+  secondaryColor,
+  cartIcon: propCartIcon // ✅ Rename to avoid conflict
+}: Props) {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
+
+  // ✅ Safely get cartIcon - try context first, fallback to prop
+  let contextCartIcon = 'cart';
+  try {
+    const { shop } = useShop();
+    contextCartIcon = shop?.cartIcon || 'cart';
+  } catch {
+    // useShop failed (e.g., in dashboard), use prop or default
+    contextCartIcon = propCartIcon || 'cart';
+  }
+
+  // ✅ Final cartIcon: prop overrides context
+  const finalCartIcon = propCartIcon || contextCartIcon;
 
   if (!isOpen) return null;
 
@@ -183,7 +205,7 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
                           <button
                             onClick={() => handleDecrement(variant)}
                             disabled={!isInStock}
-                            className="px-2.5 sm:px-3 py-1.5  hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="px-2.5 sm:px-3 py-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             <Minus className="w-3.5 h-3.5 text-black" />
                           </button>
@@ -206,7 +228,7 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
                             backgroundColor: (isInStock && remainingStock > 0) ? secondaryColor : '#9CA3AF',
                           }}
                         >
-                          <CartIcon cartIcon={shop?.cartIcon} />
+                          <CartIcon cartIcon={finalCartIcon} /> {/* ✅ Use finalCartIcon */}
                           <span>Add</span>
                         </Button>
                       </>
@@ -219,7 +241,7 @@ export default function VariantModal({ isOpen, onClose, product, secondaryColor 
                           backgroundColor: isInStock ? secondaryColor : '#9CA3AF',
                         }}
                       >
-                        <CartIcon cartIcon={shop?.cartIcon} />
+                        <CartIcon cartIcon={finalCartIcon} /> {/* ✅ Use finalCartIcon */}
                         <span>Add to Cart</span>
                       </Button>
                     )}
