@@ -1,37 +1,154 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+PaziaTech 🛒
+https://paziatech.co.ke/
 
-First, run the development server:
+Your Modern E-Commerce Solution.
 
-```bash
+PaziaTech is a full-featured e-commerce platform built to deliver a seamless shopping experience for customers and powerful management tools for store owners. From product discovery to checkout, PaziaTech handles it all.
+
+📖 Table of Contents
+About The Project
+
+Key Features
+
+Tech Stack
+
+Getting Started
+
+Usage
+
+Project Structure
+
+Roadmap
+
+Contributing
+
+License
+
+Contact
+
+🎯 About The Project
+PaziaTech is an e-commerce web application designed to make online selling simple, fast, and scalable. It provides a complete storefront for customers and a robust admin dashboard for managing products, orders, and users.
+
+Whether you're a small business owner or scaling up, PaziaTech gives you the tools to sell online with confidence.
+
+Why PaziaTech?
+Fast & Responsive: Optimized for speed and mobile-first shopping.
+
+Secure Checkout: Integrated payment gateway with encrypted transactions.
+
+Easy Management: Intuitive admin panel for products, orders, and inventory.
+
+Scalable: Built to grow with your business.
+
+✨ Key Features
+🛍️ Customer Side
+User registration & authentication (JWT / OAuth)
+
+Product browsing with search, filters & categories
+
+Product detail pages with images, reviews & ratings
+
+Shopping cart & wishlist
+
+Secure checkout with payment integration (Stripe / PayPal / M-Pesa)
+
+Order tracking & history
+
+Email notifications for orders
+
+🛠️ Admin Side
+Admin dashboard with sales analytics
+
+Product management (CRUD)
+
+Order management & status updates
+
+User & role management
+
+Inventory tracking
+
+Discount codes & promotions
+
+🛠 Tech Stack
+Frontend:
+
+React.js / Next.js
+
+Tailwind CSS / Bootstrap
+
+Redux Toolkit / Context API
+
+Backend:
+
+Node.js + Express.js
+
+MongoDB / PostgreSQL
+
+JWT Authentication
+
+Stripe / PayPal API
+
+DevOps & Tools:
+
+Docker
+
+Git & GitHub
+
+Vercel / Render / AWS
+
+🚀 Getting Started
+Follow these steps to run PaziaTech locally.
+
+Prerequisites
+Make sure you have the following installed:
+
+Node.js (v18+)
+
+npm or yarn
+
+MongoDB (local or Atlas)
+
+Git
+
+Installation
+Clone the repository:
+
+bash
+git clone https://github.com/your-username/paziatech.git
+cd paziatech
+Install backend dependencies:
+
+bash
+cd server
+npm install
+Install frontend dependencies:
+
+bash
+cd ../client
+npm install
+Set up environment variables:
+
+Create a .env file inside the server folder:
+
+env
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+STRIPE_SECRET_KEY=your_stripe_secret
+CLIENT_URL=http://localhost:3000
+Create a .env file inside the client folder:
+
+env
+REACT_APP_API_URL=http://localhost:5000/api
+Run the backend:
+
+bash
+cd server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Run the frontend:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# Test
+bash
+cd client
+npm start
+Open your browser at http://localhost:3000
