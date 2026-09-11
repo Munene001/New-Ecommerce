@@ -126,17 +126,8 @@ Open:
 http://localhost:3000
 ```
 
-> Do not commit `.env.local` or any production credentials to the repository.
 
-## Screenshots
 
-### Storefront
-
-<!-- Add storefront screenshot here -->
-
-### Shop Dashboard
-
-<!-- Add dashboard screenshot here -->
 
 ## Links
 
