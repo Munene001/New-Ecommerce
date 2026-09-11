@@ -15,13 +15,14 @@ interface OrderItem {
 
 interface OrderBody {
   shop_id: number;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
+  source?: 'online' | 'pos';
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
   customer_city?: string | null;
   customer_address?: string | null;
   special_instructions?: string;
-  payment_method: 'mpesa' | 'cash_on_delivery';
+  payment_method: 'mpesa' | 'cash_on_delivery' | 'cash' | 'pos_direct_mpesa';
   delivery_tier_id?: number | null;
   delivery_zone?: string | null;
   items: OrderItem[];
@@ -69,20 +70,21 @@ async function getInternalUserId(supabaseUserId: string): Promise<number | null>
   return rows.length ? rows[0].user_id : null;
 }
 
-async function generateOrderNumber(shopId: number): Promise<string> {
+async function generateOrderNumber(shopId: number, source: 'online' | 'pos'): Promise<string> {
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
   
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) as count FROM orders 
-     WHERE shop_id = ? AND DATE(created_at) = CURDATE()`,
-    [shopId]
+     WHERE shop_id = ? AND DATE(created_at) = CURDATE() AND source = ?`,
+    [shopId, source]
   );
   
   const count = (rows[0]?.count || 0) + 1;
   const sequence = String(count).padStart(3, '0');
+  const prefix = source === 'pos' ? 'POS' : 'ORD';
   
-  return `ORD-${shopId}-${dateStr}-${sequence}`;
+  return `${prefix}-${shopId}-${dateStr}-${sequence}`;
 }
 
 function getEffectivePrice(row: ProductRow | VariantRow): number {
@@ -98,19 +100,13 @@ function normalizeId(id: any): number | null {
   return isNaN(num) ? null : num;
 }
 
-function findVariantSafe(
-  variants: VariantRow[], 
-  variantId: any
-): VariantRow | undefined {
+function findVariantSafe(variants: VariantRow[], variantId: any): VariantRow | undefined {
   const normalizedId = normalizeId(variantId);
   if (normalizedId === null) return undefined;
   return variants.find(v => Number(v.variant_id) === normalizedId);
 }
 
-function findProductSafe(
-  products: ProductRow[], 
-  productId: any
-): ProductRow | undefined {
+function findProductSafe(products: ProductRow[], productId: any): ProductRow | undefined {
   const normalizedId = normalizeId(productId);
   if (normalizedId === null) return undefined;
   return products.find(p => Number(p.product_id) === normalizedId);
@@ -208,10 +204,7 @@ async function getDeliveryFee(shopId: number, tierId: number | null): Promise<{ 
     return { fee: 0, valid: false };
   }
   
-  return { 
-    fee: Number(rows[0].fee) || 0, 
-    valid: true 
-  };
+  return { fee: Number(rows[0].fee) || 0, valid: true };
 }
 
 export async function POST(request: NextRequest) {
@@ -219,7 +212,6 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   
   let customerId: number | null = null;
-  
   if (!authError && user) {
     customerId = await getInternalUserId(user.id);
   }
@@ -231,7 +223,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  // Handle case where items might be sent as string or object
   let parsedItems = body.items;
   if (typeof parsedItems === 'string') {
     try {
@@ -241,26 +232,29 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { 
-    shop_id, 
-    customer_name, 
-    customer_email, 
-    customer_phone, 
-    customer_city, 
-    customer_address, 
-    payment_method, 
-    delivery_tier_id,
-    delivery_zone
-  } = body;
+  const source = body.source === 'pos' ? 'pos' : 'online';
+  
+  const customer_name = body.customer_name || (source === 'pos' ? 'Walk-in Customer' : '');
+  const customer_email = body.customer_email || (source === 'pos' ? 'pos@store.local' : '');
+  const customer_phone = body.customer_phone || (source === 'pos' ? '0000000000' : '');
+  const { customer_city, customer_address, payment_method, delivery_tier_id, delivery_zone } = body;
 
   const items = parsedItems;
 
-  if (!shop_id || !customer_name || !customer_email || !customer_phone || !payment_method || !items || !Array.isArray(items) || items.length === 0) {
+  if (!body.shop_id || !payment_method || !items || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  if (!['mpesa', 'cash_on_delivery'].includes(payment_method)) {
-    return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 });
+  if (source === 'online' && (!customer_name || !customer_email || !customer_phone)) {
+    return NextResponse.json({ error: 'Missing required customer information' }, { status: 400 });
+  }
+
+  const allowedMethods = source === 'pos' 
+    ? ['cash', 'pos_direct_mpesa', 'mpesa'] 
+    : ['mpesa', 'cash_on_delivery'];
+
+  if (!allowedMethods.includes(payment_method)) {
+    return NextResponse.json({ error: `Invalid payment method for ${source}` }, { status: 400 });
   }
 
   for (const item of items) {
@@ -269,26 +263,34 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const isInstantPosSale = source === 'pos' && (payment_method === 'cash' || payment_method === 'pos_direct_mpesa');
+  const initialPaymentStatus = isInstantPosSale ? 'paid' : 'pending';
+  const initialOrderStatus = isInstantPosSale ? 'delivered' : 'pending';
+  const stockDeducted = isInstantPosSale ? 1 : 0;
+
   try {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
 
     try {
-      const shopDetails = await getShopDetails(shop_id);
+      const shopDetails = await getShopDetails(body.shop_id);
       if (!shopDetails) {
         await connection.rollback();
         connection.release();
         return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
       }
 
-      const productValidation = await validateProductsAndStock(shop_id, items);
+      const productValidation = await validateProductsAndStock(body.shop_id, items);
       if (!productValidation.valid) {
         await connection.rollback();
         connection.release();
         return NextResponse.json({ error: productValidation.error }, { status: 400 });
       }
 
-      const deliveryResult = await getDeliveryFee(shop_id, delivery_tier_id || null);
+      const deliveryResult = source === 'pos' 
+        ? { fee: 0, valid: true } 
+        : await getDeliveryFee(body.shop_id, delivery_tier_id || null);
+
       if (!deliveryResult.valid) {
         await connection.rollback();
         connection.release();
@@ -300,35 +302,16 @@ export async function POST(request: NextRequest) {
       
       const orderItemsWithDetails = items.map(item => {
         const product = findProductSafe(productValidation.products, item.product_id);
-        
-        let variant: VariantRow | undefined;
-        if (item.variant_id) {
-          variant = findVariantSafe(productValidation.variants, item.variant_id);
-        }
+        const variant = item.variant_id ? findVariantSafe(productValidation.variants, item.variant_id) : undefined;
         
         if (item.variant_id && !variant) {
-          console.error(
-            `[ORDER API ERROR] Variant ${item.variant_id} not found! ` +
-            `Available variants: ${productValidation.variants.map(v => v.variant_id).join(', ')}`
-          );
           throw new Error(`Variant ${item.variant_id} not found. Please check your cart.`);
         }
         
-        const realPrice = variant 
-          ? getEffectivePrice(variant) 
-          : (product ? getEffectivePrice(product) : 0);
-        
-        if (item.variant_id && realPrice === 0) {
-          console.warn(
-            `[ORDER API WARNING] Variant ${item.variant_id} has price 0. ` +
-            `Variant price: ${variant?.price}, Discount: ${variant?.discount_price}`
-          );
-        }
-        
+        const realPrice = variant ? getEffectivePrice(variant) : (product ? getEffectivePrice(product) : 0);
         const productName = product?.product_name || '';
         const variantAttributes = variant?.attributes || null;
         
-        // Safe variant name parsing - handles both string and object
         let variantName: string | null = null;
         if (variantAttributes) {
           try {
@@ -359,18 +342,20 @@ export async function POST(request: NextRequest) {
       });
 
       const total = Number(realSubtotal) + Number(deliveryFee);
-      const orderNumber = await generateOrderNumber(shop_id);
+      const orderNumber = await generateOrderNumber(body.shop_id, source);
 
       const [orderResult] = await connection.query<ResultSetHeader>(
         `INSERT INTO orders (
           order_number, shop_id, customer_id, customer_name, customer_email, 
           customer_phone, customer_city, customer_address, special_instructions, 
-          subtotal, delivery_fee, delivery_zone, total, payment_method, payment_status, order_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')`,
+          subtotal, delivery_fee, delivery_zone, total, payment_method, payment_status, order_status,
+          source, stock_deducted
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          orderNumber, shop_id, customerId, customer_name, customer_email,
+          orderNumber, body.shop_id, customerId, customer_name, customer_email,
           customer_phone, customer_city || null, customer_address || null, body.special_instructions || null,
-          realSubtotal, deliveryFee, delivery_zone || null, total, payment_method
+          realSubtotal, deliveryFee, delivery_zone || null, total, payment_method, 
+          initialPaymentStatus, initialOrderStatus, source, stockDeducted
         ]
       );
 
@@ -383,23 +368,30 @@ export async function POST(request: NextRequest) {
             variant_id, variant_name, variant_attributes
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            orderId, 
-            item.product_id, 
-            item.product_name, 
-            item.quantity, 
-            item.price_at_time,
-            item.variant_id,
-            item.variant_name,
-            item.variant_attributes
+            orderId, item.product_id, item.product_name, item.quantity, 
+            item.price_at_time, item.variant_id, item.variant_name, item.variant_attributes
           ]
         );
+
+        if (isInstantPosSale) {
+          if (item.variant_id) {
+            await connection.query(
+              `UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE variant_id = ?`,
+              [item.quantity, item.variant_id]
+            );
+          } else {
+            await connection.query(
+              `UPDATE products SET stock_quantity = stock_quantity - ? WHERE product_id = ?`,
+              [item.quantity, item.product_id]
+            );
+          }
+        }
       }
 
       await connection.commit();
       connection.release();
 
-      // Send emails for Cash on Delivery orders
-      if (payment_method === 'cash_on_delivery') {
+      if (source === 'online' && payment_method === 'cash_on_delivery') {
         const formattedAddress = customer_address && customer_city 
           ? `${customer_address}, ${customer_city}` 
           : customer_address || customer_city || '';
@@ -467,9 +459,11 @@ export async function POST(request: NextRequest) {
           order_number: orderNumber,
           order_token: orderToken,
           total_amount: total,
-          message: payment_method === 'cash_on_delivery' 
-            ? 'Order placed successfully' 
-            : 'Order created. Complete payment to confirm your order.'
+          message: isInstantPosSale 
+            ? 'POS sale completed successfully' 
+            : payment_method === 'cash_on_delivery' 
+              ? 'Order placed successfully' 
+              : 'Order created. Complete payment to confirm your order.'
         }
       });
 

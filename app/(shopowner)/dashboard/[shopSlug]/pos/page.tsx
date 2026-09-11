@@ -1,4 +1,3 @@
-// app/(shopowner)/dashboard/[shopSlug]/pos/page.tsx
 'use client';
 
 import Link from 'next/link';
@@ -10,7 +9,8 @@ import { useToast } from '@/context/toastContext';
 import { ProductTile } from './components/productTile';
 import { POSProductCardSkeleton } from './components/posSkeleton';
 import { useState, useEffect } from 'react';
-import Filter from '@/app/(shop)/[shopSlug]/components/filter';
+import { usePosCheckout } from './hooks/usePosCheckout';
+import { POSCheckoutModal } from './components/posCheckoutModal';
 
 export default function PointOfSale() {
   const { shopId, shopSlug } = useShop();
@@ -24,21 +24,13 @@ export default function PointOfSale() {
   const {
     filteredProducts,
     loading,
-    isRefreshing,
     search,
     setSearch,
-    category,
-    setCategory,
-    sortBy,
-    setSortBy,
     inStockOnly,
     setInStockOnly,
     refreshProducts,
     clearFilters,
-    stats,
   } = usePOS();
-
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     if (shopId) {
@@ -52,25 +44,20 @@ export default function PointOfSale() {
     }
   }, [shopId, shopSlug]);
 
-  const activeFilters = {
-    search: search,
-    categories: category ? [category] : [],
-    priceRange: null,
-    sortBy: sortBy as 'newest' | 'oldest' | 'price_low' | 'price_high' | 'random',
-    inStock: inStockOnly,
-  };
-
-  const transformedCategories = shopData?.categories?.map((cat: any) => ({
-    id: cat.id || cat.category_id,
-    name: cat.name,
-  })) || [];
+  const checkout = usePosCheckout({
+    shopId: shopId || 0,
+    onSuccess: () => {
+      setIsCartOpen(false);
+      refreshProducts();
+    },
+  });
 
   const handleCheckout = () => {
     if (items.length === 0) {
       showToast('Cart is empty', 'error');
       return;
     }
-    showToast('Checkout coming soon!', 'success');
+    checkout.openCheckout();
   };
 
   const getEffectivePrice = (item: any) => {
@@ -100,7 +87,7 @@ export default function PointOfSale() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* POS Header - Minimal */}
+      {/* POS Header */}
       <header className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between z-20">
         <div className="flex items-center gap-2">
           <Link
@@ -116,7 +103,7 @@ export default function PointOfSale() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Cart button - visible on mobile */}
+          {/* Cart button for mobile */}
           <button
             onClick={() => setIsCartOpen(true)}
             className="lg:hidden relative p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -139,9 +126,8 @@ export default function PointOfSale() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left: Products (Full width on mobile, 70% on desktop) */}
+        {/* Left: Products Grid */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          {/* Search and In Stock toggle - at the top */}
           <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3">
             <div className="flex items-center gap-3">
               <div className="relative flex-1">
@@ -176,7 +162,6 @@ export default function PointOfSale() {
             </div>
           </div>
 
-          {/* Product Grid - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredProducts.map((product) => (
@@ -197,9 +182,8 @@ export default function PointOfSale() {
           </div>
         </div>
 
-        {/* Right: Cart Sidebar - Hidden on mobile, shown on desktop */}
+        {/* Right: Cart Sidebar (Desktop) */}
         <div className="hidden lg:flex w-[30%] min-w-[280px] max-w-[400px] bg-white border-l border-gray-200 flex-col flex-shrink-0">
-          {/* Cart Header */}
           <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingCart className="w-5 h-5" />
@@ -218,7 +202,6 @@ export default function PointOfSale() {
             )}
           </div>
 
-          {/* Cart Items - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {items.length === 0 ? (
               <div className="text-center text-gray-400 py-8">
@@ -294,7 +277,6 @@ export default function PointOfSale() {
             )}
           </div>
 
-          {/* Cart Footer - Checkout */}
           <div className="flex-shrink-0 border-t border-gray-200 p-4 space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">Subtotal</span>
@@ -326,15 +308,12 @@ export default function PointOfSale() {
             isCartOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setIsCartOpen(false)}
           />
           
-          {/* Cart Panel */}
           <div className="absolute right-0 top-0 h-full w-[85%] max-w-[380px] bg-white shadow-2xl flex flex-col">
-            {/* Cart Header */}
             <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5" />
@@ -361,7 +340,6 @@ export default function PointOfSale() {
               </div>
             </div>
 
-            {/* Cart Items - Scrollable */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {items.length === 0 ? (
                 <div className="text-center text-gray-400 py-8">
@@ -437,7 +415,6 @@ export default function PointOfSale() {
               )}
             </div>
 
-            {/* Cart Footer - Checkout */}
             <div className="flex-shrink-0 border-t border-gray-200 p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Subtotal</span>
@@ -465,7 +442,24 @@ export default function PointOfSale() {
         </div>
       </div>
 
-      {/* Mobile Filter Modal - REMOVED */}
+      {/* POS Checkout Modal Component */}
+      <POSCheckoutModal
+        isOpen={checkout.isOpen}
+        onClose={checkout.closeCheckout}
+        subtotal={subtotal}
+        paymentMethod={checkout.paymentMethod}
+        setPaymentMethod={checkout.setPaymentMethod}
+        customerPhone={checkout.customerPhone}
+        setCustomerPhone={checkout.setCustomerPhone}
+        amountTendered={checkout.amountTendered}
+        setAmountTendered={checkout.setAmountTendered}
+        changeDue={checkout.changeDue}
+        isCashValid={checkout.isCashValid}
+        isSubmitting={checkout.isSubmitting}
+        completedOrder={checkout.completedOrder}
+        onProcessPayment={checkout.processPayment}
+        primaryColor={shopData?.primaryColor || '#0FA965'}
+      />
     </div>
   );
 }
