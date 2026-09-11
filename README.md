@@ -1,154 +1,68 @@
+PaziaTech
 
-PaziaTech 🛒
-https://paziatech.co.ke/
+Multi-tenant SaaS e-commerce platform for Kenyan businesses.
 
-Your Modern E-Commerce Solution.
+PaziaTech allows businesses to create their own online shops, manage products and orders, and accept M-Pesa-powered payments without needing to build an e-commerce website from scratch.
 
-PaziaTech is a full-featured e-commerce platform built to deliver a seamless shopping experience for customers and powerful management tools for store owners. From product discovery to checkout, PaziaTech handles it all.
+Live: https://paziatech.co.ke/
+Demo Shop: https://yobra.paziatech.co.ke/
 
-📖 Table of Contents
-About The Project
-
-Key Features
-
+Features
+Multi-tenant online shops
+Product and inventory management
+Order management
+M-Pesa-powered checkout
+Authentication and role-based access control
+Shop owner dashboard
+Customer storefronts
+Delivery configuration
+Responsive UI
 Tech Stack
+Frontend: Next.js, React, TypeScript, Tailwind CSS
+Backend: Next.js APIs, REST APIs
+Database: MySQL, SQL
+Authentication: Supabase Auth, Google OAuth, Email OTP
+Infrastructure: Docker, Linux/Ubuntu
+Tools: Git, GitHub, Vercel
+Architecture
 
-Getting Started
+PaziaTech uses a multi-tenant architecture where multiple businesses operate on the same platform while their data and access remain separated.
 
-Usage
+User
+  ↓
+Next.js Application
+  ↓
+Authentication & RBAC
+  ↓
+Tenant / Shop Access
+  ↓
+Application APIs
+  ↓
+MySQL Database
+Key Engineering Work
+Built the platform from the ground up using Next.js and TypeScript.
+Implemented multi-tenant access control and role-based permissions.
+Designed database-driven product, shop, customer, and order workflows.
+Integrated M-Pesa-powered payments and third-party services.
+Containerized and deployed applications using Docker and Linux.
+Configured production environments, domains, and SSL.
+Continuously maintain and improve the platform in production.
+Development
+git clone <repository-url>
+cd <project-directory>
+pnpm install
+pnpm dev
 
-Project Structure
+Create a .env.local file with the required database, authentication, and API credentials.
 
-Roadmap
+Never commit secrets or production credentials to the repository.
 
-Contributing
+Links
+Website: https://paziatech.co.ke/
+Demo Shop: https://yobra.paziatech.co.ke/
+Portfolio: https://lawrence-taupe.vercel.app/
+GitHub: https://github.com/Munene001
+Author
 
-License
-
-Contact
-
-🎯 About The Project
-PaziaTech is an e-commerce web application designed to make online selling simple, fast, and scalable. It provides a complete storefront for customers and a robust admin dashboard for managing products, orders, and users.
-
-Whether you're a small business owner or scaling up, PaziaTech gives you the tools to sell online with confidence.
-
-Why PaziaTech?
-Fast & Responsive: Optimized for speed and mobile-first shopping.
-
-Secure Checkout: Integrated payment gateway with encrypted transactions.
-
-Easy Management: Intuitive admin panel for products, orders, and inventory.
-
-Scalable: Built to grow with your business.
-
-✨ Key Features
-🛍️ Customer Side
-User registration & authentication (JWT / OAuth)
-
-Product browsing with search, filters & categories
-
-Product detail pages with images, reviews & ratings
-
-Shopping cart & wishlist
-
-Secure checkout with payment integration (Stripe / PayPal / M-Pesa)
-
-Order tracking & history
-
-Email notifications for orders
-
-🛠️ Admin Side
-Admin dashboard with sales analytics
-
-Product management (CRUD)
-
-Order management & status updates
-
-User & role management
-
-Inventory tracking
-
-Discount codes & promotions
-
-🛠 Tech Stack
-Frontend:
-
-React.js / Next.js
-
-Tailwind CSS / Bootstrap
-
-Redux Toolkit / Context API
-
-Backend:
-
-Node.js + Express.js
-
-MongoDB / PostgreSQL
-
-JWT Authentication
-
-Stripe / PayPal API
-
-DevOps & Tools:
-
-Docker
-
-Git & GitHub
-
-Vercel / Render / AWS
-
-🚀 Getting Started
-Follow these steps to run PaziaTech locally.
-
-Prerequisites
-Make sure you have the following installed:
-
-Node.js (v18+)
-
-npm or yarn
-
-MongoDB (local or Atlas)
-
-Git
-
-Installation
-Clone the repository:
-
-bash
-git clone https://github.com/your-username/paziatech.git
-cd paziatech
-Install backend dependencies:
-
-bash
-cd server
-npm install
-Install frontend dependencies:
-
-bash
-cd ../client
-npm install
-Set up environment variables:
-
-Create a .env file inside the server folder:
-
-env
-PORT=5000
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
-STRIPE_SECRET_KEY=your_stripe_secret
-CLIENT_URL=http://localhost:3000
-Create a .env file inside the client folder:
-
-env
-REACT_APP_API_URL=http://localhost:5000/api
-Run the backend:
-
-bash
-cd server
-npm run dev
-Run the frontend:
-
-bash
-cd client
-npm start
-Open your browser at http://localhost:3000
+Lawrence Munene
+Full-Stack Software Engineer
