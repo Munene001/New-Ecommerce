@@ -85,7 +85,7 @@ export default function PointOfSale() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 text-black">
       {/* Header */}
       <header className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between z-20">
         <div className="flex items-center gap-2">
@@ -94,9 +94,9 @@ export default function PointOfSale() {
             className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
             title="Back to Dashboard"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 text-black" />
           </Link>
-          <span className="text-sm text-gray-500 hidden sm:inline">
+          <span className="text-sm font-medium text-black hidden sm:inline">
             {filteredProducts.length} products
           </span>
         </div>
@@ -106,16 +106,16 @@ export default function PointOfSale() {
             onClick={() => setIsCartOpen(true)}
             className="lg:hidden relative p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingCart className="w-5 h-5 text-black" />
             {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
                 {totalItems}
               </span>
             )}
           </button>
           <button
             onClick={clearFilters}
-            className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            className="px-3 py-1 text-sm font-semibold border border-gray-300 rounded hover:bg-gray-100 text-black transition-colors"
           >
             Clear
           </button>
@@ -123,24 +123,24 @@ export default function PointOfSale() {
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Products */}
+        {/* Products Column */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3">
             <div className="flex items-center gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-black" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search products..."
-                  className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-300 rounded-lg text-sm text-black placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium transition-all"
                   autoFocus
                 />
                 {search && (
                   <button
                     onClick={() => setSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-black hover:text-gray-700"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -154,7 +154,7 @@ export default function PointOfSale() {
                   onChange={(e) => setInStockOnly(e.target.checked)}
                   className="w-4 h-4 accent-blue-600 cursor-pointer"
                 />
-                <span className="text-sm font-medium text-gray-700">In Stock</span>
+                <span className="text-sm font-semibold text-black">In Stock</span>
               </label>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function PointOfSale() {
             </div>
 
             {filteredProducts.length === 0 && !loading && (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-black font-semibold text-base">
                 No products match your filters
               </div>
             )}
@@ -183,16 +183,16 @@ export default function PointOfSale() {
         <div className="hidden lg:flex w-[30%] min-w-[280px] max-w-[400px] bg-white border-l border-gray-200 flex-col flex-shrink-0">
           <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              <h2 className="font-semibold text-sm">Cart</h2>
-              <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+              <ShoppingCart className="w-5 h-5 text-black" />
+              <h2 className="font-bold text-sm text-black">Cart</h2>
+              <span className="text-xs bg-gray-200 text-black font-semibold px-2 py-0.5 rounded-full">
                 {totalItems} items
               </span>
             </div>
             {items.length > 0 && (
               <button
                 onClick={() => clearCart()}
-                className="text-xs text-red-500 hover:text-red-700"
+                className="text-xs font-semibold text-red-600 hover:text-red-800"
               >
                 Clear All
               </button>
@@ -201,10 +201,10 @@ export default function PointOfSale() {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {items.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">
-                <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Cart is empty</p>
-                <p className="text-xs">Click products to add</p>
+              <div className="text-center text-black py-8">
+                <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-80 text-black" />
+                <p className="text-sm font-semibold">Cart is empty</p>
+                <p className="text-xs font-medium text-gray-800">Click products to add</p>
               </div>
             ) : (
               items.map((item) => {
@@ -217,23 +217,23 @@ export default function PointOfSale() {
                 return (
                   <div
                     key={`${item.product_id}-${item.variant_id || ''}`}
-                    className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-2 p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
+                      <p className="text-sm font-bold text-black truncate">
                         {item.product_name}
                         {item.variant_name && (
-                          <span className="text-gray-500 text-xs ml-1">
+                          <span className="text-gray-800 text-xs font-semibold ml-1">
                             ({item.variant_name})
                           </span>
                         )}
                       </p>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-green-600">
+                        <p className="text-sm font-bold text-green-700">
                           KES {formatPrice(effectivePrice)}
                         </p>
                         {hasDiscount && (
-                          <p className="text-xs text-gray-400 line-through">
+                          <p className="text-xs text-gray-700 line-through font-medium">
                             KES {formatPrice(item.price)}
                           </p>
                         )}
@@ -249,18 +249,18 @@ export default function PointOfSale() {
                             removeFromCart(item.product_id, item.variant_id);
                           }
                         }}
-                        className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+                        className="w-7 h-7 flex items-center justify-center bg-gray-300 text-black font-bold rounded hover:bg-gray-400 transition-colors"
                       >
                         -
                       </button>
-                      <span className="w-6 text-center text-sm font-medium">
+                      <span className="w-6 text-center text-sm font-bold text-black">
                         {item.quantity}
                       </span>
                       <button
                         onClick={() =>
                           updateQuantity(item.product_id, item.quantity + 1, item.variant_id)
                         }
-                        className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+                        className="w-7 h-7 flex items-center justify-center bg-gray-300 text-black font-bold rounded hover:bg-gray-400 transition-colors"
                       >
                         +
                       </button>
@@ -268,7 +268,7 @@ export default function PointOfSale() {
 
                     <button
                       onClick={() => removeFromCart(item.product_id, item.variant_id)}
-                      className="w-7 h-7 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      className="w-7 h-7 flex items-center justify-center text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
                       title="Remove item"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -281,29 +281,29 @@ export default function PointOfSale() {
 
           <div className="flex-shrink-0 border-t border-gray-200 p-4 space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Subtotal</span>
-              <span className="text-xl font-bold">KES {formatPrice(subtotal)}</span>
+              <span className="text-sm font-bold text-black">Subtotal</span>
+              <span className="text-xl font-extrabold text-black">KES {formatPrice(subtotal)}</span>
             </div>
 
             <button
               onClick={handleCheckout}
               disabled={items.length === 0}
-              className="w-full py-3 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 text-white font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor:
-                  items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#9CA3AF',
+                  items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#4B5563',
               }}
             >
               {items.length === 0 ? 'Cart Empty' : '💳 Checkout'}
             </button>
 
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs font-semibold text-black text-center">
               {items.length} items · {totalItems} total units
             </p>
           </div>
         </div>
 
-        {/* Mobile Cart */}
+        {/* Mobile Cart Drawer */}
         <div
           className={`lg:hidden fixed inset-0 z-50 transition-transform duration-300 ease-in-out ${
             isCartOpen ? 'translate-x-0' : 'translate-x-full'
@@ -317,9 +317,9 @@ export default function PointOfSale() {
           <div className="absolute right-0 top-0 h-full w-[85%] max-w-[380px] bg-white shadow-2xl flex flex-col">
             <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5" />
-                <h2 className="font-semibold text-sm">Cart</h2>
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                <ShoppingCart className="w-5 h-5 text-black" />
+                <h2 className="font-bold text-sm text-black">Cart</h2>
+                <span className="text-xs bg-gray-200 text-black font-semibold px-2 py-0.5 rounded-full">
                   {totalItems} items
                 </span>
               </div>
@@ -327,14 +327,14 @@ export default function PointOfSale() {
                 {items.length > 0 && (
                   <button
                     onClick={() => clearCart()}
-                    className="text-xs text-red-500 hover:text-red-700"
+                    className="text-xs font-semibold text-red-600 hover:text-red-800"
                   >
                     Clear All
                   </button>
                 )}
                 <button
                   onClick={() => setIsCartOpen(false)}
-                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-black"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -343,10 +343,10 @@ export default function PointOfSale() {
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {items.length === 0 ? (
-                <div className="text-center text-gray-400 py-8">
-                  <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Cart is empty</p>
-                  <p className="text-xs">Click products to add</p>
+                <div className="text-center text-black py-8">
+                  <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-80 text-black" />
+                  <p className="text-sm font-semibold">Cart is empty</p>
+                  <p className="text-xs font-medium text-gray-800">Click products to add</p>
                 </div>
               ) : (
                 items.map((item) => {
@@ -359,23 +359,23 @@ export default function PointOfSale() {
                   return (
                     <div
                       key={`${item.product_id}-${item.variant_id || ''}`}
-                      className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg"
+                      className="flex items-center gap-2 p-2 bg-gray-100 rounded-lg"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
+                        <p className="text-sm font-bold text-black truncate">
                           {item.product_name}
                           {item.variant_name && (
-                            <span className="text-gray-500 text-xs ml-1">
+                            <span className="text-gray-800 text-xs font-semibold ml-1">
                               ({item.variant_name})
                             </span>
                           )}
                         </p>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-green-600">
+                          <p className="text-sm font-bold text-green-700">
                             KES {formatPrice(effectivePrice)}
                           </p>
                           {hasDiscount && (
-                            <p className="text-xs text-gray-400 line-through">
+                            <p className="text-xs text-gray-700 line-through font-medium">
                               KES {formatPrice(item.price)}
                             </p>
                           )}
@@ -391,18 +391,18 @@ export default function PointOfSale() {
                               removeFromCart(item.product_id, item.variant_id);
                             }
                           }}
-                          className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+                          className="w-7 h-7 flex items-center justify-center bg-gray-300 text-black font-bold rounded hover:bg-gray-400 transition-colors"
                         >
                           -
                         </button>
-                        <span className="w-6 text-center text-sm font-medium">
+                        <span className="w-6 text-center text-sm font-bold text-black">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() =>
                             updateQuantity(item.product_id, item.quantity + 1, item.variant_id)
                           }
-                          className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+                          className="w-7 h-7 flex items-center justify-center bg-gray-300 text-black font-bold rounded hover:bg-gray-400 transition-colors"
                         >
                           +
                         </button>
@@ -410,7 +410,7 @@ export default function PointOfSale() {
 
                       <button
                         onClick={() => removeFromCart(item.product_id, item.variant_id)}
-                        className="w-7 h-7 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        className="w-7 h-7 flex items-center justify-center text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
                         title="Remove item"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -423,23 +423,23 @@ export default function PointOfSale() {
 
             <div className="flex-shrink-0 border-t border-gray-200 p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Subtotal</span>
-                <span className="text-xl font-bold">KES {formatPrice(subtotal)}</span>
+                <span className="text-sm font-bold text-black">Subtotal</span>
+                <span className="text-xl font-extrabold text-black">KES {formatPrice(subtotal)}</span>
               </div>
 
               <button
                 onClick={handleCheckout}
                 disabled={items.length === 0}
-                className="w-full py-3 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 text-white font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   backgroundColor:
-                    items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#9CA3AF',
+                    items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#4B5563',
                 }}
               >
                 {items.length === 0 ? 'Cart Empty' : '💳 Checkout'}
               </button>
 
-              <p className="text-xs text-gray-400 text-center">
+              <p className="text-xs font-semibold text-black text-center">
                 {items.length} items · {totalItems} total units
               </p>
             </div>
