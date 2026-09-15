@@ -1,11 +1,12 @@
-// app/api/shops/orders/[orderId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 import { getOrderAccess } from '@/lib/auth/order-access';
+import { verifyShopAccess } from '@/lib/role/helper';
 
 interface OrderRow extends RowDataPacket {
   order_id: number;
+  shop_id: number;
   order_number: string;
   subtotal: number;
   delivery_fee: number;
@@ -17,6 +18,7 @@ interface OrderRow extends RowDataPacket {
   customer_phone: string;
   customer_email: string;
   customer_id: number | null;
+  source: 'online' | 'pos';
   retryable?: number;
   result_code?: number;
   result_description?: string;
@@ -32,7 +34,6 @@ interface OrderItemRow extends RowDataPacket {
   variant_attributes: string | null;
 }
 
-// ✅ NEW: Safe parser for variant attributes
 function safeParseVariantAttributes(value: string | null): any {
   if (!value) return null;
   if (typeof value === 'string') {
@@ -46,7 +47,6 @@ function safeParseVariantAttributes(value: string | null): any {
   return value;
 }
 
-// ✅ NEW: Normalize helper
 function normalizeId(id: any): number | null {
   if (id === null || id === undefined) return null;
   const num = Number(id);
@@ -68,9 +68,8 @@ export async function GET(
       );
     }
 
-    // First, check if order exists and get customer_id for auth check
     const [orderCheck] = await pool.query<OrderRow[]>(
-      `SELECT customer_id FROM orders WHERE order_id = ?`,
+      `SELECT shop_id, customer_id, source FROM orders WHERE order_id = ?`,
       [orderId]
     );
 
@@ -81,23 +80,32 @@ export async function GET(
       );
     }
 
-    // Verify access
-    const { granted, error } = await getOrderAccess(
-      req, 
-      orderId, 
-      orderCheck[0].customer_id
-    );
-    
-    if (!granted) {
-      return NextResponse.json(
-        { success: false, error: error || 'Unauthorized' },
-        { status: 401 }
-      );
+    const { shop_id: shopId, customer_id: customerId, source } = orderCheck[0];
+
+    // Verification Strategy using verifyShopAccess
+    if (source === 'pos') {
+      const { authorized, response } = await verifyShopAccess(req, Number(shopId));
+      if (!authorized) {
+        return response;
+      }
+    } else {
+      const shopOwnerCheck = await verifyShopAccess(req, Number(shopId));
+      
+      if (!shopOwnerCheck.authorized) {
+        const { granted, error } = await getOrderAccess(req, orderId, customerId);
+        if (!granted) {
+          return NextResponse.json(
+            { success: false, error: error || 'Unauthorized' },
+            { status: 401 }
+          );
+        }
+      }
     }
 
     const [orders] = await pool.query<OrderRow[]>(
       `SELECT 
         o.order_id, 
+        o.shop_id,
         o.order_number, 
         o.subtotal,
         o.delivery_fee,
@@ -109,6 +117,7 @@ export async function GET(
         o.customer_phone,
         o.customer_email,
         o.customer_id,
+        o.source,
         t.retryable,
         t.result_code,
         t.result_description,
@@ -120,13 +129,6 @@ export async function GET(
       LIMIT 1`,
       [orderId]
     );
-
-    if (orders.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Order not found' },
-        { status: 404 }
-      );
-    }
 
     const order = orders[0];
 
@@ -170,6 +172,7 @@ export async function GET(
         order_status: order.order_status,
         customer_phone: order.customer_phone,
         customer_email: order.customer_email,
+        source: order.source,
         retryable: isRetryable,
         displayMessage: displayMessage,
         transaction_status: order.transaction_status || null,
@@ -177,9 +180,9 @@ export async function GET(
           name: item.product_name,
           quantity: Number(item.quantity),
           price: Number(item.price_at_time) || 0,
-          variant_id: normalizeId(item.variant_id), // ✅ Normalize
+          variant_id: normalizeId(item.variant_id),
           variant_name: item.variant_name,
-          variant_attributes: safeParseVariantAttributes(item.variant_attributes) // ✅ Safe parse
+          variant_attributes: safeParseVariantAttributes(item.variant_attributes)
         }))
       }
     });

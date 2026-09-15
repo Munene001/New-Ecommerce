@@ -13,9 +13,9 @@ interface Order {
   customer_address: string;
   special_instructions: string | null;
   subtotal: number;
-  delivery_fee: number;        // ADDED
-  delivery_zone: string | null; // ADDED
-  total: number;               // ADDED
+  delivery_fee: number;
+  delivery_zone: string | null;
+  total: number;
   payment_method: string;
   payment_status: string;
   order_status: string;
@@ -76,6 +76,9 @@ interface UseDashboardOrdersReturn {
   markOrderAsViewed: (orderId: number) => Promise<boolean>;
 }
 
+// This hook is scoped to ONLINE orders only.
+const SOURCE = 'online';
+
 export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
@@ -115,6 +118,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
         shop_id: shopId,
         page: page.toString(),
         limit: '20',
+        source: SOURCE,          // <-- force online only
       });
       
       if (status) params.append('status', status);
@@ -130,8 +134,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
 
       const data = await res.json();
 
-      const newOrders = append ? [...orders, ...data.orders] : data.orders;
-      setOrders(newOrders);
+      setOrders(prev => (append ? [...prev, ...data.orders] : data.orders));
       setStats(data.stats);
       setUnviewedCount(data.unviewedCount);
       setCurrentPage(data.pagination.currentPage);
@@ -143,7 +146,7 @@ export function useDashboardOrders(shopId: string): UseDashboardOrdersReturn {
     } finally {
       setLoading(false);
     }
-  }, [shopId, orders]);
+  }, [shopId]);  // <-- removed `orders` from deps
 
   useEffect(() => {
     if (!initialFetchDone.current && shopId) {

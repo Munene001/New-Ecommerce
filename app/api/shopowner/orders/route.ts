@@ -22,6 +22,7 @@ interface OrderRow extends RowDataPacket {
   created_at: string;
   updated_at: string;
   viewed_by_seller: number;
+  source: 'online' | 'pos';
 }
 
 interface CountResult extends RowDataPacket {
@@ -55,7 +56,12 @@ function isValidDateString(dateStr: string | null): boolean {
   return d instanceof Date && !isNaN(d.getTime());
 }
 
-// GET /api/shopowner/orders?shop_id=1&page=1&limit=20&status=pending&date_from=2026-01-01&date_to=2026-12-31&search=ORD
+// GET /api/shopowner/orders?shop_id=1&page=1&limit=20&status=pending&date_from=2026-01-01&date_to=2026-12-31&search=ORD&source=online
+//
+// source is OPTIONAL:
+//   - omitted        -> returns ALL sources (online + pos)
+//   - source=online  -> online only
+//   - source=pos     -> pos only
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -89,6 +95,11 @@ export async function GET(req: NextRequest) {
     const dateTo = searchParams.get('date_to')?.trim();
     const search = searchParams.get('search')?.trim();
 
+    // Source filter — optional. If absent or invalid, returns ALL sources.
+    const sourceParam = searchParams.get('source')?.trim();
+    const source: 'online' | 'pos' | null =
+      sourceParam === 'pos' || sourceParam === 'online' ? sourceParam : null;
+
     if (dateFrom && !isValidDateString(dateFrom)) {
       return NextResponse.json({ error: 'Invalid date_from format (expected YYYY-MM-DD)' }, { status: 400 });
     }
@@ -96,9 +107,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid date_to format (expected YYYY-MM-DD)' }, { status: 400 });
     }
 
-    // Build base WHERE clause
+    // Build base WHERE clause (source applied only when explicitly provided)
     let whereClause = 'WHERE shop_id = ?';
     const queryParams: (string | number)[] = [shopId];
+
+    if (source) {
+      whereClause += ' AND source = ?';
+      queryParams.push(source);
+    }
 
     if (status) {
       whereClause += ' AND order_status = ?';
@@ -146,10 +162,15 @@ export async function GET(req: NextRequest) {
     const stats = statsResult[0];
     const totalCount = Number(stats?.totalCount) || 0;
 
-    // 2. Unviewed Orders Count
+    // 2. Unviewed Orders Count (mirrors the same source filter as the main query)
     let unviewedWhereClause = 'WHERE shop_id = ? AND viewed_by_seller = 0';
     const unviewedParams: (string | number)[] = [shopId];
-    
+
+    if (source) {
+      unviewedWhereClause += ' AND source = ?';
+      unviewedParams.push(source);
+    }
+
     if (dateFrom) {
       unviewedWhereClause += ' AND DATE(created_at) >= ?';
       unviewedParams.push(dateFrom);
@@ -172,7 +193,7 @@ export async function GET(req: NextRequest) {
         customer_city, customer_address, special_instructions, subtotal,
         delivery_fee, delivery_zone, total,
         payment_method, payment_status, order_status, created_at, updated_at,
-        viewed_by_seller
+        viewed_by_seller, source
        FROM orders
        ${whereClause}
        ORDER BY created_at DESC
