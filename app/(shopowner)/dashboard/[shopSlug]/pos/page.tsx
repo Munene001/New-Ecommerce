@@ -16,11 +16,11 @@ export default function PointOfSale() {
   const { shopId, shopSlug } = useShop();
   const { items, subtotal, clearCart, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
-  
+
   const [shopData, setShopData] = useState<any>(null);
   const [loadingShop, setLoadingShop] = useState(true);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  
+
   const {
     filteredProducts,
     loading,
@@ -35,8 +35,8 @@ export default function PointOfSale() {
   useEffect(() => {
     if (shopId) {
       fetch(`/api/shops/${shopSlug}`)
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           setShopData(data);
           setLoadingShop(false);
         })
@@ -60,16 +60,13 @@ export default function PointOfSale() {
     checkout.openCheckout();
   };
 
-  const getEffectivePrice = (item: any) => {
-    return item.discount_price ?? item.price;
-  };
+  const getEffectivePrice = (item: any) => item.discount_price ?? item.price;
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-KE', {
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('en-KE', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(price);
-  };
 
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
 
@@ -77,9 +74,11 @@ export default function PointOfSale() {
     return (
       <div className="p-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {Array(10).fill(0).map((_, i) => (
-            <POSProductCardSkeleton key={i} />
-          ))}
+          {Array(10)
+            .fill(0)
+            .map((_, i) => (
+              <POSProductCardSkeleton key={i} />
+            ))}
         </div>
       </div>
     );
@@ -87,7 +86,7 @@ export default function PointOfSale() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* POS Header */}
+      {/* Header */}
       <header className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between z-20">
         <div className="flex items-center gap-2">
           <Link
@@ -103,7 +102,6 @@ export default function PointOfSale() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Cart button for mobile */}
           <button
             onClick={() => setIsCartOpen(true)}
             className="lg:hidden relative p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -124,9 +122,8 @@ export default function PointOfSale() {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left: Products Grid */}
+        {/* Products */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3">
             <div className="flex items-center gap-3">
@@ -165,15 +162,15 @@ export default function PointOfSale() {
           <div className="flex-1 overflow-y-auto p-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredProducts.map((product) => (
-                <ProductTile 
-                  key={product.product_id} 
+                <ProductTile
+                  key={product.product_id}
                   product={product}
                   secondaryColor={shopData?.secondaryColor || '#3B82F6'}
                   cartIcon={shopData?.cartIcon || 'cart'}
                 />
               ))}
             </div>
-            
+
             {filteredProducts.length === 0 && !loading && (
               <div className="text-center py-12 text-gray-500">
                 No products match your filters
@@ -182,7 +179,7 @@ export default function PointOfSale() {
           </div>
         </div>
 
-        {/* Right: Cart Sidebar (Desktop) */}
+        {/* Desktop Cart */}
         <div className="hidden lg:flex w-[30%] min-w-[280px] max-w-[400px] bg-white border-l border-gray-200 flex-col flex-shrink-0">
           <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -212,8 +209,11 @@ export default function PointOfSale() {
             ) : (
               items.map((item) => {
                 const effectivePrice = getEffectivePrice(item);
-                const hasDiscount = item.discount_price !== null && item.discount_price !== undefined && item.discount_price < item.price;
-                
+                const hasDiscount =
+                  item.discount_price !== null &&
+                  item.discount_price !== undefined &&
+                  item.discount_price < item.price;
+
                 return (
                   <div
                     key={`${item.product_id}-${item.variant_id || ''}`}
@@ -239,7 +239,7 @@ export default function PointOfSale() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
@@ -253,11 +253,13 @@ export default function PointOfSale() {
                       >
                         -
                       </button>
-                      <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+                      <span className="w-6 text-center text-sm font-medium">
+                        {item.quantity}
+                      </span>
                       <button
-                        onClick={() => {
-                          updateQuantity(item.product_id, item.quantity + 1, item.variant_id);
-                        }}
+                        onClick={() =>
+                          updateQuantity(item.product_id, item.quantity + 1, item.variant_id)
+                        }
                         className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors"
                       >
                         +
@@ -280,29 +282,28 @@ export default function PointOfSale() {
           <div className="flex-shrink-0 border-t border-gray-200 p-4 space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">Subtotal</span>
-              <span className="text-xl font-bold">
-                KES {formatPrice(subtotal)}
-              </span>
+              <span className="text-xl font-bold">KES {formatPrice(subtotal)}</span>
             </div>
-            
+
             <button
               onClick={handleCheckout}
               disabled={items.length === 0}
               className="w-full py-3 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ 
-                backgroundColor: items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#9CA3AF'
+              style={{
+                backgroundColor:
+                  items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#9CA3AF',
               }}
             >
               {items.length === 0 ? 'Cart Empty' : '💳 Checkout'}
             </button>
-            
+
             <p className="text-xs text-gray-400 text-center">
               {items.length} items · {totalItems} total units
             </p>
           </div>
         </div>
 
-        {/* Mobile Cart Slide-out Panel */}
+        {/* Mobile Cart */}
         <div
           className={`lg:hidden fixed inset-0 z-50 transition-transform duration-300 ease-in-out ${
             isCartOpen ? 'translate-x-0' : 'translate-x-full'
@@ -312,7 +313,7 @@ export default function PointOfSale() {
             className="absolute inset-0 bg-black/50"
             onClick={() => setIsCartOpen(false)}
           />
-          
+
           <div className="absolute right-0 top-0 h-full w-[85%] max-w-[380px] bg-white shadow-2xl flex flex-col">
             <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -350,8 +351,11 @@ export default function PointOfSale() {
               ) : (
                 items.map((item) => {
                   const effectivePrice = getEffectivePrice(item);
-                  const hasDiscount = item.discount_price !== null && item.discount_price !== undefined && item.discount_price < item.price;
-                  
+                  const hasDiscount =
+                    item.discount_price !== null &&
+                    item.discount_price !== undefined &&
+                    item.discount_price < item.price;
+
                   return (
                     <div
                       key={`${item.product_id}-${item.variant_id || ''}`}
@@ -377,7 +381,7 @@ export default function PointOfSale() {
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => {
@@ -391,11 +395,13 @@ export default function PointOfSale() {
                         >
                           -
                         </button>
-                        <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+                        <span className="w-6 text-center text-sm font-medium">
+                          {item.quantity}
+                        </span>
                         <button
-                          onClick={() => {
-                            updateQuantity(item.product_id, item.quantity + 1, item.variant_id);
-                          }}
+                          onClick={() =>
+                            updateQuantity(item.product_id, item.quantity + 1, item.variant_id)
+                          }
                           className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors"
                         >
                           +
@@ -418,22 +424,21 @@ export default function PointOfSale() {
             <div className="flex-shrink-0 border-t border-gray-200 p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Subtotal</span>
-                <span className="text-xl font-bold">
-                  KES {formatPrice(subtotal)}
-                </span>
+                <span className="text-xl font-bold">KES {formatPrice(subtotal)}</span>
               </div>
-              
+
               <button
                 onClick={handleCheckout}
                 disabled={items.length === 0}
                 className="w-full py-3 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ 
-                  backgroundColor: items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#9CA3AF'
+                style={{
+                  backgroundColor:
+                    items.length > 0 ? shopData?.primaryColor || '#0FA965' : '#9CA3AF',
                 }}
               >
                 {items.length === 0 ? 'Cart Empty' : '💳 Checkout'}
               </button>
-              
+
               <p className="text-xs text-gray-400 text-center">
                 {items.length} items · {totalItems} total units
               </p>
@@ -442,7 +447,7 @@ export default function PointOfSale() {
         </div>
       </div>
 
-      {/* POS Checkout Modal Component */}
+      {/* POS Checkout Modal */}
       <POSCheckoutModal
         isOpen={checkout.isOpen}
         onClose={checkout.closeCheckout}
@@ -456,8 +461,12 @@ export default function PointOfSale() {
         changeDue={checkout.changeDue}
         isCashValid={checkout.isCashValid}
         isSubmitting={checkout.isSubmitting}
+        isMpesaPushAvailable={checkout.isMpesaPushAvailable}
+        activePaymentType={checkout.activePaymentType}
+        pendingOrder={checkout.pendingOrder}
         completedOrder={checkout.completedOrder}
         onProcessPayment={checkout.processPayment}
+        onPushSuccess={checkout.handlePushPaymentSuccess}
         primaryColor={shopData?.primaryColor || '#0FA965'}
       />
     </div>
