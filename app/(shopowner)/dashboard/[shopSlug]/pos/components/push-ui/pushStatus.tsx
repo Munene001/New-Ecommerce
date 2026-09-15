@@ -35,22 +35,22 @@ export function POSPushStatus({
 }: POSPushStatusProps) {
   if (status === 'pending') {
     return (
-      <div className="space-y-4 text-center py-4">
-        <div className="w-14 h-14 mx-auto rounded-full bg-blue-100 flex items-center justify-center">
-          <Loader2 className="w-7 h-7 text-blue-600 animate-spin" />
+      <div className="space-y-4 text-center py-4 text-black">
+        <div className="w-14 h-14 mx-auto rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center">
+          <Loader2 className="w-7 h-7 text-blue-800 animate-spin" />
         </div>
         <div>
-          <h4 className="font-semibold text-gray-800">Waiting for Customer</h4>
-          <p className="text-xs text-gray-500 mt-1">
+          <h4 className="font-extrabold text-lg text-black">Waiting for Customer</h4>
+          <p className="text-xs font-bold text-black mt-1">
             {statusMessage || 'Prompt sent. Waiting for PIN entry...'}
           </p>
         </div>
 
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-left">
+        <div className="rounded-lg bg-blue-50 border-2 border-blue-300 p-3 text-left">
           <div className="flex items-start gap-2">
-            <Clock className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-blue-800">
-              <p className="font-medium">Order {orderNumber || '—'}</p>
+            <Clock className="w-4 h-4 text-blue-900 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-blue-950 font-bold">
+              <p className="font-extrabold">Order {orderNumber || '—'}</p>
               <p>KES {totalAmount.toLocaleString()}</p>
             </div>
           </div>
@@ -59,7 +59,7 @@ export function POSPushStatus({
         <button
           type="button"
           onClick={onCancel}
-          className="w-full py-2 text-xs text-gray-600 hover:text-gray-800 rounded-lg border border-gray-200"
+          className="w-full py-2.5 text-xs font-bold text-black hover:bg-gray-100 rounded-lg border-2 border-gray-300"
         >
           Cancel Payment
         </button>
@@ -72,26 +72,26 @@ export function POSPushStatus({
     const tooManyAttempts = retryCount >= 3;
 
     return (
-      <div className="space-y-4 py-2">
+      <div className="space-y-4 py-2 text-black">
         <div className="text-center">
-          <div className="w-14 h-14 mx-auto rounded-full bg-red-100 flex items-center justify-center">
-            <XCircle className="w-7 h-7 text-red-600" />
+          <div className="w-14 h-14 mx-auto rounded-full bg-red-100 border-2 border-red-300 flex items-center justify-center">
+            <XCircle className="w-7 h-7 text-red-700" />
           </div>
-          <h4 className="font-semibold text-gray-800 mt-3">
+          <h4 className="font-extrabold text-lg text-black mt-3">
             {tooManyAttempts
               ? 'Too Many Attempts'
               : status === 'cancelled'
               ? 'Payment Cancelled'
               : 'Payment Failed'}
           </h4>
-          <p className="text-xs text-gray-500 mt-1">{statusMessage}</p>
+          <p className="text-xs font-bold text-black mt-1">{statusMessage}</p>
         </div>
 
         {!tooManyAttempts && retryable && (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+          <div className="rounded-lg bg-amber-50 border-2 border-amber-300 p-3">
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800">
+              <AlertCircle className="w-4 h-4 text-amber-900 flex-shrink-0 mt-0.5" />
+              <p className="text-xs font-extrabold text-amber-950">
                 You can retry ({retryCount}/3 attempts used)
               </p>
             </div>
@@ -104,16 +104,16 @@ export function POSPushStatus({
               type="button"
               onClick={onRetry}
               disabled={loading}
-              className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-2.5 bg-emerald-600 text-white font-extrabold rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors shadow-sm"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                   Retrying...
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4 text-white" />
                   Retry Push ({3 - retryCount} left)
                 </>
               )}
@@ -123,7 +123,7 @@ export function POSPushStatus({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="w-full py-2.5 text-sm text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="w-full py-2.5 text-sm font-bold text-black rounded-lg border-2 border-gray-300 hover:bg-gray-100 disabled:opacity-50 transition-colors"
           >
             Cancel
           </button>

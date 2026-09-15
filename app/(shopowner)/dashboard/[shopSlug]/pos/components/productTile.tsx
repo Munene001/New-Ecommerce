@@ -1,4 +1,3 @@
-// app/pos/components/ProductTile.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -39,7 +38,7 @@ export function ProductTile({
         isRange: minPrice !== maxPrice,
         minPrice: minPrice,
         maxPrice: maxPrice,
-        displayRaw: formatted, // Store the formatted string directly
+        displayRaw: formatted,
       };
     }
     
@@ -97,7 +96,7 @@ export function ProductTile({
   return (
     <>
       <div
-        className={`bg-white border rounded-lg p-2 cursor-pointer hover:shadow-md transition-all ${
+        className={`bg-white border-2 border-gray-200 rounded-lg p-2 cursor-pointer hover:shadow-md hover:border-gray-400 transition-all ${
           !isInStock ? 'opacity-50' : ''
         }`}
         onClick={handleClick}
@@ -115,26 +114,26 @@ export function ProductTile({
               unoptimized={true}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">
+            <div className="w-full h-full flex items-center justify-center text-black font-semibold text-xs">
               No img
             </div>
           )}
         </div>
 
-        <p className="text-xs font-medium truncate">{product.product_name}</p>
+        <p className="text-xs font-bold text-black truncate">{product.product_name}</p>
 
         <div className="flex items-center gap-1.5 mt-0.5">
           {isVariable ? (
-            <p className="text-sm font-bold text-green-600">
+            <p className="text-sm font-extrabold text-green-700">
               KES {priceInfo.display}
             </p>
           ) : (
             <>
-              <p className="text-sm font-bold text-green-600">
+              <p className="text-sm font-extrabold text-green-700">
                 KES {formatPrice(Number(priceInfo.display))}
               </p>
               {priceInfo.hasDiscount && priceInfo.originalPrice && (
-                <p className="text-[10px] text-gray-400 line-through">
+                <p className="text-[10px] text-gray-700 font-semibold line-through">
                   KES {formatPrice(priceInfo.originalPrice)}
                 </p>
               )}
@@ -143,14 +142,14 @@ export function ProductTile({
         </div>
 
         <div className="flex items-center justify-between mt-0.5">
-          <span className={`text-[10px] ${isInStock ? 'text-green-600' : 'text-red-500'}`}>
+          <span className={`text-[10px] font-bold ${isInStock ? 'text-green-800' : 'text-red-600'}`}>
             {isVariable 
               ? `${product.stock_info?.total || 0} in stock`
               : isInStock ? `${product.stock_quantity} in stock` : 'Out of stock'
             }
           </span>
           {isVariable && (
-            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] bg-blue-100 text-blue-900 font-bold px-1.5 py-0.5 rounded-full">
               {product.variants.length}
             </span>
           )}
