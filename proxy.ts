@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 import pool from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const isProduction = process.env.NODE_ENV === 'production';
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || '.paziatech.co.ke';
 
 const excludedSubdomains = new Set(['www', 'staging', 'mail', 'admin', 'support']);
 
@@ -34,12 +40,13 @@ async function getCachedShopData(): Promise<ShopCache> {
       const slug = row.shop_slug;
       const domain = row.custom_domain;
 
-      if (slug) {
-        slugs.add(slug);
-      }
+      if (slug) slugs.add(slug);
 
       if (domain && slug) {
-        const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+        const cleanDomain = domain
+          .toLowerCase()
+          .replace(/^https?:\/\//, '')
+          .replace(/\/.*$/, '');
         
         domainToSlugMap.set(cleanDomain, slug);
         slugToDomainMap.set(slug, cleanDomain);
@@ -63,51 +70,93 @@ export async function proxy(request: NextRequest) {
   try {
     const { pathname, search } = request.nextUrl;
 
-    // 1. SKIP STATIC ASSETS AND API
+    // 1. FAST-SKIP STATIC ASSETS AND BUNDLES
     if (
-      pathname.startsWith('/auth') ||
-      pathname.startsWith('/api') ||
       pathname.startsWith('/_next') ||
-      pathname.includes('.')
+      pathname.includes('.') ||
+      pathname === '/favicon.ico'
     ) {
       return NextResponse.next();
     }
 
+    // 2. INITIALIZE RESPONSE & REFRESH SUPABASE SESSION
+    let response = NextResponse.next({ request });
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+              domain: isProduction ? COOKIE_DOMAIN : undefined,
+              secure: isProduction,
+              sameSite: 'lax',
+              path: '/',
+            })
+          );
+        },
+      },
+    });
+
+    // Validates JWT & writes fresh token cookies to response
+    await supabase.auth.getUser();
+
+    // 3. HELPER FUNCTIONS TO PRESERVE REFRESHED SESSION COOKIES
+    const createRedirect = (url: URL | string, status = 307) => {
+      const redirectRes = NextResponse.redirect(url, status);
+      response.cookies.getAll().forEach((cookie) => {
+        redirectRes.cookies.set(cookie);
+      });
+      return redirectRes;
+    };
+
+    const createRewrite = (url: URL) => {
+      const rewriteRes = NextResponse.rewrite(url);
+      response.cookies.getAll().forEach((cookie) => {
+        rewriteRes.cookies.set(cookie);
+      });
+      return rewriteRes;
+    };
+
+    // 4. TENANT ROUTING LOGIC
     const host = request.headers.get('host') || '';
     const hostname = host.split(':')[0].toLowerCase();
     const isDev = process.env.NODE_ENV === 'development';
 
-    // 2. SKIP MAIN PLATFORM DOMAINS
+    // Skip platform domain
     if (hostname === 'paziatech.co.ke' || hostname === 'www.paziatech.co.ke') {
-      return NextResponse.next();
+      return response;
     }
 
     const { slugs, domainToSlugMap, slugToDomainMap } = await getCachedShopData();
 
-    // 3. CHECK IF INCOMING HOST IS A CUSTOM DOMAIN
+    // Custom Domain Routing
     const customDomainShopSlug = domainToSlugMap.get(hostname);
     if (customDomainShopSlug) {
       const slugPrefix = `/${customDomainShopSlug}`;
 
-      // FIX: If the visible URL explicitly includes the tenant slug, 301 redirect to strip it!
       if (pathname.startsWith(slugPrefix)) {
         const cleanPath = pathname.slice(slugPrefix.length) || '/';
         const redirectUrl = new URL(`${cleanPath}${search}`, request.url);
-        return NextResponse.redirect(redirectUrl, { status: 301 });
+        return createRedirect(redirectUrl, 301);
       }
 
-      // Rewrite clean URL internally to app/[shop_slug]/...
       const url = request.nextUrl.clone();
       url.pathname = `${slugPrefix}${pathname}`;
-      return NextResponse.rewrite(url);
+      return createRewrite(url);
     }
 
-    // 4. PARSE SUBDOMAIN FROM HOST
+    // Subdomain Routing
     let subdomain: string | null = null;
-    if (isDev) {
-      if (hostname.endsWith('.localhost')) {
-        subdomain = hostname.replace('.localhost', '');
-      }
+    if (isDev && hostname.endsWith('.localhost')) {
+      subdomain = hostname.replace('.localhost', '');
     } else if (hostname.endsWith('.paziatech.co.ke')) {
       subdomain = hostname.replace('.paziatech.co.ke', '');
     }
@@ -121,30 +170,31 @@ export async function proxy(request: NextRequest) {
         if (pathname.startsWith(slugPrefix)) {
           cleanPath = pathname.slice(slugPrefix.length) || '/';
         }
-
-        const redirectUrl = new URL(`${cleanPath}${search}`, `https://${customDomain}`);
-        return NextResponse.redirect(redirectUrl, { status: 301 });
+        return createRedirect(`https://${customDomain}${cleanPath}${search}`, 301);
       }
 
       if (slugs.has(subdomain)) {
         const slugPrefix = `/${subdomain}`;
 
-        // Strip slug from subdomain URLs if present
         if (pathname.startsWith(slugPrefix)) {
           const cleanPath = pathname.slice(slugPrefix.length) || '/';
-          const redirectUrl = new URL(`${cleanPath}${search}`, request.url);
-          return NextResponse.redirect(redirectUrl, { status: 301 });
+          return createRedirect(new URL(`${cleanPath}${search}`, request.url), 301);
         }
 
         const url = request.nextUrl.clone();
         url.pathname = `${slugPrefix}${pathname}`;
-        return NextResponse.rewrite(url);
+        return createRewrite(url);
       }
 
-      return new NextResponse('Shop not found', { status: 404 });
+      // Return 404 while preserving session cookies
+      const notFoundRes = new NextResponse('Shop not found', { status: 404 });
+      response.cookies.getAll().forEach((cookie) => {
+        notFoundRes.cookies.set(cookie);
+      });
+      return notFoundRes;
     }
 
-    return NextResponse.next();
+    return response;
   } catch (error) {
     console.error('[Proxy] Unhandled proxy error:', error);
     return NextResponse.next();

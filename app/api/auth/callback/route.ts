@@ -16,7 +16,6 @@ interface VerifyBody {
   redirect?: string;
 }
 
-// Define a minimal user type for storage
 interface MinimalUser {
   id: string;
   email: string;
@@ -48,7 +47,7 @@ async function handleUserCreation(
         return {
           success: false,
           error: 'This business name is already taken. Please choose another.',
-          status: 400
+          status: 400,
         };
       }
 
@@ -157,7 +156,7 @@ async function handleUserCreation(
     return {
       success: false,
       error: 'Failed to create account records',
-      status: 500
+      status: 500,
     };
   } finally {
     if (conn) conn.release();
@@ -165,7 +164,17 @@ async function handleUserCreation(
 }
 
 export async function POST(request: NextRequest) {
-  const body: VerifyBody = await request.json();
+  // ✅ FIX 1: Parse body inside try/catch so malformed/empty bodies
+  // return JSON instead of crashing the handler and serving an HTML page
+  let body: VerifyBody;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid or empty request body' },
+      { status: 400 }
+    );
+  }
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -184,24 +193,25 @@ export async function POST(request: NextRequest) {
 
     // GOOGLE OAUTH FLOW
     if (!body.code) {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.user) {
-        await supabase.auth.signOut();
+      // ✅ FIX 2: Use getUser() instead of getSession() — validates with
+      // Supabase's auth server and works reliably with server cookies.
+      const { data: { user: authUser }, error: sessionError } =
+        await supabase.auth.getUser();
+
+      if (sessionError || !authUser) {
         return NextResponse.json(
           { success: false, error: 'No active session. Please sign in again.' },
           { status: 401 }
         );
       }
 
-      let user: User | null = session.user;
-      
+      let user: User | null = authUser;
+
       // Handle case where user is a string (corrupted)
       if (typeof user === 'string') {
         try {
           user = JSON.parse(user);
-        } catch (e) {
-          await supabase.auth.signOut();
+        } catch {
           return NextResponse.json(
             { success: false, error: 'Session corrupted. Please try again.' },
             { status: 400 }
@@ -210,44 +220,36 @@ export async function POST(request: NextRequest) {
       }
 
       if (!user) {
-        await supabase.auth.signOut();
         return NextResponse.json(
           { success: false, error: 'User not found in session' },
           { status: 401 }
         );
       }
 
-      // ✅ Get email with fallback
       const userEmail = user.email || body.email || '';
       if (!userEmail) {
-        await supabase.auth.signOut();
         return NextResponse.json(
           { success: false, error: 'Email not found in session' },
           { status: 400 }
         );
       }
 
-      // ✅ STRIP DOWN THE USER OBJECT - Remove heavy Google OAuth data
+      // Strip down the user object - remove heavy Google OAuth data
       const cleanUser: MinimalUser = {
         id: user.id,
         email: userEmail,
         aud: user.aud || 'authenticated',
         role: user.role || 'authenticated',
         user_metadata: {
-          full_name: user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
+          full_name:
+            user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
           avatar_url: user.user_metadata?.avatar_url || '',
         },
       };
 
-      // ✅ IMPORTANT: Update Supabase session with clean data
-      try {
-        await supabase.auth.updateUser({
-          data: cleanUser.user_metadata
-        });
-      } catch (updateError) {
-        console.error('Failed to update user session:', updateError);
-        // Continue anyway - the clean user will be used for DB operations
-      }
+      // ✅ FIX 3: Removed updateUser() call — it was rewriting the auth
+      // cookie on every Google signup and causing session/cookie churn.
+      // The cleanUser object is used directly for the DB insert.
 
       const userType = body.userType || 'shop_owner';
       const result = await handleUserCreation(cleanUser, body, userType);
@@ -263,11 +265,12 @@ export async function POST(request: NextRequest) {
     }
 
     // EMAIL VERIFICATION FLOW (OTP)
-    const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-      email: body.email,
-      token: body.code,
-      type: 'signup',
-    });
+    const { data: verifyData, error: verifyError } =
+      await supabase.auth.verifyOtp({
+        email: body.email,
+        token: body.code,
+        type: 'signup',
+      });
 
     if (verifyError) {
       return NextResponse.json(
@@ -284,12 +287,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle case where user is a string (corrupted)
     if (typeof user === 'string') {
       try {
         user = JSON.parse(user);
-      } catch (e) {
-        await supabase.auth.signOut();
+      } catch {
         return NextResponse.json(
           { success: false, error: 'Session corrupted. Please try again.' },
           { status: 400 }
@@ -298,31 +299,28 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user) {
-      await supabase.auth.signOut();
       return NextResponse.json(
         { success: false, error: 'User not found after verification' },
         { status: 404 }
       );
     }
 
-    // ✅ Get email with fallback
     const userEmail = user.email || body.email || '';
     if (!userEmail) {
-      await supabase.auth.signOut();
       return NextResponse.json(
         { success: false, error: 'Email not found' },
         { status: 400 }
       );
     }
 
-    // For email verification, also clean the user data
     const cleanUser: MinimalUser = {
       id: user.id,
       email: userEmail,
       aud: user.aud || 'authenticated',
       role: user.role || 'authenticated',
       user_metadata: {
-        full_name: user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
+        full_name:
+          user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
         avatar_url: user.user_metadata?.avatar_url || '',
       },
     };
@@ -338,7 +336,6 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(result);
-
   } catch (error) {
     console.error('Verification error:', error);
     return NextResponse.json(

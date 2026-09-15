@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Input from "@/app/components/ui/input";
 import Button from "@/app/components/ui/button";
-import PhoneInput from 'react-phone-number-input';
-import 'react-phone-number-input/style.css';
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 
-type UserType = 'shop_owner' | 'customer' | 'admin';
+type UserType = "shop_owner" | "customer" | "admin";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -24,62 +24,67 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     executionCount.current += 1;
-    
-    
-    
 
     if (hasRun.current) {
-      console.warn(`🛑 [OAUTH DIAGNOSTIC] Guard activated! Blocked duplicate execution #${executionCount.current}.`);
-      
+      console.warn(
+        `🛑 [OAUTH DIAGNOSTIC] Guard activated! Blocked duplicate execution #${executionCount.current}.`,
+      );
+
       return;
     }
     hasRun.current = true;
-    
 
     const handleCallback = async () => {
       try {
-        
         const supabase = createSupabaseBrowserClient();
 
-        
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // ✅ FIX: getUser() validates the token against Supabase's auth
+        // server instead of trusting unverified local storage/cookies.
+        const {
+          data: { user: authUser },
+          error: sessionError,
+        } = await supabase.auth.getUser();
 
         if (sessionError) {
           console.error(`❌ [OAUTH DIAGNOSTIC] Session error:`, sessionError);
           throw sessionError;
         }
 
-        if (!session?.user) {
-          console.warn(`⚠️ [OAUTH DIAGNOSTIC] No active session found. Redirecting to /auth/login`);
+        if (!authUser) {
+          console.warn(
+            `⚠️ [OAUTH DIAGNOSTIC] No active session found. Redirecting to /auth/login`,
+          );
           router.push("/auth/login");
           return;
         }
 
-        
-        
-
-        const userEmail = session.user.email || '';
+        const userEmail = authUser.email || "";
         const cleanUser = {
-          id: session.user.id,
+          id: authUser.id,
           email: userEmail,
-          aud: session.user.aud || 'authenticated',
-          role: session.user.role || 'authenticated',
+          aud: authUser.aud || "authenticated",
+          role: authUser.role || "authenticated",
           user_metadata: {
-            full_name: session.user.user_metadata?.full_name || userEmail.split('@')[0] || 'User',
-            avatar_url: session.user.user_metadata?.avatar_url || '',
+            full_name:
+              authUser.user_metadata?.full_name ||
+              userEmail.split("@")[0] ||
+              "User",
+            avatar_url: authUser.user_metadata?.avatar_url || "",
           },
         };
 
-        let userType = sessionStorage.getItem("oauth_user_type") as UserType | null;
-        
+        let userType = sessionStorage.getItem(
+          "oauth_user_type",
+        ) as UserType | null;
 
-        if (!userType || (userType !== 'shop_owner' && userType !== 'customer')) {
-          userType = 'shop_owner';
-          
+        if (
+          !userType ||
+          (userType !== "shop_owner" && userType !== "customer")
+        ) {
+          userType = "shop_owner";
         }
         sessionStorage.removeItem("oauth_user_type");
 
-        
         const startTime = Date.now();
         const response = await fetch("/api/auth/user-info", {
           method: "POST",
@@ -87,82 +92,73 @@ export default function AuthCallbackPage() {
         });
         const duration = Date.now() - startTime;
 
-        
-
-        if (!response.ok) {
+        if (!response.ok && response.status !== 404) {
           throw new Error(`Server returned status ${response.status}`);
         }
 
         const userInfo = await response.json();
-        
 
         if (userInfo.success) {
           const role = userInfo.role;
           const storedRedirect = sessionStorage.getItem("oauthRedirectUrl");
           sessionStorage.removeItem("oauthRedirectUrl");
 
-          
-          
-          
-
           let targetPath = "/";
           if (storedRedirect) {
             targetPath = storedRedirect;
-          } else if (role === 'shop_owner') {
-            targetPath = userInfo.shopSlug ? `/dashboard/${userInfo.shopSlug}` : "/shopType";
-          } else if (role === 'customer') {
+          } else if (role === "shop_owner") {
+            targetPath = userInfo.shopSlug
+              ? `/dashboard/${userInfo.shopSlug}`
+              : "/shopType";
+          } else if (role === "customer") {
             const currentShopSlug = sessionStorage.getItem("currentShopSlug");
             targetPath = currentShopSlug ? `/${currentShopSlug}` : "/";
-          } else if (role === 'super_admin') {
+          } else if (role === "super_admin") {
             targetPath = "/view";
           }
 
-          
-          
           router.push(targetPath);
           return;
         }
 
-        
-        if (userType === 'shop_owner') {
-          
+        if (userType === "shop_owner") {
           setUser(cleanUser);
           setNeedsBusinessName(true);
-        } else if (userType === 'customer') {
-          
+        } else if (userType === "customer") {
           setUser(cleanUser);
           setNeedsPhoneNumber(true);
         } else {
-          
           await createAccount(cleanUser, userType);
         }
-        
-
       } catch (err) {
-        console.error(`💥 [OAUTH DIAGNOSTIC] Fatal error in handleCallback:`, err);
+        console.error(
+          `💥 [OAUTH DIAGNOSTIC] Fatal error in handleCallback:`,
+          err,
+        );
         setError("Authentication failed. Please try again.");
-        
       }
     };
 
     handleCallback();
   }, [router]);
 
-  const createAccount = async (user: any, type: UserType, extraData?: { business_name?: string; phone?: string }) => {
+  const createAccount = async (
+    user: any,
+    type: UserType,
+    extraData?: { business_name?: string; phone?: string },
+  ) => {
     try {
-      
       const payload: any = {
         email: user.email,
         userType: type,
       };
-      if (type === 'shop_owner' && extraData?.business_name) {
+      if (type === "shop_owner" && extraData?.business_name) {
         payload.business_name = extraData.business_name;
       }
-      if (type === 'customer' && extraData?.phone) {
+      if (type === "customer" && extraData?.phone) {
         payload.phone = extraData.phone;
       }
 
-      
       const response = await fetch("/api/auth/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,7 +166,6 @@ export default function AuthCallbackPage() {
       });
 
       const data = await response.json();
-      
 
       if (data.success) {
         const storedRedirect = sessionStorage.getItem("oauthRedirectUrl");
@@ -179,17 +174,19 @@ export default function AuthCallbackPage() {
         let targetPath = "/";
         if (storedRedirect) {
           targetPath = storedRedirect;
-        } else if (type === 'shop_owner') {
+        } else if (type === "shop_owner") {
           targetPath = "/shopType";
         } else {
           const currentShopSlug = sessionStorage.getItem("currentShopSlug");
           targetPath = currentShopSlug ? `/${currentShopSlug}` : "/";
         }
 
-        
         router.push(targetPath);
       } else {
-        console.error(`❌ [OAUTH DIAGNOSTIC] Account creation failed:`, data.error);
+        console.error(
+          `❌ [OAUTH DIAGNOSTIC] Account creation failed:`,
+          data.error,
+        );
         setError(data.error || "Failed to create account");
       }
     } catch (err) {
@@ -200,16 +197,16 @@ export default function AuthCallbackPage() {
 
   const handleBusinessSubmit = () => {
     if (!businessName.trim()) return;
-    createAccount(user, 'shop_owner', { business_name: businessName });
+    createAccount(user, "shop_owner", { business_name: businessName });
   };
 
   const handlePhoneSubmit = () => {
-    const digits = phoneNumber.replace(/\D/g, '');
+    const digits = phoneNumber.replace(/\D/g, "");
     if (digits.length < 9) {
       setError("Please enter a valid phone number (at least 9 digits)");
       return;
     }
-    createAccount(user, 'customer', { phone: phoneNumber });
+    createAccount(user, "customer", { phone: phoneNumber });
   };
 
   if (error) {
@@ -237,7 +234,9 @@ export default function AuthCallbackPage() {
       <div className="flex md:min-h-screen font-[Plus_Jakarta_Sans] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
         <div className="w-full max-w-md p-8 border border-gray-100/30 rounded-xl md:bg-black/60 bg-black/20 shadow-md">
           <h2 className="text-3xl font-bold text-white mb-2">Welcome!</h2>
-          <p className="text-white/90 mb-6">One more detail to set up your shop</p>
+          <p className="text-white/90 mb-6">
+            One more detail to set up your shop
+          </p>
 
           <Input
             label="Business Name"
@@ -249,7 +248,9 @@ export default function AuthCallbackPage() {
             required
             autoFocus
           />
-          <p className="text-xs text-gray-200 mt-1">You can change this later in settings</p>
+          <p className="text-xs text-gray-200 mt-1">
+            You can change this later in settings
+          </p>
 
           <Button
             onClick={handleBusinessSubmit}
@@ -269,10 +270,14 @@ export default function AuthCallbackPage() {
       <div className="flex md:min-h-screen font-[Plus_Jakarta_Sans] md:items-center justify-start md:justify-center bg-transparent p-4 overflow-auto">
         <div className="w-full max-w-md p-8 border border-gray-100/30 rounded-xl md:bg-black/60 bg-black/20 shadow-md">
           <h2 className="text-3xl font-bold text-white mb-2">Welcome!</h2>
-          <p className="text-white/90 mb-6">We need your phone number for order updates.</p>
+          <p className="text-white/90 mb-6">
+            We need your phone number for order updates.
+          </p>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2 text-white">Phone Number *</label>
+            <label className="block text-sm font-medium mb-2 text-white">
+              Phone Number *
+            </label>
             <PhoneInput
               international
               defaultCountry="KE"
@@ -282,7 +287,9 @@ export default function AuthCallbackPage() {
               className="bg-transparent"
             />
             {phoneNumber.length < 9 && (
-              <p className="mt-1 text-sm text-red-400">Please enter a valid phone number (at least 9 digits)</p>
+              <p className="mt-1 text-sm text-red-400">
+                Please enter a valid phone number (at least 9 digits)
+              </p>
             )}
           </div>
 
