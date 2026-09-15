@@ -1,8 +1,12 @@
-"use client";
+// context/shopCartContext.tsx
+'use client';
 
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useShop } from "@/app/(shop)/ShopContext";
 import { useToast } from "./toastContext";
+
+// ✅ Import both contexts
+import { useShop as useCustomerShop } from "@/app/(shop)/ShopContext";
+import { useShop as useDashboardShop } from "@/app/(shopowner)/shopownerContext";
 
 export interface CartItem {
   product_id: number;
@@ -85,8 +89,35 @@ const normalizeCartItem = (item: any): CartItem => ({
 });
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
-  const { shop, trackEvent } = useShop();
   const { showToast } = useToast();
+  
+  // ✅ Safely get shop data from either context
+  let shop: any = null;
+  let trackEvent: any = null;
+  
+  // Try customer shop context first
+  try {
+    const customerShop = useCustomerShop();
+    shop = customerShop.shop;
+    trackEvent = customerShop.trackEvent;
+  } catch {
+    // If customer context fails, try dashboard context
+    try {
+      const dashboardShop = useDashboardShop();
+      // Dashboard context has shopId, shopSlug directly
+      shop = {
+        shopId: dashboardShop.shopId,
+        shopSlug: dashboardShop.shopSlug,
+        // Other shop properties might not be available
+      };
+      trackEvent = () => {}; // No trackEvent in dashboard
+    } catch {
+      // Both contexts failed - use empty values
+      shop = null;
+      trackEvent = () => {};
+    }
+  }
+
   const shopId = shop?.shopId;
   const storageKey = shopId ? `cart-${shopId}` : null;
   const shopSlug = shop?.shopSlug;
@@ -153,7 +184,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         const currentEffectivePrice = Number(item.discount_price ?? item.price);
         const targetQuantity = Math.min(item.quantity, Number(dbItem.stock_quantity));
 
-        // Only flag a toast-worthy update if prices changed or quantity was cut by actual DB stock limits
         if (
           targetQuantity < item.quantity ||
           Math.abs(effectiveDbPrice - currentEffectivePrice) > 0.01
@@ -187,7 +217,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         setItems(updatedItems);
       }
 
-      // Show toast ONLY for genuine external updates/removals
       if (removedNames.length > 0) {
         safeShowToast(`${removedNames.length} item(s) removed due to stock availability`, 'error');
       } else if (externalPriceOrStockChange) {
@@ -249,7 +278,9 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       stock_quantity: item.stock_quantity !== undefined ? Number(item.stock_quantity) : undefined,
     };
 
-    trackEvent('add_to_cart', { product_id: normalized.product_id, variant_id: normalized.variant_id });
+    if (trackEvent) {
+      trackEvent('add_to_cart', { product_id: normalized.product_id, variant_id: normalized.variant_id });
+    }
 
     setItems(prev => {
       const existingIdx = prev.findIndex(i => isSameItem(i, normalized.product_id, normalized.variant_id));
@@ -260,7 +291,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         updated[existingIdx] = {
           ...updated[existingIdx],
           quantity: updated[existingIdx].quantity + Number(quantity),
-          verified: true, // Mark verified to avoid post-add verification toast triggers
+          verified: true,
         };
         safeShowToast(`${displayName} quantity updated`, 'success');
         return updated;

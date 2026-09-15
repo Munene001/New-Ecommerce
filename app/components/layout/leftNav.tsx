@@ -1,7 +1,7 @@
 "use client";
 
 import NavLink from "../ui/navLink";
-import { LayoutDashboard, Package, ShoppingCart, HandCoins, ChartNoAxesCombined, SunMoon, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, HandCoins, ChartNoAxesCombined, SunMoon, Settings, LogOut, Receipt, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/authcontext";
 import { useRouter } from "next/navigation";
@@ -57,6 +57,11 @@ const getDefaultNavItems = (shopSlug?: string): NavItem[] => [
     href: `/dashboard/${shopSlug}/settings`,
     title: "Settings",
     icon: Settings
+  },
+   {
+    href: `/dashboard/${shopSlug}/pos`,
+    title: "Point of Sale",
+    icon: CreditCard
   },
 ];
 

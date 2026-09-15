@@ -17,6 +17,7 @@ interface OrderRow extends RowDataPacket {
   order_id: number;
   order_number: string;
   shop_id: number;
+  source: 'online' | 'pos';
   customer_email: string;
   customer_name: string;
   customer_phone: string;
@@ -150,6 +151,11 @@ async function findTransactionWithRetry(
 
 // Background email dispatcher - Non-blocking
 async function triggerOrderEmails(orderId: number, order: OrderRow) {
+  // POS orders are walk-in sales — no emails sent
+  if (order.source === 'pos') {
+    return;
+  }
+
   try {
     const [[shopRows], [orderItems]] = await Promise.all([
       pool.query<ShopRow[]>(
@@ -304,7 +310,7 @@ export async function POST(req: NextRequest) {
 
       if (isSuccess) {
         const [orderRows] = await pool.query<OrderRow[]>(
-          `SELECT order_id, order_number, customer_email, customer_name, customer_phone, customer_address, customer_city, subtotal, delivery_fee, delivery_zone, total, special_instructions, stock_deducted
+          `SELECT order_id, order_number, shop_id, source, customer_email, customer_name, customer_phone, customer_address, customer_city, subtotal, delivery_fee, delivery_zone, total, special_instructions, stock_deducted
            FROM orders WHERE order_id = ?`,
           [orderId]
         );
