@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { CreditCard, Wallet, MapPin, ChevronDown } from "lucide-react";
-import PhoneInput from 'react-phone-number-input';
-import 'react-phone-number-input/style.css';
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import FormInput from "@/app/components/ui/formInput";
 
 interface DeliveryTier {
@@ -36,20 +36,20 @@ interface CheckoutFormProps {
 
 const convertToE164 = (phone: string): string | undefined => {
   if (!phone) return undefined;
-  
-  const cleaned = phone.replace(/\D/g, '');
-  
-  if (cleaned.startsWith('07') && cleaned.length === 10) {
+
+  const cleaned = phone.replace(/\D/g, "");
+
+  if (cleaned.startsWith("07") && cleaned.length === 10) {
     return `+254${cleaned.substring(1)}`;
   }
-  if (cleaned.startsWith('7') && cleaned.length === 9) {
+  if (cleaned.startsWith("7") && cleaned.length === 9) {
     return `+254${cleaned}`;
   }
-  if (cleaned.startsWith('254') && cleaned.length === 12) {
+  if (cleaned.startsWith("254") && cleaned.length === 12) {
     return `+${cleaned}`;
   }
-  if (phone.startsWith('+254')) return phone;
-  
+  if (phone.startsWith("+254")) return phone;
+
   return undefined;
 };
 
@@ -67,8 +67,8 @@ export default function CheckoutForm({
   onDeliveryChange,
   loadingDelivery,
 }: CheckoutFormProps) {
-  const [phoneValue, setPhoneValue] = useState<string | undefined>(() => 
-    convertToE164(formData.phone)
+  const [phoneValue, setPhoneValue] = useState<string | undefined>(() =>
+    convertToE164(formData.phone),
   );
   const [isDeliveryOpen, setIsDeliveryOpen] = useState(false);
 
@@ -89,10 +89,19 @@ export default function CheckoutForm({
 
   // Auto-select first tier (lowest fee) when available
   useEffect(() => {
-    if (deliveryEnabled && sortedDeliveryTiers.length > 0 && !selectedDeliveryTier) {
+    if (
+      deliveryEnabled &&
+      sortedDeliveryTiers.length > 0 &&
+      !selectedDeliveryTier
+    ) {
       onDeliveryChange(sortedDeliveryTiers[0]);
     }
-  }, [deliveryEnabled, sortedDeliveryTiers, selectedDeliveryTier, onDeliveryChange]);
+  }, [
+    deliveryEnabled,
+    sortedDeliveryTiers,
+    selectedDeliveryTier,
+    onDeliveryChange,
+  ]);
 
   // Format fee display
   const formatFee = (fee: number) => {
@@ -108,16 +117,20 @@ export default function CheckoutForm({
           <CreditCard className="w-5 h-5" style={{ color: secondaryColor }} />
           Payment Method
         </h3>
-        
+
         <div className="space-y-3">
           {mpesaEnabled && (
-            <label 
+            <label
               className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                paymentMethod === "mpesa" ? "border-opacity-100 bg-opacity-5" : "border-gray-200"
+                paymentMethod === "mpesa"
+                  ? "border-opacity-100 bg-opacity-5"
+                  : "border-gray-200"
               }`}
-              style={{ 
-                borderColor: paymentMethod === "mpesa" ? secondaryColor : undefined,
-                backgroundColor: paymentMethod === "mpesa" ? `${secondaryColor}10` : undefined
+              style={{
+                borderColor:
+                  paymentMethod === "mpesa" ? secondaryColor : undefined,
+                backgroundColor:
+                  paymentMethod === "mpesa" ? `${secondaryColor}10` : undefined,
               }}
             >
               <div className="flex items-center gap-3">
@@ -133,126 +146,162 @@ export default function CheckoutForm({
                 <Wallet className="w-5 h-5 text-green-600" />
                 <div>
                   <p className="font-medium text-black">M-Pesa</p>
-                  <p className="text-xs text-gray-500">Pay via M-Pesa (STK Push or Paybill)</p>
+                  <p className="text-xs text-gray-500">
+                    Pay via M-Pesa (STK Push or Paybill)
+                  </p>
                 </div>
               </div>
               {paymentMethod === "mpesa" && (
-                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: secondaryColor }} />
+                <div
+                  className="w-5 h-5 rounded-full"
+                  style={{ backgroundColor: secondaryColor }}
+                />
               )}
             </label>
           )}
-          
+
           {codEnabled && (
             <button
               type="button"
               onClick={() => onPaymentMethodChange("cod")}
               className={`w-full flex items-center justify-between p-4 border-2 rounded-lg transition-all ${
-                paymentMethod === "cod" 
-                  ? "border-opacity-100 bg-opacity-5" 
+                paymentMethod === "cod"
+                  ? "border-opacity-100 bg-opacity-5"
                   : "border-gray-200 hover:border-gray-300"
               }`}
-              style={{ 
-                borderColor: paymentMethod === "cod" ? secondaryColor : undefined,
-                backgroundColor: paymentMethod === "cod" ? `${secondaryColor}10` : undefined
+              style={{
+                borderColor:
+                  paymentMethod === "cod" ? secondaryColor : undefined,
+                backgroundColor:
+                  paymentMethod === "cod" ? `${secondaryColor}10` : undefined,
               }}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  paymentMethod === "cod" ? "border-" : "border-gray-300"
-                }`}
-                style={paymentMethod === "cod" ? { borderColor: secondaryColor } : {}}
+                <div
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    paymentMethod === "cod" ? "border-" : "border-gray-300"
+                  }`}
+                  style={
+                    paymentMethod === "cod"
+                      ? { borderColor: secondaryColor }
+                      : {}
+                  }
                 >
                   {paymentMethod === "cod" && (
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: secondaryColor }}
+                    />
                   )}
                 </div>
                 <CreditCard className="w-5 h-5 text-orange-600" />
                 <div className="text-left">
                   <p className="font-medium text-black">Cash on Delivery</p>
-                  <p className="text-xs text-gray-500">Pay when you receive your order</p>
+                  <p className="text-xs text-gray-500">
+                    Pay when you receive your order
+                  </p>
                 </div>
               </div>
             </button>
           )}
         </div>
       </div>
-      
+
       <div className="border-t border-gray-200 my-6"></div>
-      
+
       {/* Delivery Information - Form Style */}
       <h2 className="text-xl font-semibold text-black mb-5 flex items-center gap-2">
         <MapPin className="w-5 h-5" style={{ color: secondaryColor }} />
         Delivery Information
       </h2>
-      
+
       <div className="space-y-4">
         {/* Delivery Zone - Clean dropdown style */}
+        {/* Delivery Zone - Card style matching payment methods */}
         {deliveryEnabled && sortedDeliveryTiers.length > 0 && (
-          <div className="relative">
+          <div>
             <label className="block text-sm font-medium text-black mb-2">
               Delivery Zone <span className="text-red-500">*</span>
             </label>
-            
+
             {loadingDelivery ? (
-              <div className="flex items-center justify-center p-3 border border-gray-200 rounded-lg bg-gray-50">
+              <div className="flex items-center justify-center p-4 border border-gray-200 rounded-lg bg-gray-50">
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-black"></div>
-                <span className="ml-3 text-sm text-gray-500">Loading zones...</span>
+                <span className="ml-3 text-sm text-gray-500">
+                  Loading zones...
+                </span>
               </div>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsDeliveryOpen(!isDeliveryOpen)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:border-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
-                >
-                  <span className="text-black">
-                    {selectedDeliveryTier ? selectedDeliveryTier.tier_name : "Select delivery zone"}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {selectedDeliveryTier && (
-                      <span className="text-sm font-medium" style={{ color: secondaryColor }}>
-                        {selectedDeliveryTier.fee === 0 ? 'Free' : `+ KES ${selectedDeliveryTier.fee.toLocaleString()}`}
-                      </span>
-                    )}
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isDeliveryOpen ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-                
-                {isDeliveryOpen && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {sortedDeliveryTiers.map((tier) => (
-                      <button
-                        key={tier.tier_id}
-                        type="button"
-                        onClick={() => {
-                          onDeliveryChange(tier);
-                          setIsDeliveryOpen(false);
+              <div className="space-y-1">
+                {sortedDeliveryTiers.map((tier) => {
+                  const isSelected =
+                    selectedDeliveryTier?.tier_id === tier.tier_id;
+                  return (
+                    <button
+                      key={tier.tier_id}
+                      type="button"
+                      onClick={() => onDeliveryChange(tier)}
+                      className={`w-full flex items-center justify-between p-4 border-2 rounded-lg transition-all ${
+                        isSelected
+                          ? "border-opacity-100 bg-opacity-5"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                      style={{
+                        borderColor: isSelected ? secondaryColor : undefined,
+                        backgroundColor: isSelected
+                          ? `${secondaryColor}10`
+                          : undefined,
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Radio indicator */}
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            isSelected ? "" : "border-gray-300"
+                          }`}
+                          style={
+                            isSelected ? { borderColor: secondaryColor } : {}
+                          }
+                        >
+                          {isSelected && (
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: secondaryColor }}
+                            />
+                          )}
+                        </div>
+
+                        <MapPin
+                          className="w-5 h-5"
+                          style={{
+                            color: isSelected ? secondaryColor : "#9ca3af",
+                          }}
+                        />
+
+                        <div className="text-left">
+                          <p className="font-medium text-black">
+                            {tier.tier_name}
+                          </p>
+                        
+                        </div>
+                      </div>
+
+                      <span
+                        className="text-sm font-semibold"
+                        style={{
+                          color: isSelected ? secondaryColor : "#6b7280",
                         }}
-                        className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors ${
-                          selectedDeliveryTier?.tier_id === tier.tier_id ? 'bg-gray-50' : ''
-                        }`}
                       >
-                        <span className="text-black">{tier.tier_name}</span>
-                        <span className="text-sm font-medium" style={{ color: secondaryColor }}>
-                          {formatFee(tier.fee)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-            
-            {selectedDeliveryTier && (
-              <p className="text-xs text-gray-500 mt-1.5">
-                {selectedDeliveryTier.fee === 0 
-                  ? 'Free delivery for this zone' 
-                  : `Delivery fee of KES ${selectedDeliveryTier.fee.toLocaleString()} will be added to your total`}
-              </p>
+                        {formatFee(tier.fee)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormInput
             label="Full Name"
@@ -263,7 +312,7 @@ export default function CheckoutForm({
             required
             icon="user"
           />
-          
+
           <FormInput
             label="Email Address"
             name="email"
@@ -275,7 +324,7 @@ export default function CheckoutForm({
             icon="mail"
           />
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-black mb-2">
@@ -311,7 +360,7 @@ export default function CheckoutForm({
               }
             `}</style>
           </div>
-          
+
           <FormInput
             label="City / Town (Optional)"
             name="city"
@@ -321,7 +370,7 @@ export default function CheckoutForm({
             icon="mapPin"
           />
         </div>
-        
+
         <FormInput
           label="Delivery Address (Optional)"
           name="address"
@@ -332,7 +381,7 @@ export default function CheckoutForm({
           icon="home"
           rows={3}
         />
-        
+
         <FormInput
           label="Special Instructions (Optional)"
           name="specialInstructions"
@@ -343,7 +392,7 @@ export default function CheckoutForm({
           icon="message"
           rows={2}
         />
-        
+
         <div className="text-xs text-gray-400 flex items-center gap-1">
           <span>* Required fields</span>
           <span className="mx-1">•</span>
