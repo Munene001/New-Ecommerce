@@ -241,7 +241,7 @@ export default function CheckoutForm({
                       key={tier.tier_id}
                       type="button"
                       onClick={() => onDeliveryChange(tier)}
-                      className={`w-full flex items-center justify-between p-4 border-2 rounded-lg transition-all ${
+                      className={`w-full flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${
                         isSelected
                           ? "border-opacity-100 bg-opacity-5"
                           : "border-gray-200 hover:border-gray-300"
@@ -253,10 +253,11 @@ export default function CheckoutForm({
                           : undefined,
                       }}
                     >
-                      <div className="flex items-center gap-3">
+                      {/* Left content — takes remaining space, can shrink */}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         {/* Radio indicator */}
                         <div
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
                             isSelected ? "" : "border-gray-300"
                           }`}
                           style={
@@ -272,24 +273,26 @@ export default function CheckoutForm({
                         </div>
 
                         <MapPin
-                          className="w-5 h-5"
+                          className="w-5 h-5 shrink-0"
                           style={{
                             color: isSelected ? secondaryColor : "#9ca3af",
                           }}
                         />
 
-                        <div className="text-left">
+                        <div className="text-left min-w-0">
                           <p className="font-medium text-black">
                             {tier.tier_name}
                           </p>
-                        
                         </div>
                       </div>
 
+                      {/* Price — reserves 10%, grows only if content needs more */}
                       <span
-                        className="text-sm font-semibold"
+                        className="shrink-0 text-sm font-semibold text-right"
                         style={{
                           color: isSelected ? secondaryColor : "#6b7280",
+                          width: "10%",
+                          minWidth: "fit-content",
                         }}
                       >
                         {formatFee(tier.fee)}
