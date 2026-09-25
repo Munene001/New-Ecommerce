@@ -218,92 +218,95 @@ export default function CheckoutForm({
       <div className="space-y-4">
         {/* Delivery Zone - Clean dropdown style */}
         {/* Delivery Zone - Card style matching payment methods */}
-        {deliveryEnabled && sortedDeliveryTiers.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Delivery Zone <span className="text-red-500">*</span>
-            </label>
+       {deliveryEnabled && sortedDeliveryTiers.length > 0 && (
+  <div>
+    {/* Label: Changed text-sm to text-xs */}
+    <label className="block text-xs font-medium text-black mb-2">
+      Delivery Zone <span className="text-red-500">*</span>
+    </label>
 
-            {loadingDelivery ? (
-              <div className="flex items-center justify-center p-4 border border-gray-200 rounded-lg bg-gray-50">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-black"></div>
-                <span className="ml-3 text-sm text-gray-500">
-                  Loading zones...
-                </span>
+    {loadingDelivery ? (
+      <div className="flex items-center justify-center p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-black"></div>
+        {/* Loading text: Changed text-sm to text-xs */}
+        <span className="ml-3 text-xs text-gray-500">
+          Loading zones...
+        </span>
+      </div>
+    ) : (
+      <div className="space-y-1">
+        {sortedDeliveryTiers.map((tier) => {
+          const isSelected =
+            selectedDeliveryTier?.tier_id === tier.tier_id;
+          return (
+            <button
+              key={tier.tier_id}
+              type="button"
+              onClick={() => onDeliveryChange(tier)}
+              className={`w-full flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${
+                isSelected
+                  ? "border-opacity-100 bg-opacity-5"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              style={{
+                borderColor: isSelected ? secondaryColor : undefined,
+                backgroundColor: isSelected
+                  ? `${secondaryColor}10`
+                  : undefined,
+              }}
+            >
+              {/* Left content */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {/* Radio indicator */}
+                <div
+                  className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                    isSelected ? "" : "border-gray-300"
+                  }`}
+                  style={
+                    isSelected ? { borderColor: secondaryColor } : {}
+                  }
+                >
+                  {isSelected && (
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: secondaryColor }}
+                    />
+                  )}
+                </div>
+
+                <MapPin
+                  className="w-4 h-4 shrink-0"
+                  style={{
+                    color: isSelected ? secondaryColor : "#9ca3af",
+                  }}
+                />
+
+                <div className="text-left min-w-0">
+                  {/* Tier name: Changed default base size to text-xs */}
+                  <p className="font-medium text-black text-[13px] leading-[18px] tracking-wide ">
+                    {tier.tier_name}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-1">
-                {sortedDeliveryTiers.map((tier) => {
-                  const isSelected =
-                    selectedDeliveryTier?.tier_id === tier.tier_id;
-                  return (
-                    <button
-                      key={tier.tier_id}
-                      type="button"
-                      onClick={() => onDeliveryChange(tier)}
-                      className={`w-full flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${
-                        isSelected
-                          ? "border-opacity-100 bg-opacity-5"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      style={{
-                        borderColor: isSelected ? secondaryColor : undefined,
-                        backgroundColor: isSelected
-                          ? `${secondaryColor}10`
-                          : undefined,
-                      }}
-                    >
-                      {/* Left content — takes remaining space, can shrink */}
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Radio indicator */}
-                        <div
-                          className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
-                            isSelected ? "" : "border-gray-300"
-                          }`}
-                          style={
-                            isSelected ? { borderColor: secondaryColor } : {}
-                          }
-                        >
-                          {isSelected && (
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: secondaryColor }}
-                            />
-                          )}
-                        </div>
 
-                        <MapPin
-                          className="w-5 h-5 shrink-0"
-                          style={{
-                            color: isSelected ? secondaryColor : "#9ca3af",
-                          }}
-                        />
-
-                        <div className="text-left min-w-0">
-                          <p className="font-medium text-black">
-                            {tier.tier_name}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Price — reserves 10%, grows only if content needs more */}
-                      <span
-                        className="shrink-0 text-sm font-semibold text-right"
-                        style={{
-                          color: isSelected ? secondaryColor : "#6b7280",
-                          width: "10%",
-                          minWidth: "fit-content",
-                        }}
-                      >
-                        {formatFee(tier.fee)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+              {/* Price: Changed text-sm to text-xs */}
+              <span
+                className="shrink-0 text-xs font-semibold text-right"
+                style={{
+                  color: isSelected ? secondaryColor : "#6b7280",
+                  width: "10%",
+                  minWidth: "fit-content",
+                }}
+              >
+                {formatFee(tier.fee)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    )}
+  </div>
+)}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormInput
