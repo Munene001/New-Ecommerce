@@ -43,7 +43,7 @@ export default function HomeHeader() {
         {/* Logo */}
         <Link href="/" className="inline-block rounded-lg leading-none">
           <Image
-            src="/logo.png"
+            src="/logo.jpg"
             alt="Logo"
             width={80}
             height={40}
@@ -96,7 +96,7 @@ export default function HomeHeader() {
           </button>
           <Link href="/" className="inline-block rounded-lg leading-none">
             <Image
-              src="/logo.png"
+              src="/logo.jpg"
               alt="Logo"
               width={70}
               height={35}
