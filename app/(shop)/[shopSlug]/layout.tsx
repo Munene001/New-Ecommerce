@@ -8,9 +8,7 @@ async function getShopData(slug: string) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/shops/${slug}`, {
-      next: { 
-        revalidate: 3600,
-      },
+      cache: 'no-store',
     });
     
     if (!res.ok) return null;
@@ -27,9 +25,7 @@ async function getInitialProducts(shopId: string) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/shopowner/products?shopId=${shopId}&limit=20`, {
-      next: { 
-        revalidate: 3600,
-      },
+      cache: 'no-store',
     });
     
     if (!res.ok) {
