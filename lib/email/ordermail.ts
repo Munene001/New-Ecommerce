@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://paziatech.co.ke'}/logo.png`;
+const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://paziatech.co.ke'}/logo1.png`;
 
 interface OrderItem {
   product_name: string;

@@ -35,7 +35,7 @@ export default function SimpleFooter() {
           <div>
             <div className="mb-4">
               <Image 
-                src="/logo.png" 
+                src="/logo1.png" 
                 alt="YourBrand Logo" 
                 width={120} 
                 height={40}
