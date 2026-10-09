@@ -10,7 +10,7 @@ interface ContactEmailProps {
 }
 
 export async function sendContactEmail({ name, phone, email, message }: ContactEmailProps) {
-  const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://paziatech.co.ke'}/logo.png`;
+  const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://paziatech.co.ke'}/logo1.png`;
 
   const emailContent = `
     <!DOCTYPE html>
