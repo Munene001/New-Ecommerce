@@ -1,3 +1,4 @@
+// app/api/shops/[shopSlug]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { RowDataPacket } from "mysql2";
@@ -21,6 +22,7 @@ interface ShopRow extends RowDataPacket {
   shop_name: string;
   shop_slug: string;
   shop_type: string;
+  description: string | null; // <-- ADDED DESCRIPTION INTERFACE
   contact_email: string;
   contact_phone: string;
   business_town: string;
@@ -60,6 +62,7 @@ export async function GET(
       s.shop_name,
       s.shop_slug, 
       s.shop_type,
+      s.description, -- <--- ADDED DESCRIPTION HERE
       s.contact_email,
       s.contact_phone,
       s.business_town,
@@ -178,6 +181,7 @@ export async function GET(
       shopName: shop.shop_name,
       shopSlug: shop.shop_slug,
       shopType: shop.shop_type,
+      description: shop.description, // <--- RETURN DESCRIPTION HERE
       contactEmail: shop.contact_email,
       contactPhone: shop.contact_phone,
       businessTown: shop.business_town,
