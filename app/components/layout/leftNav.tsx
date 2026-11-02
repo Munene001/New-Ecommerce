@@ -1,7 +1,7 @@
 "use client";
 
 import NavLink from "../ui/navLink";
-import { LayoutDashboard, Package, ShoppingCart, HandCoins, ChartNoAxesCombined, SunMoon, Settings, LogOut, Receipt, CreditCard } from "lucide-react";
+import { LayoutDashboard, Package,  ShoppingCart, HandCoins, ChartNoAxesCombined, SunMoon, Settings, LogOut,  CreditCard } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/authcontext";
 import { useRouter } from "next/navigation";
@@ -48,6 +48,12 @@ const getDefaultNavItems = (shopSlug?: string): NavItem[] => [
     title: "Sales and Analytics",
     icon: ChartNoAxesCombined
   },
+   {
+    href: `/dashboard/${shopSlug}/pos`,
+    title: "Point of Sale",
+    icon: CreditCard
+  },
+ 
   {
     href: `/dashboard/${shopSlug}/appearance`,
     title: "Appearance",
@@ -58,11 +64,7 @@ const getDefaultNavItems = (shopSlug?: string): NavItem[] => [
     title: "Settings",
     icon: Settings
   },
-   {
-    href: `/dashboard/${shopSlug}/pos`,
-    title: "Point of Sale",
-    icon: CreditCard
-  },
+  
 ];
 
 export default function BaseLeftMenu({ onMenuClicked, shopSlug, unviewedCount, navItems: customNavItems }: BaseLeftMenuProps) {
