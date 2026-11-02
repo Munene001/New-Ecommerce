@@ -9,7 +9,8 @@ import SalesTable from "./salesTable";
 import { Icon } from "@iconify/react";
 import SimpleToast from "@/app/components/ui/simpleToast";
 import Button from "@/app/components/ui/button";
-import { X, Calendar } from "lucide-react";
+import { X, Calendar, CreditCard } from "lucide-react";
+import Link from "next/link";
 
 interface SalesClientProps {
   shopId: number;
@@ -194,7 +195,21 @@ export default function SalesClient({
         loading={loading}
       />
 
+      <div className="flex flex-row justify-between items-center">
+
       <div className="text-three font-bold">Sales are Paid Orders</div>
+
+       <Link href={`/dashboard/${shopSlug}/sales/reports`}>
+                <Button
+                  className="flex flex-row gap-2 items-center justify-center w-full sm:w-auto"
+                  variant="secondary"
+                >
+                  <CreditCard size={18} />
+                  <span>Reports</span>
+                </Button>
+              </Link>
+
+              </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 my-4">

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
+    "@react-pdf/renderer": "^4.9.0",
     "@squoosh-kit/core": "^0.2.4",
     "@squoosh-kit/mozjpeg": "^0.2.4",
     "@squoosh-kit/webp": "^0.2.4",
@@ -18,6 +19,7 @@
     "browser-image-compression": "^2.0.2",
     "embla-carousel-react": "^8.6.0",
     "jsonwebtoken": "^9.0.3",
+    "jspdf-html2canvas-up": "^1.0.0",
     "lucide-react": "^0.563.0",
     "mysql2": "^3.16.2",
     "next": "16.1.6",
